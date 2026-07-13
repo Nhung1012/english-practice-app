@@ -125,7 +125,11 @@ async function main() {
     process.exit(1);
   }
 
-  const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+  const trimmedKey = ANTHROPIC_API_KEY.trim();
+  console.log(
+    `ANTHROPIC_API_KEY: độ dài ${trimmedKey.length} ký tự, bắt đầu bằng "${trimmedKey.slice(0, 8)}...", kết thúc bằng "...${trimmedKey.slice(-4)}"`
+  );
+  const anthropic = new Anthropic({ apiKey: trimmedKey });
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const rowsToInsert = [];
