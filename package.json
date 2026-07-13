@@ -1,14 +1,13 @@
 {
   "name": "english-practice-content-generator",
   "version": "1.0.0",
-  "description": "Script sinh nội dung luyện nghe/nói tiếng Anh bằng Claude API, lưu vào Supabase.",
+  "description": "Script sinh nội dung luyện nghe/nói tiếng Anh bằng Google Gemini API (free tier), lưu vào Supabase.",
   "type": "module",
   "private": true,
   "scripts": {
     "generate": "node generate-content.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.0",
     "@supabase/supabase-js": "^2.45.0"
   }
 }

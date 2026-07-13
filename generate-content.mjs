@@ -1,26 +1,29 @@
 // generate-content.mjs
-// Sinh nội dung mới (hội thoại + script luyện nghe) bằng Claude API
-// và lưu vào Supabase. Chạy 1 lần/ngày qua GitHub Actions (xem
-// .github/workflows/generate-content.yml).
+// Sinh nội dung mới (hội thoại + script luyện nghe) bằng Google Gemini API
+// (free tier, không cần thẻ tín dụng) và lưu vào Supabase. Chạy 1 lần/ngày
+// qua GitHub Actions (xem .github/workflows/generate-content.yml).
 //
 // Biến môi trường bắt buộc:
-//   ANTHROPIC_API_KEY          - key gọi Claude API
+//   GEMINI_API_KEY             - key lấy free tại https://aistudio.google.com/apikey
 //   SUPABASE_URL               - vd: https://xxxx.supabase.co
-//   SUPABASE_SERVICE_ROLE_KEY  - service_role key (CHỈ dùng ở server/CI,
+//   SUPABASE_SERVICE_ROLE_KEY  - service_role/secret key (CHỈ dùng ở server/CI,
 //                                 tuyệt đối không đưa vào frontend)
 //
 // Chạy thử cục bộ:
-//   ANTHROPIC_API_KEY=xxx SUPABASE_URL=xxx SUPABASE_SERVICE_ROLE_KEY=xxx node generate-content.mjs
+//   GEMINI_API_KEY=xxx SUPABASE_URL=xxx SUPABASE_SERVICE_ROLE_KEY=xxx node generate-content.mjs
 
-import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Model free tier: 10 request/phút, 250 request/ngày — dư dùng cho 6 request/ngày.
+const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
 // Số chủ đề mới sinh MỖI LẦN chạy, cho mỗi tổ hợp (type, level).
-// Giữ nhỏ (1-2) để tiết kiệm token — chạy cron hàng ngày sẽ tự tích luỹ dần.
+// Giữ nhỏ (1-2) để không chạm rate limit — chạy cron hàng ngày sẽ tự tích luỹ dần.
 const TOPICS_PER_RUN = 1;
 
 const LEVELS = ["beginner", "intermediate", "advanced"];
@@ -44,7 +47,7 @@ Yêu cầu:
 - Mỗi hội thoại có 10-15 lượt thoại (lines), xen kẽ A/B tự nhiên.
 - Câu văn tự nhiên, đúng ngữ pháp, độ dài phù hợp trình độ.
 
-Chỉ trả về JSON hợp lệ theo đúng schema sau, KHÔNG thêm text giải thích nào khác:
+Chỉ trả về JSON hợp lệ theo đúng schema sau, KHÔNG thêm text giải thích nào khác, KHÔNG bọc trong markdown code block:
 {
   "items": [
     {
@@ -64,7 +67,7 @@ Yêu cầu:
 - Đoạn văn dài khoảng 180-260 từ, chia thành nhiều câu ngắn/vừa để dễ highlight từng câu khi đọc.
 - Văn phong tự nhiên, mạch lạc, đúng ngữ pháp.
 
-Chỉ trả về JSON hợp lệ theo đúng schema sau, KHÔNG thêm text giải thích nào khác:
+Chỉ trả về JSON hợp lệ theo đúng schema sau, KHÔNG thêm text giải thích nào khác, KHÔNG bọc trong markdown code block:
 {
   "items": [
     { "topic": "Tên chủ đề bằng tiếng Việt", "text": "đoạn văn tiếng Anh..." }
@@ -73,26 +76,42 @@ Chỉ trả về JSON hợp lệ theo đúng schema sau, KHÔNG thêm text giả
 }
 
 function extractJson(rawText) {
-  // Claude đôi khi bọc JSON trong ```json ... ``` dù đã yêu cầu không làm vậy.
+  // Gemini đôi khi bọc JSON trong ```json ... ``` dù đã yêu cầu không làm vậy.
   const match = rawText.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Không tìm thấy JSON trong phản hồi: " + rawText);
   return JSON.parse(match[0]);
 }
 
-async function generateForCombo(anthropic, type, level) {
-  const prompt = buildPrompt(type, level);
-
-  const msg = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 2000,
-    messages: [{ role: "user", content: prompt }],
+async function callGemini(apiKey, prompt) {
+  const res = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 1,
+        maxOutputTokens: 2000,
+      },
+    }),
   });
 
-  const rawText = msg.content
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
+  const json = await res.json();
 
+  if (!res.ok) {
+    const message = json?.error?.message || `HTTP ${res.status}`;
+    throw new Error(message);
+  }
+
+  const rawText = json?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("\n");
+  if (!rawText) {
+    throw new Error("Phản hồi Gemini không có nội dung text: " + JSON.stringify(json));
+  }
+  return rawText;
+}
+
+async function generateForCombo(apiKey, type, level) {
+  const prompt = buildPrompt(type, level);
+  const rawText = await callGemini(apiKey, prompt);
   const parsed = extractJson(rawText);
 
   if (!Array.isArray(parsed.items)) {
@@ -118,18 +137,18 @@ async function generateForCombo(anthropic, type, level) {
 }
 
 async function main() {
-  if (!ANTHROPIC_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     console.error(
-      "Thiếu biến môi trường bắt buộc: ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY"
+      "Thiếu biến môi trường bắt buộc: GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY"
     );
     process.exit(1);
   }
 
-  const trimmedKey = ANTHROPIC_API_KEY.trim();
+  const trimmedKey = GEMINI_API_KEY.trim();
   console.log(
-    `ANTHROPIC_API_KEY: độ dài ${trimmedKey.length} ký tự, bắt đầu bằng "${trimmedKey.slice(0, 8)}...", kết thúc bằng "...${trimmedKey.slice(-4)}"`
+    `GEMINI_API_KEY: độ dài ${trimmedKey.length} ký tự, bắt đầu bằng "${trimmedKey.slice(0, 6)}...", kết thúc bằng "...${trimmedKey.slice(-4)}"`
   );
-  const anthropic = new Anthropic({ apiKey: trimmedKey });
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const rowsToInsert = [];
@@ -138,14 +157,16 @@ async function main() {
     for (const level of LEVELS) {
       console.log(`Đang sinh nội dung: type=${type} level=${level} ...`);
       try {
-        const rows = await generateForCombo(anthropic, type, level);
+        const rows = await generateForCombo(trimmedKey, type, level);
         rowsToInsert.push(...rows);
         console.log(`  -> sinh được ${rows.length} bản ghi`);
       } catch (err) {
         // Không để 1 combo lỗi làm hỏng toàn bộ job — log lại và tiếp tục.
         console.error(`  -> LỖI ở type=${type} level=${level}:`, err.message);
-        if (err.cause) console.error("     cause:", err.cause);
       }
+      // Free tier Gemini giới hạn 10 request/phút — chờ 1 chút giữa các lần gọi
+      // cho an toàn (6 request/lần chạy, không cần chờ lâu).
+      await new Promise((r) => setTimeout(r, 3000));
     }
   }
 
