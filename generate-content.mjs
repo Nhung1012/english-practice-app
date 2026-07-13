@@ -18,8 +18,11 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Model free tier: 10 request/phút, 250 request/ngày — dư dùng cho 6 request/ngày.
-const GEMINI_MODEL = "gemini-2.5-flash";
+// Dùng alias "latest" thay vì ghim cứng phiên bản (vd "gemini-2.5-flash") vì
+// Google liên tục deprecate model cũ — alias này tự trỏ sang bản mới nhất,
+// tránh phải sửa code mỗi khi model bị khai tử. Free tier: đủ dùng cho
+// 6 request/ngày của app này.
+const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 // Số chủ đề mới sinh MỖI LẦN chạy, cho mỗi tổ hợp (type, level).
