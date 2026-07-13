@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Luyện Nghe & Đọc Tiếng Anh</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%90%B1</text></svg>">
 <style>
   :root {
     --primary: #2563eb;
@@ -309,6 +310,62 @@ const FALLBACK_DIALOGUES = {
       {s:"A", t:"Great, can I try the large one on?"},
       {s:"B", t:"Of course, the fitting room is right over there."},
       {s:"A", t:"Thanks, I'll take this one if it fits."}
+    ]},
+    { topic: "Mua vé xem phim", lines: [
+      {s:"A", t:"Hi, can I get two tickets for the 7 PM movie?"},
+      {s:"B", t:"Sure, would you like the tickets together?"},
+      {s:"A", t:"Yes, please, next to each other if possible."},
+      {s:"B", t:"I have two seats in row F. Is that okay?"},
+      {s:"A", t:"That's perfect. Here's my card."},
+      {s:"B", t:"Thank you. Enjoy the movie!"}
+    ]},
+    { topic: "Ở hiệu thuốc", lines: [
+      {s:"A", t:"Excuse me, do you have anything for a headache?"},
+      {s:"B", t:"Yes, this pain reliever works well. Take one tablet every six hours."},
+      {s:"A", t:"Great, I'll take that. How much is it?"},
+      {s:"B", t:"It's five dollars."},
+      {s:"A", t:"Here you go. Thank you."},
+      {s:"B", t:"You're welcome. Get well soon."}
+    ]},
+    { topic: "Gọi taxi", lines: [
+      {s:"A", t:"Hello, I need a taxi to the airport, please."},
+      {s:"B", t:"Sure, what's your address?"},
+      {s:"A", t:"I'm at 12 Main Street."},
+      {s:"B", t:"Okay, a car will arrive in about ten minutes."},
+      {s:"A", t:"Great, thank you."},
+      {s:"B", t:"You're welcome. See you soon."}
+    ]},
+    { topic: "Ở bưu điện", lines: [
+      {s:"A", t:"Hi, I'd like to send this package to Da Nang."},
+      {s:"B", t:"Sure, please put it on the scale."},
+      {s:"A", t:"How much will it cost?"},
+      {s:"B", t:"It's about three dollars for standard shipping."},
+      {s:"A", t:"Okay, I'll go with standard, please."},
+      {s:"B", t:"Alright, it should arrive in three days."}
+    ]},
+    { topic: "Làm quen bạn mới", lines: [
+      {s:"A", t:"Hi, I don't think we've met. I'm Anna."},
+      {s:"B", t:"Nice to meet you, Anna. I'm Tom."},
+      {s:"A", t:"Are you new here too?"},
+      {s:"B", t:"Yes, this is my first week."},
+      {s:"A", t:"Same here! Do you want to grab lunch together?"},
+      {s:"B", t:"Sure, that sounds great."}
+    ]},
+    { topic: "Đặt đồ ăn giao hàng", lines: [
+      {s:"A", t:"Hi, I'd like to order a pizza for delivery."},
+      {s:"B", t:"Sure, what size would you like?"},
+      {s:"A", t:"A large pepperoni pizza, please."},
+      {s:"B", t:"Okay, that will take about thirty minutes."},
+      {s:"A", t:"That's fine. Here's my address."},
+      {s:"B", t:"Got it, thank you."}
+    ]},
+    { topic: "Ở siêu thị", lines: [
+      {s:"A", t:"Excuse me, where can I find the milk?"},
+      {s:"B", t:"It's in aisle five, next to the cheese."},
+      {s:"A", t:"Thank you. Do you also sell fresh bread?"},
+      {s:"B", t:"Yes, the bakery section is near the entrance."},
+      {s:"A", t:"Great, thanks for your help."},
+      {s:"B", t:"You're welcome, have a nice day."}
     ]}
   ],
   intermediate: [
@@ -332,6 +389,64 @@ const FALLBACK_DIALOGUES = {
       {s:"A", t:"Iced, please, and could you make it oat milk?"},
       {s:"B", t:"No problem. Anything else for you today?"},
       {s:"A", t:"That's all, thanks."}
+    ]},
+    { topic: "Thuê căn hộ", lines: [
+      {s:"A", t:"Hi, I'm calling about the apartment listing online. Is it still available?"},
+      {s:"B", t:"Yes, it is. Would you like to schedule a viewing?"},
+      {s:"A", t:"That would be great. Is the rent negotiable?"},
+      {s:"B", t:"A little, depending on the lease length you choose."},
+      {s:"A", t:"I see. What's included in the rent?"},
+      {s:"B", t:"Water and internet are included, but electricity is separate."},
+      {s:"A", t:"Okay, I'd like to see it this weekend if possible."},
+      {s:"B", t:"Sure, how about Saturday at 10 AM?"}
+    ]},
+    { topic: "Khiếu nại dịch vụ khách hàng", lines: [
+      {s:"A", t:"Hi, I ordered a laptop last week, but it arrived damaged."},
+      {s:"B", t:"I'm sorry to hear that. Could you describe the damage?"},
+      {s:"A", t:"The screen has a crack in the corner."},
+      {s:"B", t:"We can send a replacement or issue a refund. Which would you prefer?"},
+      {s:"A", t:"I'd prefer a replacement, if that's not too much trouble."},
+      {s:"B", t:"Not at all. I'll arrange that right away."}
+    ]},
+    { topic: "Lên kế hoạch du lịch nhóm", lines: [
+      {s:"A", t:"So, where should we go for our trip next month?"},
+      {s:"B", t:"I was thinking somewhere with beaches, maybe Da Nang?"},
+      {s:"A", t:"That sounds nice, but what about the budget?"},
+      {s:"B", t:"If we book flights early, it shouldn't be too expensive."},
+      {s:"A", t:"True. Let's also look for a place with a shared kitchen to save on food."},
+      {s:"B", t:"Good idea. I'll start comparing prices tonight."}
+    ]},
+    { topic: "Tư vấn sức khỏe với bác sĩ", lines: [
+      {s:"A", t:"Doctor, I've been having trouble sleeping for the past few weeks."},
+      {s:"B", t:"I see. Have you noticed any changes in your daily routine or stress levels?"},
+      {s:"A", t:"Work has been quite stressful lately, actually."},
+      {s:"B", t:"That could be a factor. Let's try some lifestyle changes first before considering medication."},
+      {s:"A", t:"That sounds reasonable. What do you recommend?"},
+      {s:"B", t:"Try reducing screen time before bed and keeping a consistent sleep schedule."}
+    ]},
+    { topic: "Thảo luận deadline dự án", lines: [
+      {s:"A", t:"How's the report coming along? The deadline is Friday."},
+      {s:"B", t:"It's mostly done, but I'm still waiting on data from the sales team."},
+      {s:"A", t:"Can you follow up with them today?"},
+      {s:"B", t:"Sure, I'll send a reminder email right now."},
+      {s:"A", t:"Thanks. Let me know if you need help finishing it."},
+      {s:"B", t:"I appreciate that. I'll update you by tomorrow."}
+    ]},
+    { topic: "Mở tài khoản ngân hàng", lines: [
+      {s:"A", t:"Hi, I'd like to open a savings account."},
+      {s:"B", t:"Sure, do you have your ID and proof of address with you?"},
+      {s:"A", t:"Yes, here they are."},
+      {s:"B", t:"Great. Would you also like a debit card with the account?"},
+      {s:"A", t:"Yes, please. How long does it take to arrive?"},
+      {s:"B", t:"Usually about five business days."}
+    ]},
+    { topic: "Trả lại hàng lỗi", lines: [
+      {s:"A", t:"Hi, I'd like to return this jacket. The zipper is broken."},
+      {s:"B", t:"I'm sorry about that. Do you have the receipt?"},
+      {s:"A", t:"Yes, here it is."},
+      {s:"B", t:"Would you like a refund or an exchange for a new one?"},
+      {s:"A", t:"I'll take a refund, please."},
+      {s:"B", t:"Sure, that will be processed within three to five days."}
     ]}
   ],
   advanced: [
@@ -350,6 +465,48 @@ const FALLBACK_DIALOGUES = {
       {s:"B", t:"It depends heavily on how intentional a company is about building connection despite the distance."},
       {s:"A", t:"Fair, though I'd argue some things, like mentorship, are genuinely harder to replicate virtually."},
       {s:"B", t:"True, but hybrid models seem to be striking a reasonable balance for a lot of organizations."}
+    ]},
+    { topic: "Tranh luận về giáo dục đại học", lines: [
+      {s:"A", t:"With online resources so widely available now, do you think a university degree is still essential?"},
+      {s:"B", t:"I'd argue it still holds value, mainly for structured learning and networking opportunities."},
+      {s:"A", t:"Fair, but the cost often outweighs the benefit for many career paths today."},
+      {s:"B", t:"True, though certain fields like medicine or engineering still require formal accreditation."}
+    ]},
+    { topic: "Thảo luận về đạo đức trong nghiên cứu gen", lines: [
+      {s:"A", t:"Gene editing technology like CRISPR raises some serious ethical questions, don't you think?"},
+      {s:"B", t:"Definitely. The line between treating disease and enhancing traits is getting blurrier."},
+      {s:"A", t:"Exactly, and once we allow one, it's hard to draw a clear boundary for the other."},
+      {s:"B", t:"That's why international regulation needs to catch up with the pace of the science."}
+    ]},
+    { topic: "Tranh luận về thuế thu nhập lũy tiến", lines: [
+      {s:"A", t:"Some argue progressive taxation discourages high earners from working harder."},
+      {s:"B", t:"Maybe, but it also funds public services that benefit everyone, including businesses."},
+      {s:"A", t:"That's true, though the effectiveness depends heavily on how the revenue is actually spent."},
+      {s:"B", t:"Which is really the core issue, not the tax structure itself."}
+    ]},
+    { topic: "Thảo luận về quyền riêng tư dữ liệu", lines: [
+      {s:"A", t:"Companies collect enormous amounts of personal data these days, often without users fully realizing it."},
+      {s:"B", t:"Right, and most people don't read the terms of service closely enough to understand the implications."},
+      {s:"A", t:"Do you think stricter regulation would actually solve the problem?"},
+      {s:"B", t:"It would help, but enforcement across borders remains a major challenge."}
+    ]},
+    { topic: "Tranh luận về mạng xã hội và sức khỏe tâm thần", lines: [
+      {s:"A", t:"There's growing evidence linking heavy social media use to anxiety, especially among teenagers."},
+      {s:"B", t:"True, though it's hard to separate correlation from causation in most of these studies."},
+      {s:"A", t:"Fair point, but platforms could still take more responsibility for the design choices that encourage compulsive use."},
+      {s:"B", t:"Agreed, some algorithmic transparency would be a reasonable first step."}
+    ]},
+    { topic: "Thảo luận về tương lai năng lượng tái tạo", lines: [
+      {s:"A", t:"Do you think renewable energy can fully replace fossil fuels within the next few decades?"},
+      {s:"B", t:"Technically it's feasible, but the transition depends heavily on storage technology improving significantly."},
+      {s:"A", t:"That's a fair concern, battery capacity is still a major bottleneck."},
+      {s:"B", t:"Which is why investment in research right now is so critical."}
+    ]},
+    { topic: "Tranh luận về toàn cầu hóa và bất bình đẳng", lines: [
+      {s:"A", t:"Some economists argue globalization has widened inequality within countries, even as it reduced it between them."},
+      {s:"B", t:"That's a nuanced point, low-skilled workers in wealthy nations have often borne the brunt of the shift."},
+      {s:"A", t:"Right, so should we consider some form of protectionism to address that imbalance?"},
+      {s:"B", t:"Possibly, though history suggests protectionism often creates new inefficiencies of its own."}
     ]}
   ]
 };
@@ -358,17 +515,38 @@ const FALLBACK_LISTENING = {
   beginner: [
     { topic: "Một ngày của tôi", text: "I wake up at seven in the morning. First, I brush my teeth and wash my face. Then I eat breakfast with my family." },
     { topic: "Gia đình tôi", text: "I have a small family. There are four people: my father, my mother, my sister, and me. We live in a small house near the city center." },
-    { topic: "Sở thích của tôi", text: "In my free time, I like reading books and listening to music. On weekends, I often go for a walk in the park with my friends." }
+    { topic: "Sở thích của tôi", text: "In my free time, I like reading books and listening to music. On weekends, I often go for a walk in the park with my friends." },
+    { topic: "Ngôi nhà của tôi", text: "My house is small but cozy. It has two bedrooms, a kitchen, and a small garden. I like sitting in the garden and reading books in the afternoon." },
+    { topic: "Con vật tôi yêu thích", text: "My favorite animal is the dog. Dogs are friendly and loyal. My family has a small brown dog named Max, and he loves playing in the park." },
+    { topic: "Trường học của tôi", text: "My school is not far from my house. I walk there every morning with my friends. We have classes from eight to eleven, and I really enjoy my English class." },
+    { topic: "Món ăn yêu thích", text: "My favorite food is fried rice. My mother cooks it every weekend. It has eggs, vegetables, and a little bit of chicken. It always tastes delicious." },
+    { topic: "Kỳ nghỉ hè", text: "Last summer, my family went to the beach. We swam in the sea and built sandcastles. In the evening, we ate seafood at a small restaurant near the beach." },
+    { topic: "Thời tiết hôm nay", text: "Today the weather is sunny and warm. I decided to go for a walk in the park. Many people were riding bicycles and enjoying the nice weather." },
+    { topic: "Bạn thân của tôi", text: "My best friend's name is Lisa. We have known each other since we were children. We like watching movies together and talking about our day." }
   ],
   intermediate: [
     { topic: "Du lịch", text: "Traveling is one of the best ways to learn about different cultures and broaden your perspective on life." },
     { topic: "Công việc mơ ước", text: "Many young people today are looking for jobs that offer not only a good salary but also flexibility and a sense of purpose." },
-    { topic: "Sức khỏe và thể dục", text: "Regular exercise and a balanced diet are essential for maintaining good health, especially for people who spend most of their day sitting at a desk." }
+    { topic: "Sức khỏe và thể dục", text: "Regular exercise and a balanced diet are essential for maintaining good health, especially for people who spend most of their day sitting at a desk." },
+    { topic: "Mạng xã hội và giới trẻ", text: "Social media has become a huge part of daily life for many young people. It allows them to stay connected with friends and share their experiences instantly. However, some experts worry that spending too much time online can affect sleep and self-esteem. Finding a healthy balance between online and offline activities is becoming an important skill for teenagers today." },
+    { topic: "Học ngoại ngữ", text: "Learning a new language can open up many opportunities, from traveling more confidently to understanding different cultures. It takes consistent practice, and many learners find that speaking with native speakers helps the most. Apps and online courses have also made language learning more accessible than ever before, allowing people to study at their own pace." },
+    { topic: "Mua sắm trực tuyến", text: "Online shopping has changed the way people buy products. Instead of visiting physical stores, many customers now compare prices and read reviews from home. This convenience has made online shopping increasingly popular, though some people still prefer to see and try products in person before making a purchase." },
+    { topic: "Thành phố tôi sống", text: "The city I live in is known for its busy streets and friendly people. There are many parks where families spend their weekends, and the local markets sell fresh fruits and vegetables every morning. Despite the traffic, most residents enjoy the lively atmosphere and convenient public transportation." },
+    { topic: "Thói quen tiết kiệm tiền", text: "Saving money is a habit that many people try to build but often struggle with. Setting a monthly budget and tracking expenses can make a big difference over time. Some people also choose to save a fixed percentage of their income automatically before spending on anything else." },
+    { topic: "Áp lực trong công việc", text: "Workplace pressure has become increasingly common as job demands continue to rise. Many employees report feeling stressed about deadlines and long working hours. Companies are now recognizing the importance of mental health and are starting to offer more flexible schedules and wellness programs to support their staff." },
+    { topic: "Nuôi thú cưng", text: "Owning a pet comes with both joy and responsibility. Pets like dogs and cats require regular care, including feeding, exercise, and medical checkups. Many owners say that having a pet has improved their mood and reduced their stress, making the extra effort worthwhile." }
   ],
   advanced: [
     { topic: "Kinh tế toàn cầu", text: "The global economy has become increasingly interconnected over the past few decades, with supply chains spanning multiple continents." },
     { topic: "Trí tuệ nhân tạo", text: "As artificial intelligence systems grow more capable, societies face difficult questions about regulation, accountability, and the future of human labor." },
-    { topic: "Biến đổi khí hậu", text: "Addressing climate change requires coordinated action across governments, industries, and individuals, since no single actor can solve a problem of this scale alone." }
+    { topic: "Biến đổi khí hậu", text: "Addressing climate change requires coordinated action across governments, industries, and individuals, since no single actor can solve a problem of this scale alone." },
+    { topic: "Tương lai của giáo dục trực tuyến", text: "Online education has expanded rapidly over the past decade, offering flexibility that traditional classrooms often cannot match. While this shift has made learning more accessible to people in remote areas, it has also raised questions about the quality of interaction between students and instructors. Some educators argue that a hybrid approach, combining digital resources with in-person mentorship, may ultimately provide the most effective outcomes, particularly for subjects that require hands-on practice or nuanced discussion." },
+    { topic: "Tác động của mạng xã hội đến chính trị", text: "Social media platforms have fundamentally altered how political information spreads and how public opinion is shaped. On one hand, they have given ordinary citizens unprecedented access to political discourse and mobilization tools. On the other hand, the same platforms have been criticized for amplifying misinformation and deepening ideological divisions. Policymakers continue to grapple with how to regulate these platforms without infringing on freedom of expression." },
+    { topic: "Sự phát triển của xe điện", text: "The rapid growth of electric vehicles represents a significant shift in the global automotive industry. Advances in battery technology have gradually reduced costs and extended driving range, making electric cars more competitive with traditional combustion engines. Nevertheless, challenges remain, including the availability of charging infrastructure and the environmental impact of battery production, both of which will likely shape the pace of adoption in the coming years." },
+    { topic: "Khủng hoảng nhà ở đô thị", text: "Many major cities around the world are facing a growing housing crisis, driven by rising demand and limited supply. As urban populations continue to expand, prices have outpaced wage growth in numerous markets, making homeownership increasingly out of reach for younger generations. Some policymakers advocate for increased construction and zoning reform, while others emphasize the need for stronger rent regulations to protect existing tenants." },
+    { topic: "Đạo đức trong trí tuệ nhân tạo", text: "As artificial intelligence systems become more deeply embedded in decision-making processes, ethical considerations have moved to the forefront of public discourse. Questions about bias, accountability, and transparency are particularly pressing when AI is used in areas such as hiring, lending, or criminal justice. Many experts argue that establishing clear regulatory frameworks now is essential to prevent unintended harm as these technologies continue to evolve." },
+    { topic: "Toàn cầu hóa chuỗi cung ứng", text: "Global supply chains have grown increasingly complex over the past few decades, connecting manufacturers, suppliers, and consumers across multiple continents. While this interconnectedness has generally lowered production costs, it has also exposed vulnerabilities, as recent disruptions have demonstrated how a single bottleneck can ripple across entire industries. Many companies are now reconsidering their reliance on single-source suppliers in favor of more diversified and resilient strategies." },
+    { topic: "Sức khỏe tâm thần nơi công sở", text: "Mental health in the workplace has gained significant attention in recent years, as organizations increasingly recognize its impact on productivity and employee retention. Chronic stress and burnout, once considered purely personal issues, are now understood to be influenced heavily by workplace culture and management practices. Progressive companies are responding by investing in mental health resources, though critics argue that structural changes to workload and expectations are often more necessary than surface-level wellness initiatives." }
   ]
 };
 
