@@ -34,4 +34,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Một số runner GitHub Actions bị lỗi kết nối khi Node ưu tiên IPv6
+          # (gây "Connection error." dù mạng vẫn hoạt động). Ép dùng IPv4 trước.
+          NODE_OPTIONS: "--dns-result-order=ipv4first"
         run: npm run generate
