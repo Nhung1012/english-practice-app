@@ -543,6 +543,13 @@ let currentLevel = "beginner";
 let currentItem = null;
 let usingFallback = false;
 
+// "Phiên đọc" hiện tại. Một số trình duyệt (đặc biệt Chrome) vẫn bắn ra
+// sự kiện onend/onerror của câu đang đọc dở dù đã gọi speechSynthesis.cancel()
+// khi utterance đang ở trạng thái pause — khiến vòng lặp đọc câu tiếp theo
+// (speakNext) tiếp tục chạy ngầm dù người dùng đã đổi chủ đề/trình độ/tab.
+// Dùng số phiên tăng dần để speakNext tự huỷ nếu không còn thuộc phiên hiện tại.
+let speechSession = 0;
+
 const topicText = document.getElementById('topicText');
 const scriptBox = document.getElementById('scriptBox');
 const scriptLabel = document.getElementById('scriptLabel');
@@ -580,6 +587,7 @@ async function fetchFromSupabase(type, level) {
 }
 
 async function loadNewItem() {
+  speechSession++; // vô hiệu hoá mọi vòng lặp speakNext còn sót lại từ chủ đề cũ
   window.speechSynthesis.cancel();
   setPlayButton('idle');
   randomBtn.disabled = true;
@@ -688,6 +696,8 @@ function setPlayButton(state) {
 }
 
 function speakAll() {
+  speechSession++;
+  const mySession = speechSession;
   window.speechSynthesis.cancel();
   let textsToSpeak = [];
 
@@ -701,6 +711,10 @@ function speakAll() {
   setPlayButton('playing');
 
   function speakNext(index) {
+    // Nếu người dùng đã đổi chủ đề/trình độ/tab (loadNewItem tăng speechSession)
+    // trong lúc utterance trước đang phát/tạm dừng, dừng hẳn vòng lặp này lại,
+    // không đọc tiếp câu tiếp theo của chủ đề cũ nữa.
+    if (mySession !== speechSession) return;
     if (index >= textsToSpeak.length) {
       clearHighlight();
       setStatus('Đã đọc xong. Nhấn "Nghe" để nghe lại.');
