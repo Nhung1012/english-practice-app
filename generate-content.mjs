@@ -140,6 +140,7 @@ async function main() {
       } catch (err) {
         // Không để 1 combo lỗi làm hỏng toàn bộ job — log lại và tiếp tục.
         console.error(`  -> LỖI ở type=${type} level=${level}:`, err.message);
+        if (err.cause) console.error("     cause:", err.cause);
       }
     }
   }
