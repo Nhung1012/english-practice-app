@@ -428,18 +428,29 @@ async function loadNewItem() {
   try {
     let newItem = null;
     let newUsingFallback = false;
+    const localSource = currentTab === 'dialogue'
+      ? FALLBACK_DIALOGUES[currentLevel]
+      : FALLBACK_LISTENING[currentLevel];
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const fromDb = await fetchFromSupabase(currentTab, currentLevel);
+      // Xen kẽ nguồn Supabase / nội dung dự phòng giữa các lần thử: nếu
+      // Supabase hiện chỉ có đúng 1 bản ghi cho trình độ này (data còn ít,
+      // sẽ tự nhiều lên mỗi ngày), random ở đó mãi vẫn ra cùng 1 chủ đề.
+      // Xen thêm nguồn dự phòng (nhiều lựa chọn hơn) để nút "Đổi chủ đề"
+      // luôn đổi được, thay vì trông như bị đứng.
+      const tryFallbackThisAttempt = attempt % 2 === 1;
 
-      if (fromDb) {
-        newItem = fromDb;
-        newUsingFallback = false;
+      if (!tryFallbackThisAttempt) {
+        const fromDb = await fetchFromSupabase(currentTab, currentLevel);
+        if (fromDb) {
+          newItem = fromDb;
+          newUsingFallback = false;
+        } else {
+          newItem = pickRandom(localSource);
+          newUsingFallback = true;
+        }
       } else {
-        const source = currentTab === 'dialogue'
-          ? FALLBACK_DIALOGUES[currentLevel]
-          : FALLBACK_LISTENING[currentLevel];
-        newItem = pickRandom(source);
+        newItem = pickRandom(localSource);
         newUsingFallback = true;
       }
 
