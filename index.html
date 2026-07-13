@@ -192,13 +192,6 @@
   .status.error {
     color: #dc2626;
   }
-  select {
-    padding: 8px 10px;
-    border-radius: 8px;
-    border: 1.5px solid var(--border);
-    font-size: 13px;
-    background: white;
-  }
   .badge {
     display: inline-block;
     background: #dbeafe;
@@ -249,12 +242,6 @@
 
     <div class="controls">
       <button class="btn" id="playBtn"><span class="btn-icon">▶️ Nghe</span></button>
-      <button class="btn secondary" id="pauseBtn">⏸️ Tạm dừng</button>
-      <select id="rateSelect">
-        <option value="0.75">Tốc độ: Chậm</option>
-        <option value="1" selected>Tốc độ: Bình thường</option>
-        <option value="1.25">Tốc độ: Nhanh</option>
-      </select>
     </div>
     <div class="status" id="statusText">Đang tải nội dung...</div>
   </div>
@@ -594,6 +581,7 @@ async function fetchFromSupabase(type, level) {
 
 async function loadNewItem() {
   window.speechSynthesis.cancel();
+  setPlayButton('idle');
   randomBtn.disabled = true;
   setStatus('Đang tải chủ đề mới...');
 
@@ -685,9 +673,22 @@ function clearHighlight() {
   document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
 }
 
+// Trạng thái nút Nghe: 'idle' (chưa đọc/đã đọc xong) | 'playing' (đang đọc) | 'paused' (đang tạm dừng)
+let playState = 'idle';
+
+function setPlayButton(state) {
+  playState = state;
+  if (state === 'playing') {
+    playBtn.innerHTML = '<span class="btn-icon">⏸️ Tạm dừng</span>';
+  } else if (state === 'paused') {
+    playBtn.innerHTML = '<span class="btn-icon">▶️ Tiếp tục</span>';
+  } else {
+    playBtn.innerHTML = '<span class="btn-icon">▶️ Nghe</span>';
+  }
+}
+
 function speakAll() {
   window.speechSynthesis.cancel();
-  const rate = parseFloat(document.getElementById('rateSelect').value);
   let textsToSpeak = [];
 
   if (currentTab === 'dialogue') {
@@ -697,11 +698,13 @@ function speakAll() {
   }
 
   setStatus('Đang đọc...');
+  setPlayButton('playing');
 
   function speakNext(index) {
     if (index >= textsToSpeak.length) {
       clearHighlight();
       setStatus('Đã đọc xong. Nhấn "Nghe" để nghe lại.');
+      setPlayButton('idle');
       return;
     }
     clearHighlight();
@@ -712,7 +715,7 @@ function speakAll() {
     }
     const utter = new SpeechSynthesisUtterance(textsToSpeak[index]);
     utter.lang = 'en-US';
-    utter.rate = rate;
+    utter.rate = 1;
     utter.onend = () => speakNext(index + 1);
     utter.onerror = () => speakNext(index + 1);
     window.speechSynthesis.speak(utter);
@@ -786,11 +789,17 @@ document.getElementById('copyBtn').addEventListener('click', async () => {
 });
 
 randomBtn.addEventListener('click', loadNewItem);
-playBtn.addEventListener('click', speakAll);
-document.getElementById('pauseBtn').addEventListener('click', () => {
-  if (window.speechSynthesis.speaking) {
+playBtn.addEventListener('click', () => {
+  if (playState === 'idle') {
+    speakAll();
+  } else if (playState === 'playing') {
     window.speechSynthesis.pause();
     setStatus('Đã tạm dừng');
+    setPlayButton('paused');
+  } else if (playState === 'paused') {
+    window.speechSynthesis.resume();
+    setStatus('Đang đọc...');
+    setPlayButton('playing');
   }
 });
 
