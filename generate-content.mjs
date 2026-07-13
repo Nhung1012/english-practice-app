@@ -85,7 +85,7 @@ function extractJson(rawText) {
   return JSON.parse(match[0]);
 }
 
-async function callGemini(apiKey, prompt) {
+async function callGeminiOnce(apiKey, prompt) {
   const res = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -93,7 +93,12 @@ async function callGemini(apiKey, prompt) {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 1,
-        maxOutputTokens: 2000,
+        maxOutputTokens: 3000,
+        // Tắt "extended thinking" — model 2.5/3.x flash mặc định dành một phần
+        // token cho suy luận nội bộ trước khi trả lời, dễ làm JSON bị cắt cụt
+        // giữa chừng do hết token. Tác vụ này chỉ cần sinh văn bản đơn giản,
+        // không cần suy luận sâu, nên tắt đi để dồn hết token cho phần trả lời.
+        thinkingConfig: { thinkingBudget: 0 },
       },
     }),
   });
@@ -110,6 +115,21 @@ async function callGemini(apiKey, prompt) {
     throw new Error("Phản hồi Gemini không có nội dung text: " + JSON.stringify(json));
   }
   return rawText;
+}
+
+async function callGemini(apiKey, prompt, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await callGeminiOnce(apiKey, prompt);
+    } catch (err) {
+      const isLastAttempt = attempt === retries;
+      // Free tier Gemini đôi khi quá tải tạm thời ("high demand") — lỗi này
+      // đáng để thử lại; các lỗi khác thì thử lại cũng vô ích nhưng không hại gì.
+      if (isLastAttempt) throw err;
+      console.log(`     (thử lại lần ${attempt + 1}/${retries} sau lỗi: ${err.message})`);
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
 }
 
 async function generateForCombo(apiKey, type, level) {
