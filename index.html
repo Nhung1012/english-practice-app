@@ -249,7 +249,6 @@
     <div class="controls">
       <button class="btn" id="playBtn"><span class="btn-icon">▶️ Nghe</span></button>
       <button class="btn secondary" id="pauseBtn">⏸️ Tạm dừng</button>
-      <button class="btn secondary" id="stopBtn">⏹️ Dừng</button>
       <select id="rateSelect">
         <option value="0.75">Tốc độ: Chậm</option>
         <option value="1" selected>Tốc độ: Bình thường</option>
@@ -295,6 +294,21 @@ const FALLBACK_DIALOGUES = {
       {s:"B", t:"No problem. Please follow me. Here is the menu."},
       {s:"A", t:"Thank you. Can I have a few minutes to look at it?"},
       {s:"B", t:"Sure, take your time."}
+    ]},
+    { topic: "Hỏi đường", lines: [
+      {s:"A", t:"Excuse me, how do I get to the train station?"},
+      {s:"B", t:"Go straight ahead and turn left at the next light."},
+      {s:"A", t:"Is it far from here?"},
+      {s:"B", t:"No, it's about a five-minute walk."},
+      {s:"A", t:"Thank you so much for your help."},
+      {s:"B", t:"You're welcome. Have a nice trip!"}
+    ]},
+    { topic: "Mua sắm quần áo", lines: [
+      {s:"A", t:"Excuse me, do you have this shirt in a larger size?"},
+      {s:"B", t:"Let me check. Yes, we have it in medium and large."},
+      {s:"A", t:"Great, can I try the large one on?"},
+      {s:"B", t:"Of course, the fitting room is right over there."},
+      {s:"A", t:"Thanks, I'll take this one if it fits."}
     ]}
   ],
   intermediate: [
@@ -303,25 +317,58 @@ const FALLBACK_DIALOGUES = {
       {s:"B", t:"Of course. I worked as a marketing assistant for two years."},
       {s:"A", t:"That's great. What do you think is your biggest strength?"},
       {s:"B", t:"I'd say my ability to adapt quickly to new tools and work well under pressure."}
+    ]},
+    { topic: "Đặt phòng khách sạn", lines: [
+      {s:"A", t:"Hi, I'd like to book a room for two nights starting Friday."},
+      {s:"B", t:"Sure, would you prefer a single or double room?"},
+      {s:"A", t:"A double room, please, if it comes with breakfast included."},
+      {s:"B", t:"It does. That will be one hundred dollars per night."},
+      {s:"A", t:"Sounds good. Can I pay by credit card at check-in?"},
+      {s:"B", t:"Absolutely, we accept all major cards."}
+    ]},
+    { topic: "Gọi món ở quán cà phê", lines: [
+      {s:"A", t:"Hi, could I get a medium latte and a slice of banana bread?"},
+      {s:"B", t:"Sure, would you like that latte hot or iced?"},
+      {s:"A", t:"Iced, please, and could you make it oat milk?"},
+      {s:"B", t:"No problem. Anything else for you today?"},
+      {s:"A", t:"That's all, thanks."}
     ]}
   ],
   advanced: [
     { topic: "Tranh luận về biến đổi khí hậu", lines: [
       {s:"A", t:"Some argue that individual actions barely make a dent in climate change compared to corporate emissions."},
       {s:"B", t:"That's true to an extent, but collective behavioral shifts can pressure industries to adapt faster."}
+    ]},
+    { topic: "Thảo luận về trí tuệ nhân tạo", lines: [
+      {s:"A", t:"Do you think AI will eventually replace most white-collar jobs?"},
+      {s:"B", t:"I think it will transform them rather than replace them outright, at least in the near term."},
+      {s:"A", t:"That's a fair point, but the pace of automation seems to be accelerating faster than reskilling programs can keep up."},
+      {s:"B", t:"Which is exactly why policy and education need to evolve alongside the technology, not after it."}
+    ]},
+    { topic: "Tranh luận về làm việc từ xa", lines: [
+      {s:"A", t:"Remote work has clearly boosted flexibility, but I wonder if it's eroding company culture in the long run."},
+      {s:"B", t:"It depends heavily on how intentional a company is about building connection despite the distance."},
+      {s:"A", t:"Fair, though I'd argue some things, like mentorship, are genuinely harder to replicate virtually."},
+      {s:"B", t:"True, but hybrid models seem to be striking a reasonable balance for a lot of organizations."}
     ]}
   ]
 };
 
 const FALLBACK_LISTENING = {
   beginner: [
-    { topic: "Một ngày của tôi", text: "I wake up at seven in the morning. First, I brush my teeth and wash my face. Then I eat breakfast with my family." }
+    { topic: "Một ngày của tôi", text: "I wake up at seven in the morning. First, I brush my teeth and wash my face. Then I eat breakfast with my family." },
+    { topic: "Gia đình tôi", text: "I have a small family. There are four people: my father, my mother, my sister, and me. We live in a small house near the city center." },
+    { topic: "Sở thích của tôi", text: "In my free time, I like reading books and listening to music. On weekends, I often go for a walk in the park with my friends." }
   ],
   intermediate: [
-    { topic: "Du lịch", text: "Traveling is one of the best ways to learn about different cultures and broaden your perspective on life." }
+    { topic: "Du lịch", text: "Traveling is one of the best ways to learn about different cultures and broaden your perspective on life." },
+    { topic: "Công việc mơ ước", text: "Many young people today are looking for jobs that offer not only a good salary but also flexibility and a sense of purpose." },
+    { topic: "Sức khỏe và thể dục", text: "Regular exercise and a balanced diet are essential for maintaining good health, especially for people who spend most of their day sitting at a desk." }
   ],
   advanced: [
-    { topic: "Kinh tế toàn cầu", text: "The global economy has become increasingly interconnected over the past few decades, with supply chains spanning multiple continents." }
+    { topic: "Kinh tế toàn cầu", text: "The global economy has become increasingly interconnected over the past few decades, with supply chains spanning multiple continents." },
+    { topic: "Trí tuệ nhân tạo", text: "As artificial intelligence systems grow more capable, societies face difficult questions about regulation, accountability, and the future of human labor." },
+    { topic: "Biến đổi khí hậu", text: "Addressing climate change requires coordinated action across governments, industries, and individuals, since no single actor can solve a problem of this scale alone." }
   ]
 };
 
@@ -372,27 +419,51 @@ async function loadNewItem() {
   randomBtn.disabled = true;
   setStatus('Đang tải chủ đề mới...');
 
-  const fromDb = await fetchFromSupabase(currentTab, currentLevel);
+  // Ghi nhớ chủ đề đang hiển thị để tránh việc "random" ra đúng chủ đề cũ,
+  // vì với data pool nhỏ (vd. fallback chỉ có 1-2 mục) trước đây có thể lặp
+  // lại y hệt chủ đề cũ khiến người dùng tưởng nút không hoạt động.
+  const previousTopic = currentItem ? currentItem.topic : null;
+  const maxAttempts = 3;
 
-  if (fromDb) {
-    currentItem = fromDb;
-    usingFallback = false;
-  } else {
-    const source = currentTab === 'dialogue'
-      ? FALLBACK_DIALOGUES[currentLevel]
-      : FALLBACK_LISTENING[currentLevel];
-    currentItem = pickRandom(source);
-    usingFallback = true;
+  try {
+    let newItem = null;
+    let newUsingFallback = false;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const fromDb = await fetchFromSupabase(currentTab, currentLevel);
+
+      if (fromDb) {
+        newItem = fromDb;
+        newUsingFallback = false;
+      } else {
+        const source = currentTab === 'dialogue'
+          ? FALLBACK_DIALOGUES[currentLevel]
+          : FALLBACK_LISTENING[currentLevel];
+        newItem = pickRandom(source);
+        newUsingFallback = true;
+      }
+
+      if (!previousTopic || newItem.topic !== previousTopic) break;
+    }
+
+    currentItem = newItem;
+    usingFallback = newUsingFallback;
+
+    topicText.textContent = currentItem.topic;
+    renderScript();
+    setStatus(
+      usingFallback
+        ? 'Nhấn "Nghe" để bắt đầu (đang dùng nội dung dự phòng — chưa kết nối được Supabase)'
+        : 'Nhấn "Nghe" để bắt đầu'
+    );
+  } catch (err) {
+    console.error('Lỗi khi tải chủ đề mới:', err);
+    setStatus('Có lỗi khi tải chủ đề mới, vui lòng thử lại.', true);
+  } finally {
+    // Luôn bật lại nút dù thành công hay lỗi, tránh việc nút bị kẹt "disabled"
+    // khiến người dùng bấm "Đổi chủ đề" mà không thấy phản ứng gì.
+    randomBtn.disabled = false;
   }
-
-  topicText.textContent = currentItem.topic;
-  renderScript();
-  setStatus(
-    usingFallback
-      ? 'Nhấn "Nghe" để bắt đầu (đang dùng nội dung dự phòng — chưa kết nối được Supabase)'
-      : 'Nhấn "Nghe" để bắt đầu'
-  );
-  randomBtn.disabled = false;
 }
 
 function renderScript() {
@@ -532,11 +603,6 @@ document.getElementById('pauseBtn').addEventListener('click', () => {
     window.speechSynthesis.pause();
     setStatus('Đã tạm dừng');
   }
-});
-document.getElementById('stopBtn').addEventListener('click', () => {
-  window.speechSynthesis.cancel();
-  clearHighlight();
-  setStatus('Đã dừng');
 });
 
 // init
