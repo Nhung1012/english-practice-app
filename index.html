@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luyện Nghe & Đọc Tiếng Anh</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --highlight: #fef08a;
+    --green: #16a34a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  header h1 {
+    font-size: 24px;
+    margin: 0 0 4px;
+  }
+  header p {
+    color: var(--muted);
+    margin: 0;
+    font-size: 14px;
+  }
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: var(--card);
+    padding: 6px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .tab-btn.active {
+    background: var(--primary);
+    color: white;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .row-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .level-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .level-btn {
+    flex: 1;
+    padding: 10px 6px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: white;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--muted);
+    transition: 0.15s;
+  }
+  .level-btn.active {
+    border-color: var(--primary);
+    background: #eff6ff;
+    color: var(--primary);
+  }
+  .topic-display {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f1f5f9;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+  .topic-display span {
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .btn:hover { background: var(--primary-dark); }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn.secondary {
+    background: white;
+    border: 1.5px solid var(--border);
+    color: var(--text);
+  }
+  .btn.secondary:hover { background: #f1f5f9; }
+  .controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .script-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .script-header .row-label {
+    margin-bottom: 0;
+  }
+  .copy-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  .copy-btn.copied {
+    background: #dcfce7;
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .script-box {
+    line-height: 2;
+    font-size: 16px;
+    min-height: 60px;
+  }
+  .line {
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    transition: background 0.2s;
+  }
+  .line.active {
+    background: var(--highlight);
+  }
+  .speaker-a { color: var(--primary); font-weight: 700; }
+  .speaker-b { color: #dc2626; font-weight: 700; }
+  .listen-line { }
+  .status {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 10px;
+    text-align: center;
+  }
+  .status.error {
+    color: #dc2626;
+  }
+  select {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    font-size: 13px;
+    background: white;
+  }
+  .badge {
+    display: inline-block;
+    background: #dbeafe;
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 999px;
+    margin-left: 8px;
+  }
+  .source-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-left: 8px;
+  }
+  .source-badge.live { background: #dcfce7; color: var(--green); }
+  .source-badge.offline { background: #fee2e2; color: #dc2626; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🎧 Luyện Nghe &amp; Đọc Tiếng Anh</h1>
+    <p>Chọn trình độ, random chủ đề, luyện nghe/đọc mỗi ngày</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="dialogue">💬 Hội thoại 2 người</button>
+    <button class="tab-btn" data-tab="listening">🎙️ Luyện nghe (script)</button>
+  </div>
+
+  <!-- LEVEL SELECT (shared) -->
+  <div class="card">
+    <div class="row-label">Trình độ</div>
+    <div class="level-group" id="levelGroup">
+      <button class="level-btn active" data-level="beginner">🟢 Cơ bản (A1-A2)</button>
+      <button class="level-btn" data-level="intermediate">🟡 Trung cấp (B1-B2)</button>
+      <button class="level-btn" data-level="advanced">🔴 Nâng cao (C1-C2)</button>
+    </div>
+
+    <div class="row-label">Chủ đề hôm nay</div>
+    <div class="topic-display">
+      <span id="topicText">—</span>
+      <button class="btn secondary" id="randomBtn">🔀 Đổi chủ đề</button>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="playBtn"><span class="btn-icon">▶️ Nghe</span></button>
+      <button class="btn secondary" id="pauseBtn">⏸️ Tạm dừng</button>
+      <button class="btn secondary" id="stopBtn">⏹️ Dừng</button>
+      <select id="rateSelect">
+        <option value="0.75">Tốc độ: Chậm</option>
+        <option value="1" selected>Tốc độ: Bình thường</option>
+        <option value="1.25">Tốc độ: Nhanh</option>
+      </select>
+    </div>
+    <div class="status" id="statusText">Đang tải nội dung...</div>
+  </div>
+
+  <!-- SCRIPT DISPLAY -->
+  <div class="card">
+    <div class="script-header">
+      <div class="row-label" id="scriptLabel">Nội dung</div>
+      <button class="btn secondary copy-btn" id="copyBtn">📋 Copy</button>
+    </div>
+    <div class="script-box" id="scriptBox"></div>
+  </div>
+</div>
+
+<!-- supabase-js qua CDN, không cần build tool -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ====== CẤU HÌNH SUPABASE ======
+// URL và anon key đều là thông tin CÔNG KHAI, an toàn để để trong frontend
+// vì bảng "content" chỉ cho phép SELECT (xem supabase_schema.sql, policy
+// "Public read access"). KHÔNG bao giờ đặt service_role key ở đây.
+const SUPABASE_URL = "https://jlczlapfhqvfiktcpdwf.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_KAmDWtIWM3CzA8xrDRu19A_5Xtf0A1u";
+
+const supabaseClient = (SUPABASE_URL.includes("YOUR-PROJECT-REF") || !window.supabase)
+  ? null
+  : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ====== DỮ LIỆU DỰ PHÒNG (fallback) ======
+// Dùng khi chưa cấu hình Supabase, mất mạng, hoặc project Supabase free
+// tier đang bị pause. Giữ nguyên bộ mẫu demo ban đầu để app luôn chạy được.
+const FALLBACK_DIALOGUES = {
+  beginner: [
+    { topic: "Đặt bàn nhà hàng", lines: [
+      {s:"A", t:"Hello! Do you have a table for two?"},
+      {s:"B", t:"Yes, we do. Do you want a table by the window?"},
+      {s:"A", t:"Yes, please. That sounds nice."},
+      {s:"B", t:"No problem. Please follow me. Here is the menu."},
+      {s:"A", t:"Thank you. Can I have a few minutes to look at it?"},
+      {s:"B", t:"Sure, take your time."}
+    ]}
+  ],
+  intermediate: [
+    { topic: "Phỏng vấn xin việc", lines: [
+      {s:"A", t:"Thank you for coming in today. Can you tell me about your previous experience?"},
+      {s:"B", t:"Of course. I worked as a marketing assistant for two years."},
+      {s:"A", t:"That's great. What do you think is your biggest strength?"},
+      {s:"B", t:"I'd say my ability to adapt quickly to new tools and work well under pressure."}
+    ]}
+  ],
+  advanced: [
+    { topic: "Tranh luận về biến đổi khí hậu", lines: [
+      {s:"A", t:"Some argue that individual actions barely make a dent in climate change compared to corporate emissions."},
+      {s:"B", t:"That's true to an extent, but collective behavioral shifts can pressure industries to adapt faster."}
+    ]}
+  ]
+};
+
+const FALLBACK_LISTENING = {
+  beginner: [
+    { topic: "Một ngày của tôi", text: "I wake up at seven in the morning. First, I brush my teeth and wash my face. Then I eat breakfast with my family." }
+  ],
+  intermediate: [
+    { topic: "Du lịch", text: "Traveling is one of the best ways to learn about different cultures and broaden your perspective on life." }
+  ],
+  advanced: [
+    { topic: "Kinh tế toàn cầu", text: "The global economy has become increasingly interconnected over the past few decades, with supply chains spanning multiple continents." }
+  ]
+};
+
+// ====== STATE ======
+let currentTab = "dialogue";
+let currentLevel = "beginner";
+let currentItem = null;
+let usingFallback = false;
+
+const topicText = document.getElementById('topicText');
+const scriptBox = document.getElementById('scriptBox');
+const scriptLabel = document.getElementById('scriptLabel');
+const statusText = document.getElementById('statusText');
+const randomBtn = document.getElementById('randomBtn');
+const playBtn = document.getElementById('playBtn');
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function setStatus(msg, isError) {
+  statusText.textContent = msg;
+  statusText.classList.toggle('error', !!isError);
+}
+
+// Lấy 1 bản ghi ngẫu nhiên từ Supabase qua RPC get_random_content
+// (xem hàm trong supabase_schema.sql). Trả về null nếu lỗi/không cấu hình.
+async function fetchFromSupabase(type, level) {
+  if (!supabaseClient) return null;
+  try {
+    const { data, error } = await supabaseClient
+      .rpc('get_random_content', { p_type: type, p_level: level });
+    if (error) throw error;
+    if (!data || data.length === 0) return null;
+    const row = data[0];
+    if (type === 'dialogue') {
+      return { topic: row.topic, lines: row.data.lines };
+    }
+    return { topic: row.topic, text: row.data.text };
+  } catch (err) {
+    console.warn('Không lấy được dữ liệu từ Supabase, dùng nội dung dự phòng:', err.message || err);
+    return null;
+  }
+}
+
+async function loadNewItem() {
+  window.speechSynthesis.cancel();
+  randomBtn.disabled = true;
+  setStatus('Đang tải chủ đề mới...');
+
+  const fromDb = await fetchFromSupabase(currentTab, currentLevel);
+
+  if (fromDb) {
+    currentItem = fromDb;
+    usingFallback = false;
+  } else {
+    const source = currentTab === 'dialogue'
+      ? FALLBACK_DIALOGUES[currentLevel]
+      : FALLBACK_LISTENING[currentLevel];
+    currentItem = pickRandom(source);
+    usingFallback = true;
+  }
+
+  topicText.textContent = currentItem.topic;
+  renderScript();
+  setStatus(
+    usingFallback
+      ? 'Nhấn "Nghe" để bắt đầu (đang dùng nội dung dự phòng — chưa kết nối được Supabase)'
+      : 'Nhấn "Nghe" để bắt đầu'
+  );
+  randomBtn.disabled = false;
+}
+
+function renderScript() {
+  scriptBox.innerHTML = '';
+  if (currentTab === 'dialogue') {
+    scriptLabel.textContent = 'Hội thoại';
+    currentItem.lines.forEach((line, i) => {
+      const div = document.createElement('div');
+      div.className = 'line';
+      div.id = 'line-' + i;
+      const speakerLabel = line.s === 'A' ? 'Người A' : 'Người B';
+      const speakerClass = line.s === 'A' ? 'speaker-a' : 'speaker-b';
+      div.innerHTML = `<span class="${speakerClass}">${speakerLabel}:</span> ${line.t}`;
+      scriptBox.appendChild(div);
+    });
+  } else {
+    scriptLabel.textContent = 'Script luyện nghe';
+    const sentences = currentItem.text.match(/[^.!?]+[.!?]+/g) || [currentItem.text];
+    sentences.forEach((sent, i) => {
+      const div = document.createElement('div');
+      div.className = 'line listen-line';
+      div.id = 'line-' + i;
+      div.textContent = sent.trim();
+      scriptBox.appendChild(div);
+    });
+  }
+}
+
+function clearHighlight() {
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+}
+
+function speakAll() {
+  window.speechSynthesis.cancel();
+  const rate = parseFloat(document.getElementById('rateSelect').value);
+  let textsToSpeak = [];
+
+  if (currentTab === 'dialogue') {
+    textsToSpeak = currentItem.lines.map(l => l.t);
+  } else {
+    textsToSpeak = (currentItem.text.match(/[^.!?]+[.!?]+/g) || [currentItem.text]).map(s => s.trim());
+  }
+
+  setStatus('Đang đọc...');
+
+  function speakNext(index) {
+    if (index >= textsToSpeak.length) {
+      clearHighlight();
+      setStatus('Đã đọc xong. Nhấn "Nghe" để nghe lại.');
+      return;
+    }
+    clearHighlight();
+    const lineEl = document.getElementById('line-' + index);
+    if (lineEl) {
+      lineEl.classList.add('active');
+      lineEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    const utter = new SpeechSynthesisUtterance(textsToSpeak[index]);
+    utter.lang = 'en-US';
+    utter.rate = rate;
+    utter.onend = () => speakNext(index + 1);
+    utter.onerror = () => speakNext(index + 1);
+    window.speechSynthesis.speak(utter);
+  }
+
+  speakNext(0);
+}
+
+// ====== EVENTS ======
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTab = btn.dataset.tab;
+    loadNewItem();
+  });
+});
+
+document.querySelectorAll('.level-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentLevel = btn.dataset.level;
+    loadNewItem();
+  });
+});
+
+function getPlainTextContent() {
+  if (currentTab === 'dialogue') {
+    return currentItem.lines
+      .map(line => `${line.s === 'A' ? 'Người A' : 'Người B'}: ${line.t}`)
+      .join('\n');
+  } else {
+    return currentItem.text;
+  }
+}
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const copyBtn = document.getElementById('copyBtn');
+  const textToCopy = `Chủ đề: ${currentItem.topic}\n\n${getPlainTextContent()}`;
+  try {
+    await navigator.clipboard.writeText(textToCopy);
+    copyBtn.textContent = '✅ Đã copy!';
+    copyBtn.classList.add('copied');
+    setTimeout(() => {
+      copyBtn.textContent = '📋 Copy';
+      copyBtn.classList.remove('copied');
+    }, 1500);
+  } catch (err) {
+    const textarea = document.createElement('textarea');
+    textarea.value = textToCopy;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      copyBtn.textContent = '✅ Đã copy!';
+      copyBtn.classList.add('copied');
+      setTimeout(() => {
+        copyBtn.textContent = '📋 Copy';
+        copyBtn.classList.remove('copied');
+      }, 1500);
+    } catch (e) {
+      copyBtn.textContent = '❌ Lỗi copy';
+      setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 1500);
+    }
+    document.body.removeChild(textarea);
+  }
+});
+
+randomBtn.addEventListener('click', loadNewItem);
+playBtn.addEventListener('click', speakAll);
+document.getElementById('pauseBtn').addEventListener('click', () => {
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.pause();
+    setStatus('Đã tạm dừng');
+  }
+});
+document.getElementById('stopBtn').addEventListener('click', () => {
+  window.speechSynthesis.cancel();
+  clearHighlight();
+  setStatus('Đã dừng');
+});
+
+// init
+loadNewItem();
+</script>
+</body>
+</html>
