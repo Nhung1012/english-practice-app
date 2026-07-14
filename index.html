@@ -118,6 +118,18 @@
     font-weight: 600;
     font-size: 15px;
   }
+  .topic-select-row {
+    margin-bottom: 16px;
+  }
+  .topic-select-row select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    font-size: 14px;
+    background: white;
+    color: var(--text);
+  }
   .btn {
     background: var(--primary);
     color: white;
@@ -238,6 +250,12 @@
     <div class="topic-display">
       <span id="topicText">—</span>
       <button class="btn secondary" id="randomBtn">🔀 Đổi chủ đề</button>
+    </div>
+
+    <div class="topic-select-row">
+      <select id="topicSelect">
+        <option value="">-- Hoặc chọn chủ đề có sẵn --</option>
+      </select>
     </div>
 
     <div class="controls">
@@ -556,6 +574,7 @@ const scriptLabel = document.getElementById('scriptLabel');
 const statusText = document.getElementById('statusText');
 const randomBtn = document.getElementById('randomBtn');
 const playBtn = document.getElementById('playBtn');
+const topicSelect = document.getElementById('topicSelect');
 
 function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -564,6 +583,156 @@ function pickRandom(arr) {
 function setStatus(msg, isError) {
   statusText.textContent = msg;
   statusText.classList.toggle('error', !!isError);
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
+// ====== GIỌNG ĐỌC NAM (Người A) / NỮ (Người B) ======
+// Web Speech API không cho chọn "giới tính" trực tiếp, nên cố gắng tìm 2
+// giọng tiếng Anh khác nhau theo tên (từ khoá Male/Female hoặc tên riêng
+// quen thuộc của các giọng có sẵn trên Windows/macOS/Chrome). Đồng thời
+// luôn chỉnh thêm pitch (cao độ) khác nhau giữa A/B để đảm bảo 2 người luôn
+// nghe khác nhau, kể cả khi máy không có sẵn giọng nam/nữ riêng biệt.
+let maleVoice = null;
+let femaleVoice = null;
+
+function loadVoicesAsync() {
+  return new Promise((resolve) => {
+    const existing = window.speechSynthesis.getVoices();
+    if (existing.length) { resolve(existing); return; }
+    window.speechSynthesis.onvoiceschanged = () => {
+      resolve(window.speechSynthesis.getVoices());
+    };
+    // Phòng khi trình duyệt không bắn sự kiện voiceschanged
+    setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1500);
+  });
+}
+
+async function initVoices() {
+  const voices = await loadVoicesAsync();
+  const enVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+  const pool = enVoices.length ? enVoices : voices;
+  if (!pool.length) return;
+
+  const maleKeywords = ['male', 'man', 'david', 'mark', 'daniel', 'guy', 'fred', 'alex', 'tom', 'james'];
+  const femaleKeywords = ['female', 'woman', 'zira', 'samantha', 'susan', 'victoria', 'karen', 'moira', 'tessa', 'fiona'];
+
+  maleVoice = pool.find(v => maleKeywords.some(k => v.name.toLowerCase().includes(k))) || null;
+  femaleVoice = pool.find(v => v !== maleVoice && femaleKeywords.some(k => v.name.toLowerCase().includes(k))) || null;
+
+  // Không tìm được giọng khớp tên (nhiều máy chỉ có 1-2 giọng không rõ giới
+  // tính) → lấy tạm 2 giọng khác nhau trong danh sách, vẫn phân biệt được
+  // A/B nhờ pitch bên dưới.
+  if (!maleVoice) maleVoice = pool[0];
+  if (!femaleVoice) femaleVoice = pool.find(v => v !== maleVoice) || pool[0];
+}
+initVoices();
+
+function getSpeakerVoiceSettings(speaker) {
+  if (speaker === 'A') return { voice: maleVoice, pitch: 0.85 };
+  if (speaker === 'B') return { voice: femaleVoice, pitch: 1.25 };
+  return { voice: null, pitch: 1 };
+}
+
+// ====== DANH SÁCH CHỦ ĐỀ ĐỂ CHỌN TRỰC TIẾP ======
+// Gộp chủ đề dự phòng (luôn có sẵn) + chủ đề thật từ Supabase (nếu có) theo
+// đúng tab + trình độ đang chọn, để người dùng chọn thẳng thay vì chỉ random.
+let topicOptions = [];
+let topicOptionsSession = 0;
+
+function renderTopicSelect() {
+  const options = ['<option value="">-- Hoặc chọn chủ đề có sẵn --</option>'].concat(
+    topicOptions.map((opt, i) =>
+      `<option value="${i}">${opt.source === 'db' ? '🌐 ' : ''}${escapeHtml(opt.topic)}</option>`
+    )
+  );
+  topicSelect.innerHTML = options.join('');
+  syncTopicSelectValue();
+}
+
+function syncTopicSelectValue() {
+  if (!currentItem) { topicSelect.value = ''; return; }
+  const idx = topicOptions.findIndex(opt => opt.topic === currentItem.topic);
+  topicSelect.value = idx >= 0 ? String(idx) : '';
+}
+
+async function loadTopicOptions() {
+  topicOptionsSession++;
+  const mySession = topicOptionsSession;
+
+  const localSource = currentTab === 'dialogue'
+    ? FALLBACK_DIALOGUES[currentLevel]
+    : FALLBACK_LISTENING[currentLevel];
+  topicOptions = localSource.map((item, idx) => ({ topic: item.topic, source: 'fallback', fallbackIndex: idx }));
+  renderTopicSelect();
+
+  if (!supabaseClient) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from('content')
+      .select('id, topic')
+      .eq('type', currentTab)
+      .eq('level', currentLevel)
+      .order('id', { ascending: true });
+    // Nếu người dùng đã đổi tab/trình độ khác trong lúc chờ, bỏ qua kết quả này.
+    if (mySession !== topicOptionsSession) return;
+    if (error || !data) return;
+    const dbOptions = data.map(row => ({ topic: row.topic, source: 'db', id: row.id }));
+    topicOptions = [...dbOptions, ...topicOptions];
+    renderTopicSelect();
+  } catch (err) {
+    console.warn('Không lấy được danh sách chủ đề từ Supabase:', err);
+  }
+}
+
+async function loadSelectedTopic(opt) {
+  speechSession++;
+  window.speechSynthesis.cancel();
+  setPlayButton('idle');
+  setStatus('Đang tải chủ đề...');
+
+  try {
+    let item = null;
+    let fromFallback = false;
+
+    if (opt.source === 'fallback') {
+      const localSource = currentTab === 'dialogue'
+        ? FALLBACK_DIALOGUES[currentLevel]
+        : FALLBACK_LISTENING[currentLevel];
+      item = localSource[opt.fallbackIndex];
+      fromFallback = true;
+    } else if (opt.source === 'db' && supabaseClient) {
+      const { data, error } = await supabaseClient
+        .from('content')
+        .select('topic, data')
+        .eq('id', opt.id)
+        .single();
+      if (error || !data) throw error || new Error('Không tìm thấy chủ đề đã chọn');
+      item = currentTab === 'dialogue'
+        ? { topic: data.topic, lines: data.data.lines }
+        : { topic: data.topic, text: data.data.text };
+    }
+
+    if (!item) throw new Error('Không tải được chủ đề đã chọn');
+
+    currentItem = item;
+    usingFallback = fromFallback;
+    topicText.textContent = currentItem.topic;
+    renderScript();
+    syncTopicSelectValue();
+    setStatus(
+      usingFallback
+        ? 'Nhấn "Nghe" để bắt đầu (đang dùng nội dung dự phòng)'
+        : 'Nhấn "Nghe" để bắt đầu'
+    );
+  } catch (err) {
+    console.error('Lỗi khi tải chủ đề đã chọn:', err);
+    setStatus('Có lỗi khi tải chủ đề đã chọn, vui lòng thử lại.', true);
+  }
 }
 
 // Lấy 1 bản ghi ngẫu nhiên từ Supabase qua RPC get_random_content
@@ -592,6 +761,7 @@ async function loadNewItem() {
   setPlayButton('idle');
   randomBtn.disabled = true;
   setStatus('Đang tải chủ đề mới...');
+  loadTopicOptions(); // làm mới danh sách chủ đề để chọn, chạy song song không cần chờ
 
   // Ghi nhớ chủ đề đang hiển thị để tránh việc "random" ra đúng chủ đề cũ,
   // vì với data pool nhỏ (vd. fallback chỉ có 1-2 mục) trước đây có thể lặp
@@ -636,6 +806,7 @@ async function loadNewItem() {
 
     topicText.textContent = currentItem.topic;
     renderScript();
+    syncTopicSelectValue();
     setStatus(
       usingFallback
         ? 'Nhấn "Nghe" để bắt đầu (đang dùng nội dung dự phòng — chưa kết nối được Supabase)'
@@ -730,6 +901,11 @@ function speakAll() {
     const utter = new SpeechSynthesisUtterance(textsToSpeak[index]);
     utter.lang = 'en-US';
     utter.rate = 1;
+    if (currentTab === 'dialogue' && currentItem.lines[index]) {
+      const voiceSettings = getSpeakerVoiceSettings(currentItem.lines[index].s);
+      if (voiceSettings.voice) utter.voice = voiceSettings.voice;
+      utter.pitch = voiceSettings.pitch;
+    }
     utter.onend = () => speakNext(index + 1);
     utter.onerror = () => speakNext(index + 1);
     window.speechSynthesis.speak(utter);
@@ -803,6 +979,13 @@ document.getElementById('copyBtn').addEventListener('click', async () => {
 });
 
 randomBtn.addEventListener('click', loadNewItem);
+topicSelect.addEventListener('change', () => {
+  const idx = topicSelect.value;
+  if (idx === '') return;
+  const opt = topicOptions[Number(idx)];
+  if (!opt) return;
+  loadSelectedTopic(opt);
+});
 playBtn.addEventListener('click', () => {
   if (playState === 'idle') {
     speakAll();
