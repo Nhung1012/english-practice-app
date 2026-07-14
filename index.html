@@ -288,53 +288,13 @@ const supabaseClient = (SUPABASE_URL.includes("YOUR-PROJECT-REF") || !window.sup
   ? null
   : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ====== DỮ LIỆU DỰ PHÒNG (fallback) ======
-// Dùng khi chưa cấu hình Supabase, mất mạng, hoặc project Supabase free
-// tier đang bị pause. Giữ nguyên bộ mẫu demo ban đầu để app luôn chạy được.
-const FALLBACK_DIALOGUES = {
-  beginner: [
-    { topic: "Đặt bàn nhà hàng", lines: [
-      {s:"A", t:"Hello! Do you have a table for two?"},
-      {s:"B", t:"Yes, we do. Do you want a table by the window?"},
-      {s:"A", t:"Yes, please. That sounds nice."},
-      {s:"B", t:"No problem. Please follow me. Here is the menu."},
-      {s:"A", t:"Thank you. Can I have a few minutes to look at it?"},
-      {s:"B", t:"Sure, take your time."}
-    ]}
-  ],
-  intermediate: [
-    { topic: "Phỏng vấn xin việc", lines: [
-      {s:"A", t:"Thank you for coming in today. Can you tell me about your previous experience?"},
-      {s:"B", t:"Of course. I worked as a marketing assistant for two years."},
-      {s:"A", t:"That's great. What do you think is your biggest strength?"},
-      {s:"B", t:"I'd say my ability to adapt quickly to new tools and work well under pressure."}
-    ]}
-  ],
-  advanced: [
-    { topic: "Tranh luận về biến đổi khí hậu", lines: [
-      {s:"A", t:"Some argue that individual actions barely make a dent in climate change compared to corporate emissions."},
-      {s:"B", t:"That's true to an extent, but collective behavioral shifts can pressure industries to adapt faster."}
-    ]}
-  ]
-};
-
-const FALLBACK_LISTENING = {
-  beginner: [
-    { topic: "Một ngày của tôi", text: "I wake up at seven in the morning. First, I brush my teeth and wash my face. Then I eat breakfast with my family." }
-  ],
-  intermediate: [
-    { topic: "Du lịch", text: "Traveling is one of the best ways to learn about different cultures and broaden your perspective on life." }
-  ],
-  advanced: [
-    { topic: "Kinh tế toàn cầu", text: "The global economy has become increasingly interconnected over the past few decades, with supply chains spanning multiple continents." }
-  ]
-};
-
 // ====== STATE ======
+// Toàn bộ nội dung lấy động từ Supabase — không còn dữ liệu fix cứng nào
+// trong frontend. Nếu chưa kết nối được DB, app hiển thị thông báo lỗi
+// thay vì dùng nội dung mẫu.
 let currentTab = "dialogue";
 let currentLevel = "beginner";
 let currentItem = null;
-let usingFallback = false;
 
 // "Phiên đọc" hiện tại. Một số trình duyệt (đặc biệt Chrome) vẫn bắn ra
 // sự kiện onend/onerror của câu đang đọc dở dù đã gọi speechSynthesis.cancel()
@@ -350,10 +310,6 @@ const statusText = document.getElementById('statusText');
 const randomBtn = document.getElementById('randomBtn');
 const playBtn = document.getElementById('playBtn');
 const topicSelect = document.getElementById('topicSelect');
-
-function pickRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
 
 function setStatus(msg, isError) {
   statusText.textContent = msg;
@@ -414,15 +370,15 @@ function getSpeakerVoiceSettings(speaker) {
 }
 
 // ====== DANH SÁCH CHỦ ĐỀ ĐỂ CHỌN TRỰC TIẾP ======
-// Gộp chủ đề dự phòng (luôn có sẵn) + chủ đề thật từ Supabase (nếu có) theo
-// đúng tab + trình độ đang chọn, để người dùng chọn thẳng thay vì chỉ random.
+// Danh sách chủ đề lấy hoàn toàn từ Supabase theo đúng tab + trình độ
+// đang chọn, để người dùng chọn thẳng thay vì chỉ random.
 let topicOptions = [];
 let topicOptionsSession = 0;
 
 function renderTopicSelect() {
   const options = ['<option value="">-- Hoặc chọn chủ đề có sẵn --</option>'].concat(
     topicOptions.map((opt, i) =>
-      `<option value="${i}">${opt.source === 'db' ? '🌐 ' : ''}${escapeHtml(opt.topic)}</option>`
+      `<option value="${i}">${escapeHtml(opt.topic)}</option>`
     )
   );
   topicSelect.innerHTML = options.join('');
@@ -436,13 +392,14 @@ function syncTopicSelectValue() {
 }
 
 // Gemini đôi khi sinh trùng tên chủ đề giữa các lần chạy khác ngày (cùng
-// type/level), nên danh sách gộp có thể có 2 bản ghi khác id nhưng cùng
-// tên chủ đề. Lọc bớt, chỉ giữ lại bản xuất hiện đầu tiên theo tên.
+// type/level), nên danh sách có thể có 2 bản ghi khác id nhưng cùng tên
+// chủ đề. Lọc bớt (so sánh không phân biệt hoa/thường), giữ bản đầu tiên.
 function dedupeByTopic(options) {
   const seen = new Set();
   return options.filter((opt) => {
-    if (seen.has(opt.topic)) return false;
-    seen.add(opt.topic);
+    const key = (opt.topic || '').trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
 }
@@ -451,10 +408,7 @@ async function loadTopicOptions() {
   topicOptionsSession++;
   const mySession = topicOptionsSession;
 
-  const localSource = currentTab === 'dialogue'
-    ? FALLBACK_DIALOGUES[currentLevel]
-    : FALLBACK_LISTENING[currentLevel];
-  topicOptions = dedupeByTopic(localSource.map((item, idx) => ({ topic: item.topic, source: 'fallback', fallbackIndex: idx })));
+  topicOptions = [];
   renderTopicSelect();
 
   if (!supabaseClient) return;
@@ -468,8 +422,7 @@ async function loadTopicOptions() {
     // Nếu người dùng đã đổi tab/trình độ khác trong lúc chờ, bỏ qua kết quả này.
     if (mySession !== topicOptionsSession) return;
     if (error || !data) return;
-    const dbOptions = data.map(row => ({ topic: row.topic, source: 'db', id: row.id }));
-    topicOptions = dedupeByTopic([...dbOptions, ...topicOptions]);
+    topicOptions = dedupeByTopic(data.map(row => ({ topic: row.topic, id: row.id })));
     renderTopicSelect();
   } catch (err) {
     console.warn('Không lấy được danh sách chủ đề từ Supabase:', err);
@@ -483,39 +436,22 @@ async function loadSelectedTopic(opt) {
   setStatus('Đang tải chủ đề...');
 
   try {
-    let item = null;
-    let fromFallback = false;
+    if (!supabaseClient) throw new Error('Chưa cấu hình Supabase');
 
-    if (opt.source === 'fallback') {
-      const localSource = currentTab === 'dialogue'
-        ? FALLBACK_DIALOGUES[currentLevel]
-        : FALLBACK_LISTENING[currentLevel];
-      item = localSource[opt.fallbackIndex];
-      fromFallback = true;
-    } else if (opt.source === 'db' && supabaseClient) {
-      const { data, error } = await supabaseClient
-        .from('content')
-        .select('topic, data')
-        .eq('id', opt.id)
-        .single();
-      if (error || !data) throw error || new Error('Không tìm thấy chủ đề đã chọn');
-      item = currentTab === 'dialogue'
-        ? { topic: data.topic, lines: data.data.lines }
-        : { topic: data.topic, text: data.data.text };
-    }
+    const { data, error } = await supabaseClient
+      .from('content')
+      .select('topic, data')
+      .eq('id', opt.id)
+      .single();
+    if (error || !data) throw error || new Error('Không tìm thấy chủ đề đã chọn');
 
-    if (!item) throw new Error('Không tải được chủ đề đã chọn');
-
-    currentItem = item;
-    usingFallback = fromFallback;
+    currentItem = currentTab === 'dialogue'
+      ? { topic: data.topic, lines: data.data.lines }
+      : { topic: data.topic, text: data.data.text };
     topicText.textContent = currentItem.topic;
     renderScript();
     syncTopicSelectValue();
-    setStatus(
-      usingFallback
-        ? 'Nhấn "Nghe" để bắt đầu (đang dùng nội dung dự phòng)'
-        : 'Nhấn "Nghe" để bắt đầu'
-    );
+    setStatus('Nhấn "Nghe" để bắt đầu');
   } catch (err) {
     console.error('Lỗi khi tải chủ đề đã chọn:', err);
     setStatus('Có lỗi khi tải chủ đề đã chọn, vui lòng thử lại.', true);
@@ -550,55 +486,34 @@ async function loadNewItem() {
   setStatus('Đang tải chủ đề mới...');
   loadTopicOptions(); // làm mới danh sách chủ đề để chọn, chạy song song không cần chờ
 
-  // Ghi nhớ chủ đề đang hiển thị để tránh việc "random" ra đúng chủ đề cũ,
-  // vì với data pool nhỏ (vd. fallback chỉ có 1-2 mục) trước đây có thể lặp
-  // lại y hệt chủ đề cũ khiến người dùng tưởng nút không hoạt động.
+  // Ghi nhớ chủ đề đang hiển thị để tránh việc "random" ra đúng chủ đề cũ
+  // khi data pool cho trình độ này còn ít bản ghi.
   const previousTopic = currentItem ? currentItem.topic : null;
   const maxAttempts = 3;
 
   try {
     let newItem = null;
-    let newUsingFallback = false;
-    const localSource = currentTab === 'dialogue'
-      ? FALLBACK_DIALOGUES[currentLevel]
-      : FALLBACK_LISTENING[currentLevel];
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Xen kẽ nguồn Supabase / nội dung dự phòng giữa các lần thử: nếu
-      // Supabase hiện chỉ có đúng 1 bản ghi cho trình độ này (data còn ít,
-      // sẽ tự nhiều lên mỗi ngày), random ở đó mãi vẫn ra cùng 1 chủ đề.
-      // Xen thêm nguồn dự phòng (nhiều lựa chọn hơn) để nút "Đổi chủ đề"
-      // luôn đổi được, thay vì trông như bị đứng.
-      const tryFallbackThisAttempt = attempt % 2 === 1;
-
-      if (!tryFallbackThisAttempt) {
-        const fromDb = await fetchFromSupabase(currentTab, currentLevel);
-        if (fromDb) {
-          newItem = fromDb;
-          newUsingFallback = false;
-        } else {
-          newItem = pickRandom(localSource);
-          newUsingFallback = true;
-        }
-      } else {
-        newItem = pickRandom(localSource);
-        newUsingFallback = true;
-      }
-
+      const fromDb = await fetchFromSupabase(currentTab, currentLevel);
+      if (!fromDb) break;
+      newItem = fromDb;
       if (!previousTopic || newItem.topic !== previousTopic) break;
     }
 
-    currentItem = newItem;
-    usingFallback = newUsingFallback;
+    if (!newItem) {
+      topicText.textContent = '—';
+      scriptBox.innerHTML = '';
+      currentItem = null;
+      setStatus('Chưa tải được nội dung từ Supabase. Kiểm tra kết nối mạng hoặc thử lại sau.', true);
+      return;
+    }
 
+    currentItem = newItem;
     topicText.textContent = currentItem.topic;
     renderScript();
     syncTopicSelectValue();
-    setStatus(
-      usingFallback
-        ? 'Nhấn "Nghe" để bắt đầu (đang dùng nội dung dự phòng — chưa kết nối được Supabase)'
-        : 'Nhấn "Nghe" để bắt đầu'
-    );
+    setStatus('Nhấn "Nghe" để bắt đầu');
   } catch (err) {
     console.error('Lỗi khi tải chủ đề mới:', err);
     setStatus('Có lỗi khi tải chủ đề mới, vui lòng thử lại.', true);
@@ -654,6 +569,7 @@ function setPlayButton(state) {
 }
 
 function speakAll() {
+  if (!currentItem) return;
   speechSession++;
   const mySession = speechSession;
   window.speechSynthesis.cancel();
@@ -731,6 +647,7 @@ function getPlainTextContent() {
 }
 
 document.getElementById('copyBtn').addEventListener('click', async () => {
+  if (!currentItem) return;
   const copyBtn = document.getElementById('copyBtn');
   const textToCopy = `Chủ đề: ${currentItem.topic}\n\n${getPlainTextContent()}`;
   try {
