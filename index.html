@@ -742,9 +742,40 @@ const wpExample = document.getElementById('wpExample');
 const wpSpeak = document.getElementById('wpSpeak');
 const wpClose = document.getElementById('wpClose');
 
-const wordCache = {};        // từ (đã chuẩn hoá) -> { ipa, pos, example, vi }
+// Cache 2 tầng để tăng tốc: RAM cho phiên hiện tại + localStorage để giữ lại
+// kết quả qua các lần tải trang (từ đã tra 1 lần sẽ hiện tức thì mãi về sau).
+const WP_CACHE_PREFIX = 'wp:';
+const wordCache = {};        // từ -> { ipa, pos, example, vi, dDone, vDone }
 let currentPopupWord = '';   // từ đang hiển thị (để nút 🔊 đọc)
 let lookupSession = 0;       // huỷ kết quả cũ nếu người dùng bấm từ khác
+let currentAbort = null;     // huỷ các request đang chạy khi bấm từ khác
+const inflight = new Set();  // các từ đang được nạp trước (tránh gọi trùng)
+
+function cacheGet(word) {
+  if (wordCache[word]) return wordCache[word];
+  try {
+    const raw = localStorage.getItem(WP_CACHE_PREFIX + word);
+    if (raw) { const v = JSON.parse(raw); wordCache[word] = v; return v; }
+  } catch (e) { /* localStorage bị chặn → bỏ qua, vẫn chạy được */ }
+  return null;
+}
+function cacheSet(word, info) {
+  wordCache[word] = info;
+  try { localStorage.setItem(WP_CACHE_PREFIX + word, JSON.stringify(info)); }
+  catch (e) { /* hết dung lượng hoặc bị chặn → bỏ qua */ }
+}
+
+// Gộp tín hiệu huỷ của người dùng với một timeout, để request không treo mãi.
+function timedSignal(signal, ms) {
+  try {
+    if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+      const t = AbortSignal.timeout(ms);
+      if (signal && AbortSignal.any) return AbortSignal.any([signal, t]);
+      return t;
+    }
+  } catch (e) { /* trình duyệt cũ → dùng signal gốc */ }
+  return signal;
+}
 
 // Bỏ dấu câu, đưa về chữ thường để tra cứu; giữ ' và - trong từ.
 function normalizeWord(raw) {
@@ -752,41 +783,42 @@ function normalizeWord(raw) {
 }
 
 // Tra phiên âm IPA + từ loại + ví dụ từ dictionaryapi.dev (miễn phí, không cần key).
-async function fetchDictionary(word) {
-  try {
-    const res = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word));
-    if (!res.ok) return { ipa: '', pos: '', example: '' };
-    const data = await res.json();
-    const entry = Array.isArray(data) ? data[0] : null;
-    if (!entry) return { ipa: '', pos: '', example: '' };
+// Lưu ý: lỗi mạng/huỷ/timeout sẽ được ném ra (throw) để bên gọi biết mà thử lại;
+// chỉ khi API trả 404 (từ không có trong từ điển) mới trả về rỗng và coi như "đã tra".
+async function fetchDictionary(word, signal) {
+  const res = await fetch(
+    'https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word),
+    { signal: timedSignal(signal, 6000) }
+  );
+  if (!res.ok) return { ipa: '', pos: '', example: '' };
+  const data = await res.json();
+  const entry = Array.isArray(data) ? data[0] : null;
+  if (!entry) return { ipa: '', pos: '', example: '' };
 
-    let ipa = entry.phonetic || '';
-    if (!ipa && Array.isArray(entry.phonetics)) {
-      const p = entry.phonetics.find(x => x && x.text);
-      if (p) ipa = p.text;
-    }
-
-    let pos = '', example = '';
-    if (Array.isArray(entry.meanings) && entry.meanings.length) {
-      pos = entry.meanings.map(m => m.partOfSpeech).filter(Boolean).slice(0, 3).join(', ');
-      for (const m of entry.meanings) {
-        for (const d of (m.definitions || [])) {
-          if (d.example) { example = d.example; break; }
-        }
-        if (example) break;
-      }
-    }
-    return { ipa, pos, example };
-  } catch (err) {
-    return { ipa: '', pos: '', example: '' };
+  let ipa = entry.phonetic || '';
+  if (!ipa && Array.isArray(entry.phonetics)) {
+    const p = entry.phonetics.find(x => x && x.text);
+    if (p) ipa = p.text;
   }
+
+  let pos = '', example = '';
+  if (Array.isArray(entry.meanings) && entry.meanings.length) {
+    pos = entry.meanings.map(m => m.partOfSpeech).filter(Boolean).slice(0, 3).join(', ');
+    for (const m of entry.meanings) {
+      for (const d of (m.definitions || [])) {
+        if (d.example) { example = d.example; break; }
+      }
+      if (example) break;
+    }
+  }
+  return { ipa, pos, example };
 }
 
 // Dịch từ sang tiếng Việt. Thử Google (gtx) trước, fallback sang MyMemory.
-async function fetchTranslation(word) {
+async function fetchTranslation(word, signal) {
   try {
     const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=' + encodeURIComponent(word);
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: timedSignal(signal, 6000) });
     if (res.ok) {
       const j = await res.json();
       if (j && Array.isArray(j[0])) {
@@ -794,19 +826,19 @@ async function fetchTranslation(word) {
         if (vi) return vi;
       }
     }
-  } catch (err) { /* thử nguồn dự phòng bên dưới */ }
+  } catch (err) {
+    if (err && err.name === 'AbortError') throw err; // người dùng huỷ/timeout → không thử tiếp
+    /* lỗi mạng Google → thử MyMemory bên dưới */
+  }
 
-  try {
-    const url = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(word) + '&langpair=en|vi';
-    const res = await fetch(url);
-    if (res.ok) {
-      const j = await res.json();
-      if (j && j.responseData && j.responseData.translatedText) {
-        return String(j.responseData.translatedText).trim();
-      }
+  const url = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(word) + '&langpair=en|vi';
+  const res = await fetch(url, { signal: timedSignal(signal, 6000) });
+  if (res.ok) {
+    const j = await res.json();
+    if (j && j.responseData && j.responseData.translatedText) {
+      return String(j.responseData.translatedText).trim();
     }
-  } catch (err) { /* bỏ qua */ }
-
+  }
   return '';
 }
 
@@ -849,6 +881,34 @@ function hideWordPopup() {
   document.querySelectorAll('.word.looking-up').forEach(el => el.classList.remove('looking-up'));
 }
 
+// Nạp trước dữ liệu 1 từ vào cache (không mở popup) — dùng khi rê chuột/chạm,
+// để lúc bấm thật thì kết quả đã sẵn sàng, hiện gần như tức thì.
+function prefetchWord(rawWord) {
+  const word = normalizeWord(rawWord);
+  if (!word) return;
+  const cached = cacheGet(word);
+  if (cached && cached.dDone && cached.vDone) return; // đã đủ, khỏi nạp
+  if (inflight.has(word)) return;                     // đang nạp rồi
+  inflight.add(word);
+
+  const info = cached
+    ? Object.assign({}, cached)
+    : { ipa: '', pos: '', example: '', vi: '', dDone: false, vDone: false };
+  const tasks = [];
+  if (!info.dDone) tasks.push(
+    fetchDictionary(word).then(d => {
+      info.ipa = d.ipa; info.pos = d.pos; info.example = d.example; info.dDone = true;
+      cacheSet(word, info);
+    }).catch(() => {})
+  );
+  if (!info.vDone) tasks.push(
+    fetchTranslation(word).then(vi => {
+      info.vi = vi; info.vDone = true; cacheSet(word, info);
+    }).catch(() => {})
+  );
+  Promise.allSettled(tasks).then(() => inflight.delete(word));
+}
+
 async function showWordPopup(rawWord, anchorEl) {
   const word = normalizeWord(rawWord);
   if (!word) return;
@@ -857,42 +917,57 @@ async function showWordPopup(rawWord, anchorEl) {
   lookupSession++;
   const mySession = lookupSession;
 
+  // Huỷ mọi request còn dang dở của từ trước để giải phóng mạng.
+  if (currentAbort) currentAbort.abort();
+  currentAbort = new AbortController();
+  const signal = currentAbort.signal;
+
   document.querySelectorAll('.word.looking-up').forEach(el => el.classList.remove('looking-up'));
   anchorEl.classList.add('looking-up');
 
-  // Trạng thái ban đầu
+  // Hiện ngay phần đã có trong cache (nếu có), phần thiếu để "Đang tra…".
+  const cached = cacheGet(word);
+  const info = cached
+    ? Object.assign({}, cached)
+    : { ipa: '', pos: '', example: '', vi: '', dDone: false, vDone: false };
+
   wpWord.textContent = word;
-  wpIpa.textContent = '';
-  wpPos.innerHTML = '';
-  wpVi.innerHTML = '<span class="wp-loading">Đang tra…</span>';
-  wpExample.style.display = 'none';
-  wpExample.textContent = '';
-  positionPopup(anchorEl);
-
-  // Dùng cache nếu đã tra trước đó
-  if (wordCache[word]) {
-    renderPopupData(wordCache[word]);
-    positionPopup(anchorEl);
-    return;
-  }
-
-  const [dict, vi] = await Promise.all([fetchDictionary(word), fetchTranslation(word)]);
-  if (mySession !== lookupSession) return;   // người dùng đã bấm từ khác
-
-  const info = { ipa: dict.ipa, pos: dict.pos, example: dict.example, vi };
-  wordCache[word] = info;
   renderPopupData(info);
   positionPopup(anchorEl);
+
+  if (info.dDone && info.vDone) return; // đã đủ dữ liệu, không cần gọi API
+
+  // Gọi song song, HIỂN THỊ DẦN: phần nào xong trước cập nhật trước.
+  if (!info.dDone) {
+    fetchDictionary(word, signal).then(d => {
+      if (mySession !== lookupSession) return;
+      info.ipa = d.ipa; info.pos = d.pos; info.example = d.example; info.dDone = true;
+      cacheSet(word, info);
+      renderPopupData(info);
+      positionPopup(anchorEl);
+    }).catch(() => {}); // lỗi/huỷ → giữ nguyên, lần sau bấm sẽ thử lại
+  }
+  if (!info.vDone) {
+    fetchTranslation(word, signal).then(vi => {
+      if (mySession !== lookupSession) return;
+      info.vi = vi; info.vDone = true;
+      cacheSet(word, info);
+      renderPopupData(info);
+      positionPopup(anchorEl);
+    }).catch(() => {});
+  }
 }
 
 function renderPopupData(info) {
-  wpIpa.textContent = info.ipa ? info.ipa : '(không có phiên âm)';
-  if (info.pos) {
-    wpPos.innerHTML = '<span class="wp-pos">' + escapeHtml(info.pos) + '</span>';
+  wpIpa.textContent = info.ipa ? info.ipa : (info.dDone ? '(không có phiên âm)' : '…');
+  wpPos.innerHTML = info.pos ? '<span class="wp-pos">' + escapeHtml(info.pos) + '</span>' : '';
+  if (info.vi) {
+    wpVi.textContent = info.vi;
+  } else if (info.vDone) {
+    wpVi.textContent = '(chưa dịch được — kiểm tra mạng)';
   } else {
-    wpPos.innerHTML = '';
+    wpVi.innerHTML = '<span class="wp-loading">Đang tra…</span>';
   }
-  wpVi.textContent = info.vi ? info.vi : '(chưa dịch được — kiểm tra mạng)';
   if (info.example) {
     wpExample.textContent = '“' + info.example + '”';
     wpExample.style.display = 'block';
@@ -908,6 +983,17 @@ scriptBox.addEventListener('click', (e) => {
   e.stopPropagation();
   showWordPopup(el.textContent, el);
 });
+
+// Nạp trước khi người dùng RÊ CHUỘT (desktop) hoặc CHẠM (mobile) vào từ,
+// để khi bấm thật thì dữ liệu thường đã có sẵn.
+scriptBox.addEventListener('pointerover', (e) => {
+  const el = e.target.closest('.word');
+  if (el) prefetchWord(el.textContent);
+});
+scriptBox.addEventListener('touchstart', (e) => {
+  const el = e.target.closest('.word');
+  if (el) prefetchWord(el.textContent);
+}, { passive: true });
 
 wpSpeak.addEventListener('click', (e) => { e.stopPropagation(); speakWord(currentPopupWord); });
 wpClose.addEventListener('click', (e) => { e.stopPropagation(); hideWordPopup(); });
