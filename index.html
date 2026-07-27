@@ -223,6 +223,87 @@
   }
   .source-badge.live { background: #dcfce7; color: var(--green); }
   .source-badge.offline { background: #fee2e2; color: #dc2626; }
+
+  /* ====== BẤM TỪ ĐỂ TRA PHIÊN ÂM + NGHĨA ====== */
+  .word {
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.12s;
+    padding: 0 1px;
+  }
+  .word:hover { background: #e0edff; }
+  .word.looking-up { background: #dbeafe; }
+
+  .word-popup {
+    position: fixed;
+    z-index: 1000;
+    width: 280px;
+    max-width: calc(100vw - 24px);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.18);
+    padding: 14px 16px;
+    font-size: 14px;
+    display: none;
+  }
+  .word-popup.show { display: block; }
+  .wp-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .wp-word {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    word-break: break-word;
+  }
+  .wp-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .wp-btn {
+    border: 1px solid var(--border);
+    background: white;
+    border-radius: 8px;
+    padding: 4px 9px;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .wp-btn:hover { background: #f1f5f9; }
+  .wp-ipa {
+    color: var(--primary);
+    font-size: 15px;
+    margin-bottom: 8px;
+    min-height: 18px;
+  }
+  .wp-pos {
+    display: inline-block;
+    background: #f1f5f9;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+  }
+  .wp-vi {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--green);
+    margin-bottom: 8px;
+    word-break: break-word;
+  }
+  .wp-example {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+    line-height: 1.5;
+    border-top: 1px dashed var(--border);
+    padding-top: 8px;
+  }
+  .wp-loading { color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -230,6 +311,7 @@
   <header>
     <h1>🎧 Luyện Nghe &amp; Đọc Tiếng Anh</h1>
     <p>Chọn trình độ, random chủ đề, luyện nghe/đọc mỗi ngày</p>
+    <p style="margin-top:4px">👆 Bấm vào bất kỳ từ nào để xem phiên âm &amp; nghĩa</p>
   </header>
 
   <div class="tabs">
@@ -272,6 +354,21 @@
     </div>
     <div class="script-box" id="scriptBox"></div>
   </div>
+</div>
+
+<!-- Popup tra từ (bấm vào từ trong script) -->
+<div class="word-popup" id="wordPopup">
+  <div class="wp-head">
+    <span class="wp-word" id="wpWord"></span>
+    <div class="wp-actions">
+      <button class="wp-btn" id="wpSpeak" title="Nghe phát âm">🔊</button>
+      <button class="wp-btn" id="wpClose" title="Đóng">✕</button>
+    </div>
+  </div>
+  <div class="wp-ipa" id="wpIpa"></div>
+  <div id="wpPos"></div>
+  <div class="wp-vi" id="wpVi"></div>
+  <div class="wp-example" id="wpExample" style="display:none"></div>
 </div>
 
 <!-- supabase-js qua CDN, không cần build tool -->
@@ -524,6 +621,21 @@ async function loadNewItem() {
   }
 }
 
+// Tách một đoạn text thành HTML, mỗi từ tiếng Anh được bọc trong
+// <span class="word"> để bấm tra phiên âm/nghĩa; dấu câu & khoảng trắng
+// giữ nguyên. Trả về chuỗi HTML đã escape an toàn.
+function tokenizeWords(text) {
+  // Chia thành các đoạn: từ (chữ cái, có thể kèm ' hoặc - ở giữa) và phần còn lại.
+  const parts = String(text).split(/([A-Za-z]+(?:[''\-][A-Za-z]+)*)/);
+  return parts.map((part, i) => {
+    // Các phần tử ở chỉ số lẻ là "từ" đã bắt được trong nhóm regex.
+    if (i % 2 === 1 && part) {
+      return `<span class="word">${escapeHtml(part)}</span>`;
+    }
+    return escapeHtml(part);
+  }).join('');
+}
+
 function renderScript() {
   scriptBox.innerHTML = '';
   if (currentTab === 'dialogue') {
@@ -534,7 +646,7 @@ function renderScript() {
       div.id = 'line-' + i;
       const speakerLabel = line.s === 'A' ? 'Người A' : 'Người B';
       const speakerClass = line.s === 'A' ? 'speaker-a' : 'speaker-b';
-      div.innerHTML = `<span class="${speakerClass}">${speakerLabel}:</span> ${line.t}`;
+      div.innerHTML = `<span class="${speakerClass}">${speakerLabel}:</span> ${tokenizeWords(line.t)}`;
       scriptBox.appendChild(div);
     });
   } else {
@@ -544,7 +656,7 @@ function renderScript() {
       const div = document.createElement('div');
       div.className = 'line listen-line';
       div.id = 'line-' + i;
-      div.textContent = sent.trim();
+      div.innerHTML = tokenizeWords(sent.trim());
       scriptBox.appendChild(div);
     });
   }
@@ -616,6 +728,196 @@ function speakAll() {
 
   speakNext(0);
 }
+
+// ====== TRA TỪ: PHIÊN ÂM (IPA) + NGHĨA TIẾNG VIỆT ======
+// Bấm vào 1 từ trong script → popup hiện phiên âm, từ loại, ví dụ (lấy từ
+// dictionaryapi.dev) và nghĩa tiếng Việt (lấy từ API dịch miễn phí). Kết quả
+// được cache trong phiên để không gọi lại API cho cùng một từ.
+const wordPopup = document.getElementById('wordPopup');
+const wpWord = document.getElementById('wpWord');
+const wpIpa = document.getElementById('wpIpa');
+const wpPos = document.getElementById('wpPos');
+const wpVi = document.getElementById('wpVi');
+const wpExample = document.getElementById('wpExample');
+const wpSpeak = document.getElementById('wpSpeak');
+const wpClose = document.getElementById('wpClose');
+
+const wordCache = {};        // từ (đã chuẩn hoá) -> { ipa, pos, example, vi }
+let currentPopupWord = '';   // từ đang hiển thị (để nút 🔊 đọc)
+let lookupSession = 0;       // huỷ kết quả cũ nếu người dùng bấm từ khác
+
+// Bỏ dấu câu, đưa về chữ thường để tra cứu; giữ ' và - trong từ.
+function normalizeWord(raw) {
+  return String(raw).toLowerCase().replace(/[^a-z''\-]/g, '').replace(/^[''\-]+|[''\-]+$/g, '');
+}
+
+// Tra phiên âm IPA + từ loại + ví dụ từ dictionaryapi.dev (miễn phí, không cần key).
+async function fetchDictionary(word) {
+  try {
+    const res = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word));
+    if (!res.ok) return { ipa: '', pos: '', example: '' };
+    const data = await res.json();
+    const entry = Array.isArray(data) ? data[0] : null;
+    if (!entry) return { ipa: '', pos: '', example: '' };
+
+    let ipa = entry.phonetic || '';
+    if (!ipa && Array.isArray(entry.phonetics)) {
+      const p = entry.phonetics.find(x => x && x.text);
+      if (p) ipa = p.text;
+    }
+
+    let pos = '', example = '';
+    if (Array.isArray(entry.meanings) && entry.meanings.length) {
+      pos = entry.meanings.map(m => m.partOfSpeech).filter(Boolean).slice(0, 3).join(', ');
+      for (const m of entry.meanings) {
+        for (const d of (m.definitions || [])) {
+          if (d.example) { example = d.example; break; }
+        }
+        if (example) break;
+      }
+    }
+    return { ipa, pos, example };
+  } catch (err) {
+    return { ipa: '', pos: '', example: '' };
+  }
+}
+
+// Dịch từ sang tiếng Việt. Thử Google (gtx) trước, fallback sang MyMemory.
+async function fetchTranslation(word) {
+  try {
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=' + encodeURIComponent(word);
+    const res = await fetch(url);
+    if (res.ok) {
+      const j = await res.json();
+      if (j && Array.isArray(j[0])) {
+        const vi = j[0].map(seg => (seg && seg[0]) ? seg[0] : '').join('').trim();
+        if (vi) return vi;
+      }
+    }
+  } catch (err) { /* thử nguồn dự phòng bên dưới */ }
+
+  try {
+    const url = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(word) + '&langpair=en|vi';
+    const res = await fetch(url);
+    if (res.ok) {
+      const j = await res.json();
+      if (j && j.responseData && j.responseData.translatedText) {
+        return String(j.responseData.translatedText).trim();
+      }
+    }
+  } catch (err) { /* bỏ qua */ }
+
+  return '';
+}
+
+// Đọc riêng 1 từ bằng giọng đọc sẵn có (Web Speech API), không cần mạng.
+function speakWord(word) {
+  if (!word) return;
+  speechSession++;                 // dừng vòng đọc script đang chạy (nếu có)
+  window.speechSynthesis.cancel();
+  setPlayButton('idle');
+  const utter = new SpeechSynthesisUtterance(word);
+  utter.lang = 'en-US';
+  utter.rate = 0.85;
+  const v = femaleVoice || maleVoice;
+  if (v) utter.voice = v;
+  window.speechSynthesis.speak(utter);
+}
+
+function positionPopup(anchorEl) {
+  // Hiện popup để đo kích thước thật rồi mới định vị.
+  wordPopup.classList.add('show');
+  const rect = anchorEl.getBoundingClientRect();
+  const pw = wordPopup.offsetWidth;
+  const ph = wordPopup.offsetHeight;
+  const margin = 8;
+
+  let left = rect.left + rect.width / 2 - pw / 2;
+  left = Math.max(margin, Math.min(left, window.innerWidth - pw - margin));
+
+  let top = rect.bottom + 6;            // mặc định hiện bên dưới từ
+  if (top + ph > window.innerHeight - margin) {
+    top = rect.top - ph - 6;            // không đủ chỗ → hiện bên trên
+    if (top < margin) top = margin;
+  }
+  wordPopup.style.left = left + 'px';
+  wordPopup.style.top = top + 'px';
+}
+
+function hideWordPopup() {
+  wordPopup.classList.remove('show');
+  document.querySelectorAll('.word.looking-up').forEach(el => el.classList.remove('looking-up'));
+}
+
+async function showWordPopup(rawWord, anchorEl) {
+  const word = normalizeWord(rawWord);
+  if (!word) return;
+
+  currentPopupWord = word;
+  lookupSession++;
+  const mySession = lookupSession;
+
+  document.querySelectorAll('.word.looking-up').forEach(el => el.classList.remove('looking-up'));
+  anchorEl.classList.add('looking-up');
+
+  // Trạng thái ban đầu
+  wpWord.textContent = word;
+  wpIpa.textContent = '';
+  wpPos.innerHTML = '';
+  wpVi.innerHTML = '<span class="wp-loading">Đang tra…</span>';
+  wpExample.style.display = 'none';
+  wpExample.textContent = '';
+  positionPopup(anchorEl);
+
+  // Dùng cache nếu đã tra trước đó
+  if (wordCache[word]) {
+    renderPopupData(wordCache[word]);
+    positionPopup(anchorEl);
+    return;
+  }
+
+  const [dict, vi] = await Promise.all([fetchDictionary(word), fetchTranslation(word)]);
+  if (mySession !== lookupSession) return;   // người dùng đã bấm từ khác
+
+  const info = { ipa: dict.ipa, pos: dict.pos, example: dict.example, vi };
+  wordCache[word] = info;
+  renderPopupData(info);
+  positionPopup(anchorEl);
+}
+
+function renderPopupData(info) {
+  wpIpa.textContent = info.ipa ? info.ipa : '(không có phiên âm)';
+  if (info.pos) {
+    wpPos.innerHTML = '<span class="wp-pos">' + escapeHtml(info.pos) + '</span>';
+  } else {
+    wpPos.innerHTML = '';
+  }
+  wpVi.textContent = info.vi ? info.vi : '(chưa dịch được — kiểm tra mạng)';
+  if (info.example) {
+    wpExample.textContent = '“' + info.example + '”';
+    wpExample.style.display = 'block';
+  } else {
+    wpExample.style.display = 'none';
+  }
+}
+
+// Bấm vào từ trong script (event delegation)
+scriptBox.addEventListener('click', (e) => {
+  const el = e.target.closest('.word');
+  if (!el) return;
+  e.stopPropagation();
+  showWordPopup(el.textContent, el);
+});
+
+wpSpeak.addEventListener('click', (e) => { e.stopPropagation(); speakWord(currentPopupWord); });
+wpClose.addEventListener('click', (e) => { e.stopPropagation(); hideWordPopup(); });
+wordPopup.addEventListener('click', (e) => e.stopPropagation());
+
+// Đóng popup khi bấm ra ngoài, cuộn trang, đổi kích thước hoặc nhấn Esc
+document.addEventListener('click', hideWordPopup);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideWordPopup(); });
+window.addEventListener('resize', hideWordPopup);
+window.addEventListener('scroll', hideWordPopup, true);
 
 // ====== EVENTS ======
 document.querySelectorAll('.tab-btn').forEach(btn => {
