@@ -118,17 +118,118 @@
     font-weight: 600;
     font-size: 15px;
   }
-  .topic-select-row {
+  /* ====== Ô CHỌN + TÌM CHỦ ĐỀ (combobox) ======
+     Một ô duy nhất: gõ để lọc, danh sách kết quả xổ ngay bên dưới. */
+  .topic-combo {
+    position: relative;
     margin-bottom: 16px;
   }
-  .topic-select-row select {
-    width: 100%;
-    padding: 10px 12px;
+  .tc-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px 0 12px;
     border-radius: 10px;
     border: 1.5px solid var(--border);
-    font-size: 14px;
     background: white;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .topic-combo.open .tc-field,
+  .tc-field:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+  .tc-icon {
+    font-size: 14px;
+    opacity: 0.65;
+    flex-shrink: 0;
+  }
+  .tc-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 11px 6px;
+    font-size: 14px;
+    font-family: inherit;
     color: var(--text);
+  }
+  .tc-input::placeholder { color: var(--muted); }
+  .tc-btn {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1;
+    padding: 7px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .tc-btn:hover { background: #f1f5f9; color: var(--text); }
+  .tc-btn[hidden] { display: none; }
+  .tc-caret { transition: transform 0.15s; }
+  .topic-combo.open .tc-caret { transform: rotate(180deg); }
+
+  .tc-panel {
+    position: absolute;
+    z-index: 60;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+    overflow: hidden;
+  }
+  .tc-panel[hidden] { display: none; }
+  .tc-count {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+  }
+  .tc-count.empty { color: #dc2626; }
+  .tc-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+    max-height: 264px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .tc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+  .tc-item .tc-check {
+    flex-shrink: 0;
+    width: 16px;
+    color: var(--green);
+    font-size: 12px;
+  }
+  .tc-item.active { background: #eff6ff; }
+  .tc-item.current { font-weight: 600; }
+  .tc-item mark {
+    background: var(--highlight);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 1px;
+  }
+  .tc-empty {
+    padding: 18px 14px;
+    text-align: center;
+    font-size: 13.5px;
+    color: var(--muted);
   }
   .btn {
     background: var(--primary);
@@ -334,10 +435,20 @@
       <button class="btn secondary" id="randomBtn">🔀 Đổi chủ đề</button>
     </div>
 
-    <div class="topic-select-row">
-      <select id="topicSelect">
-        <option value="">-- Hoặc chọn chủ đề có sẵn --</option>
-      </select>
+    <div class="topic-combo" id="topicCombo">
+      <div class="tc-field">
+        <span class="tc-icon">🔍</span>
+        <input type="text" id="topicSearch" class="tc-input" autocomplete="off"
+               placeholder="Tìm hoặc chọn chủ đề khác..."
+               role="combobox" aria-expanded="false" aria-autocomplete="list"
+               aria-controls="topicListbox">
+        <button type="button" class="tc-btn tc-clear" id="topicSearchClear" hidden tabindex="-1" title="Xoá từ khoá" aria-label="Xoá từ khoá">✕</button>
+        <button type="button" class="tc-btn tc-caret" id="topicCaret" tabindex="-1" title="Xem tất cả chủ đề" aria-label="Xem tất cả chủ đề">▾</button>
+      </div>
+      <div class="tc-panel" id="topicPanel" hidden>
+        <div class="tc-count" id="topicCount"></div>
+        <ul class="tc-list" id="topicListbox" role="listbox" aria-label="Danh sách chủ đề"></ul>
+      </div>
     </div>
 
     <div class="controls">
@@ -406,7 +517,13 @@ const scriptLabel = document.getElementById('scriptLabel');
 const statusText = document.getElementById('statusText');
 const randomBtn = document.getElementById('randomBtn');
 const playBtn = document.getElementById('playBtn');
-const topicSelect = document.getElementById('topicSelect');
+const topicCombo = document.getElementById('topicCombo');
+const topicSearch = document.getElementById('topicSearch');
+const topicSearchClear = document.getElementById('topicSearchClear');
+const topicCaret = document.getElementById('topicCaret');
+const topicPanel = document.getElementById('topicPanel');
+const topicListbox = document.getElementById('topicListbox');
+const topicCount = document.getElementById('topicCount');
 
 function setStatus(msg, isError) {
   statusText.textContent = msg;
@@ -471,21 +588,176 @@ function getSpeakerVoiceSettings(speaker) {
 // đang chọn, để người dùng chọn thẳng thay vì chỉ random.
 let topicOptions = [];
 let topicOptionsSession = 0;
+// Từ khoá đang lọc trong ô tìm kiếm (đã chuẩn hoá).
+let topicQuery = '';
 
-function renderTopicSelect() {
-  const options = ['<option value="">-- Hoặc chọn chủ đề có sẵn --</option>'].concat(
-    topicOptions.map((opt, i) =>
-      `<option value="${i}">${escapeHtml(opt.topic)}</option>`
-    )
-  );
-  topicSelect.innerHTML = options.join('');
-  syncTopicSelectValue();
+// Chuẩn hoá chuỗi để tìm kiếm "dễ tính": bỏ dấu tiếng Việt, đưa về chữ
+// thường, gộp khoảng trắng. Nhờ vậy gõ "ve may bay" vẫn ra "vé máy bay",
+// và gõ "Sức Khỏe" hay "suc khoe" đều tìm được như nhau.
+function normalizeForSearch(str) {
+  return String(str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')   // bỏ dấu thanh + dấu mũ
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function syncTopicSelectValue() {
-  if (!currentItem) { topicSelect.value = ''; return; }
-  const idx = topicOptions.findIndex(opt => opt.topic === currentItem.topic);
-  topicSelect.value = idx >= 0 ? String(idx) : '';
+// Khớp khi TẤT CẢ các từ trong ô tìm kiếm đều xuất hiện trong tên chủ đề
+// (không cần đúng thứ tự). Vd "ve bay" khớp "Hỏi cách đổi vé máy bay".
+function matchTopic(normalizedTopic, terms) {
+  return terms.every(term => normalizedTopic.includes(term));
+}
+
+// Trả về danh sách chủ đề khớp từ khoá hiện tại. Kết quả có thêm `html` —
+// tên chủ đề đã bôi vàng (<mark>) đúng đoạn khớp để mắt bắt nhanh hơn.
+function getFilteredTopics() {
+  const terms = topicQuery ? topicQuery.split(' ').filter(Boolean) : [];
+  const result = [];
+  topicOptions.forEach((opt) => {
+    if (!terms.length || matchTopic(opt.search, terms)) result.push(opt);
+  });
+  return result;
+}
+
+// Bôi vàng các đoạn khớp. So khớp trên chuỗi đã bỏ dấu nhưng cắt trên chuỗi
+// gốc — hai chuỗi cùng độ dài vì normalize chỉ đổi ký tự 1-1 (bỏ dấu, đổi đ→d).
+function highlightTopic(opt, terms) {
+  if (!terms.length || opt.search.length !== opt.topic.length) return escapeHtml(opt.topic);
+  const marks = new Array(opt.topic.length).fill(false);
+  terms.forEach((term) => {
+    let from = 0, at;
+    while ((at = opt.search.indexOf(term, from)) !== -1) {
+      for (let i = at; i < at + term.length; i++) marks[i] = true;
+      from = at + 1;
+    }
+  });
+  let html = '', open = false;
+  for (let i = 0; i < opt.topic.length; i++) {
+    if (marks[i] && !open) { html += '<mark>'; open = true; }
+    if (!marks[i] && open) { html += '</mark>'; open = false; }
+    html += escapeHtml(opt.topic[i]);
+  }
+  return open ? html + '</mark>' : html;
+}
+
+// ---- Trạng thái của combobox ----
+let comboOpen = false;
+let comboFiltered = [];   // danh sách đang hiển thị
+let comboActive = -1;     // dòng đang được đánh dấu (điều hướng bằng phím)
+
+function renderTopicList() {
+  const terms = topicQuery ? topicQuery.split(' ').filter(Boolean) : [];
+  comboFiltered = getFilteredTopics();
+
+  const currentTopic = currentItem ? currentItem.topic : null;
+  if (comboActive >= comboFiltered.length) comboActive = comboFiltered.length - 1;
+  // Chưa điều hướng bằng phím → tự đánh dấu chủ đề đang mở (nếu còn trong
+  // danh sách), để mở ra là thấy ngay mình đang ở đâu.
+  if (comboActive < 0 && currentTopic) {
+    comboActive = comboFiltered.findIndex(opt => opt.topic === currentTopic);
+  }
+
+  if (!topicOptions.length) {
+    topicListbox.innerHTML = '<li class="tc-empty">Đang tải danh sách chủ đề...</li>';
+  } else if (!comboFiltered.length) {
+    topicListbox.innerHTML = '<li class="tc-empty">Không tìm thấy chủ đề nào.<br>Thử từ khoá ngắn hơn nhé.</li>';
+  } else {
+    topicListbox.innerHTML = comboFiltered.map((opt, i) => {
+      const isCurrent = opt.topic === currentTopic;
+      const cls = ['tc-item', i === comboActive ? 'active' : '', isCurrent ? 'current' : '']
+        .filter(Boolean).join(' ');
+      return `<li class="${cls}" role="option" data-i="${i}" id="tc-opt-${i}"`
+        + ` aria-selected="${isCurrent}">`
+        + `<span class="tc-check">${isCurrent ? '✓' : ''}</span>`
+        + `<span>${highlightTopic(opt, terms)}</span></li>`;
+    }).join('');
+  }
+
+  topicSearch.setAttribute('aria-activedescendant',
+    comboActive >= 0 && comboFiltered.length ? `tc-opt-${comboActive}` : '');
+  updateTopicCount(comboFiltered.length);
+  scrollActiveIntoView();
+}
+
+function updateTopicCount(shownCount) {
+  const total = topicOptions.length;
+  if (!total) {
+    topicCount.textContent = 'Đang tải...';
+    topicCount.classList.remove('empty');
+    return;
+  }
+  if (!topicQuery) {
+    topicCount.textContent = `${total} chủ đề — gõ để tìm nhanh (không cần dấu)`;
+    topicCount.classList.remove('empty');
+    return;
+  }
+  topicCount.textContent = shownCount
+    ? `Tìm thấy ${shownCount}/${total} chủ đề`
+    : `Không có chủ đề nào khớp “${topicQuery}”`;
+  topicCount.classList.toggle('empty', shownCount === 0);
+}
+
+function scrollActiveIntoView() {
+  const el = topicListbox.querySelector('.tc-item.active');
+  if (el) el.scrollIntoView({ block: 'nearest' });
+}
+
+function openCombo() {
+  if (comboOpen) return;
+  comboOpen = true;
+  comboActive = -1;
+  topicCombo.classList.add('open');
+  topicPanel.hidden = false;
+  topicSearch.setAttribute('aria-expanded', 'true');
+  renderTopicList();
+}
+
+function closeCombo() {
+  if (!comboOpen) return;
+  comboOpen = false;
+  topicCombo.classList.remove('open');
+  topicPanel.hidden = true;
+  topicSearch.setAttribute('aria-expanded', 'false');
+  topicSearch.removeAttribute('aria-activedescendant');
+  // Đóng lại thì bỏ luôn từ khoá, lần mở sau là danh sách đầy đủ.
+  clearTopicQuery();
+}
+
+function clearTopicQuery() {
+  topicSearch.value = '';
+  topicQuery = '';
+  topicSearchClear.hidden = true;
+}
+
+function applyTopicQuery(raw) {
+  topicQuery = normalizeForSearch(raw);
+  topicSearchClear.hidden = !raw;
+  comboActive = raw ? 0 : -1;   // có từ khoá → sẵn sàng Enter chọn kết quả đầu
+  openCombo();
+  renderTopicList();
+}
+
+function moveComboActive(step) {
+  if (!comboFiltered.length) return;
+  const last = comboFiltered.length - 1;
+  if (comboActive < 0) comboActive = step > 0 ? 0 : last;
+  else comboActive = Math.min(last, Math.max(0, comboActive + step));
+  renderTopicList();
+}
+
+function chooseComboItem(i) {
+  const opt = comboFiltered[i];
+  if (!opt) return;
+  closeCombo();
+  topicSearch.blur();
+  loadSelectedTopic(opt);
+}
+
+// Danh sách vừa đổi (đổi tab/trình độ, hoặc tải xong) → vẽ lại nếu đang mở.
+function refreshComboIfOpen() {
+  if (comboOpen) renderTopicList();
 }
 
 // Gemini đôi khi sinh trùng tên chủ đề giữa các lần chạy khác ngày (cùng
@@ -506,7 +778,8 @@ async function loadTopicOptions() {
   const mySession = topicOptionsSession;
 
   topicOptions = [];
-  renderTopicSelect();
+  comboActive = -1;
+  refreshComboIfOpen();
 
   if (!supabaseClient) return;
   try {
@@ -519,8 +792,10 @@ async function loadTopicOptions() {
     // Nếu người dùng đã đổi tab/trình độ khác trong lúc chờ, bỏ qua kết quả này.
     if (mySession !== topicOptionsSession) return;
     if (error || !data) return;
-    topicOptions = dedupeByTopic(data.map(row => ({ topic: row.topic, id: row.id })));
-    renderTopicSelect();
+    topicOptions = dedupeByTopic(
+      data.map(row => ({ topic: row.topic, id: row.id, search: normalizeForSearch(row.topic) }))
+    );
+    refreshComboIfOpen();
   } catch (err) {
     console.warn('Không lấy được danh sách chủ đề từ Supabase:', err);
   }
@@ -547,7 +822,7 @@ async function loadSelectedTopic(opt) {
       : { topic: data.topic, text: data.data.text };
     topicText.textContent = currentItem.topic;
     renderScript();
-    syncTopicSelectValue();
+    refreshComboIfOpen();
     setStatus('Nhấn "Nghe" để bắt đầu');
   } catch (err) {
     console.error('Lỗi khi tải chủ đề đã chọn:', err);
@@ -609,7 +884,7 @@ async function loadNewItem() {
     currentItem = newItem;
     topicText.textContent = currentItem.topic;
     renderScript();
-    syncTopicSelectValue();
+    refreshComboIfOpen();
     setStatus('Nhấn "Nghe" để bắt đầu');
   } catch (err) {
     console.error('Lỗi khi tải chủ đề mới:', err);
@@ -1071,12 +1346,88 @@ document.getElementById('copyBtn').addEventListener('click', async () => {
 });
 
 randomBtn.addEventListener('click', loadNewItem);
-topicSelect.addEventListener('change', () => {
-  const idx = topicSelect.value;
-  if (idx === '') return;
-  const opt = topicOptions[Number(idx)];
-  if (!opt) return;
-  loadSelectedTopic(opt);
+
+// ====== COMBOBOX CHỌN / TÌM CHỦ ĐỀ ======
+topicSearch.addEventListener('input', () => applyTopicQuery(topicSearch.value));
+topicSearch.addEventListener('focus', openCombo);
+topicSearch.addEventListener('click', openCombo);
+
+topicSearch.addEventListener('keydown', (e) => {
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault();
+      if (!comboOpen) openCombo(); else moveComboActive(1);
+      break;
+    case 'ArrowUp':
+      e.preventDefault();
+      if (!comboOpen) openCombo(); else moveComboActive(-1);
+      break;
+    case 'PageDown': e.preventDefault(); moveComboActive(5); break;
+    case 'PageUp': e.preventDefault(); moveComboActive(-5); break;
+    case 'Home':
+      if (comboOpen && !topicSearch.value) { e.preventDefault(); comboActive = 0; renderTopicList(); }
+      break;
+    case 'End':
+      if (comboOpen && !topicSearch.value) {
+        e.preventDefault();
+        comboActive = comboFiltered.length - 1;
+        renderTopicList();
+      }
+      break;
+    case 'Enter':
+      if (comboOpen) {
+        e.preventDefault();
+        chooseComboItem(comboActive >= 0 ? comboActive : 0);
+      }
+      break;
+    case 'Escape':
+      // Còn từ khoá → Esc thứ nhất xoá từ khoá; Esc tiếp theo mới đóng danh sách.
+      e.stopPropagation();
+      e.preventDefault();
+      if (topicSearch.value) { clearTopicQuery(); comboActive = -1; renderTopicList(); }
+      else { closeCombo(); topicSearch.blur(); }
+      break;
+    case 'Tab':
+      closeCombo();
+      break;
+  }
+});
+
+// Dùng mousedown để chọn được item trước khi input mất focus.
+topicListbox.addEventListener('mousedown', (e) => {
+  const li = e.target.closest('.tc-item');
+  if (!li) return;
+  e.preventDefault();
+  chooseComboItem(Number(li.dataset.i));
+});
+topicListbox.addEventListener('mousemove', (e) => {
+  const li = e.target.closest('.tc-item');
+  if (!li) return;
+  const i = Number(li.dataset.i);
+  if (i === comboActive) return;
+  comboActive = i;
+  topicListbox.querySelectorAll('.tc-item.active').forEach(el => el.classList.remove('active'));
+  li.classList.add('active');
+});
+
+topicSearchClear.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  clearTopicQuery();
+  comboActive = -1;
+  openCombo();
+  renderTopicList();
+  topicSearch.focus();
+});
+
+topicCaret.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  if (comboOpen) { closeCombo(); topicSearch.blur(); }
+  else { topicSearch.focus(); openCombo(); }
+});
+
+// Bấm ra ngoài → đóng danh sách
+document.addEventListener('mousedown', (e) => {
+  if (comboOpen && !topicCombo.contains(e.target)) closeCombo();
 });
 playBtn.addEventListener('click', () => {
   if (playState === 'idle') {

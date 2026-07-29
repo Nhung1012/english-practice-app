@@ -19,6 +19,13 @@ create table if not exists content (
 -- Index để query nhanh theo type + level (dùng để lấy random 1 bản ghi)
 create index if not exists idx_content_type_level on content (type, level);
 
+-- Chặn trùng chủ đề: unique theo (type, level, tên chủ đề đã chuẩn hoá).
+-- Nhờ index này, insert chủ đề trùng tên sẽ bị DB từ chối — nên các file
+-- seed luôn kết thúc bằng `on conflict do nothing`.
+-- (Trước đây nằm ở update_db_2026-07-14.sql, đã gộp vào đây 2026-07-29.)
+create unique index if not exists uq_content_type_level_topic
+  on content (type, level, lower(trim(topic)));
+
 -- Bật Row Level Security
 alter table content enable row level security;
 
