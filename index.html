@@ -270,6 +270,87 @@
   .script-header .row-label {
     margin-bottom: 0;
   }
+  /* Dòng "Học tiếp" gọn + hàng nút mở popup */
+  .resume-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+  }
+  .resume-line:hover { background: #dbeafe; }
+  .resume-line .rl-topic {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+  .resume-line .rl-time { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+  .quick-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .quick-btn { padding: 7px 12px; font-size: 13px; }
+  .quick-dot {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* ===== Popup chung (Học gần đây / Sổ từ) ===== */
+  .modal { position: fixed; inset: 0; z-index: 900; }
+  .modal-backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.45); }
+  .modal-sheet {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(560px, calc(100% - 32px));
+    max-height: 82vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+    overflow: hidden;
+  }
+  .modal-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .modal-head .row-label { margin-bottom: 0; flex: 1; min-width: 0; }
+  .modal-close { flex-shrink: 0; }
+  .modal-body { padding: 12px 16px 16px; overflow-y: auto; }
+
+  /* Trên điện thoại: hộp trượt từ dưới lên, bám đáy màn hình */
+  @media (max-width: 560px) {
+    .modal-sheet {
+      left: 0;
+      top: auto;
+      bottom: 0;
+      transform: none;
+      width: 100%;
+      max-height: 86vh;
+      border-radius: 14px 14px 0 0;
+    }
+  }
   .copy-btn {
     padding: 6px 12px;
     font-size: 13px;
@@ -428,6 +509,77 @@
   .hist-empty { font-size: 13px; color: var(--muted); padding: 6px 4px; }
   #favBtn.on { background: #fef3c7; border-color: #f59e0b; color: #b45309; }
   #favFilterBtn.on { background: #fef3c7; border-color: #f59e0b; color: #b45309; }
+  #wpSave.on { color: #f59e0b; }
+
+  /* ===== Sổ từ vựng + ôn tập (mục 1.3) ===== */
+  .vocab-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .vocab-item:last-child { border-bottom: none; }
+  .vocab-main { flex: 1; min-width: 0; }
+  .vocab-word { font-weight: 600; font-size: 14px; color: var(--text); }
+  .vocab-ipa { font-size: 12px; color: var(--primary); margin-left: 6px; }
+  .vocab-vi {
+    font-size: 13px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .vocab-box {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4338ca;
+    flex-shrink: 0;
+  }
+  .vocab-box.due { background: #fee2e2; color: #b91c1c; }
+  .vocab-del {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+  }
+  .vocab-del:hover { background: #fee2e2; color: #b91c1c; }
+
+  .review-box {
+    padding: 16px;
+    margin-bottom: 12px;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-align: center;
+  }
+  .review-progress { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .review-word { font-size: 26px; font-weight: 700; color: var(--text); }
+  .review-ipa { font-size: 14px; color: var(--primary); margin-top: 4px; }
+  .review-answer { margin-top: 12px; }
+  .review-vi { font-size: 16px; color: var(--text); font-weight: 600; }
+  .review-example {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 6px;
+  }
+  .review-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+  .btn.forgot { background: #dc2626; }
+  .btn.knew { background: var(--green); }
+  .review-done { font-size: 14px; color: var(--green); font-weight: 600; }
   .speaker-a { color: var(--primary); font-weight: 700; }
   .speaker-b { color: #dc2626; font-weight: 700; }
   .listen-line { }
@@ -601,17 +753,15 @@
       <span class="speed-value" id="rateValue">1.00×</span>
     </div>
     <div class="status" id="statusText">Đang tải nội dung...</div>
+
+    <!-- Dòng "Học tiếp" gọn + 2 nút mở popup (mục 1.5 & 1.3) -->
+    <button type="button" class="resume-line" id="resumeLine" hidden></button>
+    <div class="quick-row" id="quickRow">
+      <button type="button" class="btn secondary quick-btn" id="openHistoryBtn" hidden>🕘 Học gần đây</button>
+      <button type="button" class="btn secondary quick-btn" id="openVocabBtn" hidden>📒 Sổ từ</button>
+    </div>
   </div>
 
-  <!-- LỊCH SỬ HỌC (mục 1.5) — ẩn hoàn toàn khi chưa học bài nào -->
-  <div class="card" id="historyCard" hidden>
-    <div class="script-header">
-      <div class="row-label" id="historyLabel">Học gần đây</div>
-      <button class="btn secondary copy-btn" id="favFilterBtn" aria-pressed="false">⭐ Đã đánh dấu</button>
-    </div>
-    <div id="resumeBox" hidden></div>
-    <div id="historyList"></div>
-  </div>
 
   <!-- SCRIPT DISPLAY -->
   <div class="card">
@@ -623,11 +773,35 @@
   </div>
 </div>
 
+<!-- Popup chung cho "Học gần đây" và "Sổ từ" (mục 1.5 & 1.3).
+     Trên điện thoại hộp này trượt từ dưới lên và chiếm gần hết chiều cao. -->
+<div class="modal" id="modal" hidden>
+  <div class="modal-backdrop" id="modalBackdrop"></div>
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <div class="row-label" id="modalTitle">—</div>
+      <button class="btn secondary copy-btn" id="favFilterBtn" aria-pressed="false" hidden>⭐ Đã đánh dấu</button>
+      <button class="btn secondary copy-btn" id="reviewBtn" hidden>🎯 Ôn tập</button>
+      <button class="wp-btn modal-close" id="modalClose" title="Đóng" aria-label="Đóng">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="paneHistory" hidden>
+        <div id="historyList"></div>
+      </div>
+      <div id="paneVocab" hidden>
+        <div id="reviewPanel" hidden></div>
+        <div id="vocabList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Popup tra từ (bấm vào từ trong script) -->
 <div class="word-popup" id="wordPopup">
   <div class="wp-head">
     <span class="wp-word" id="wpWord"></span>
     <div class="wp-actions">
+      <button class="wp-btn" id="wpSave" title="Lưu vào sổ từ" aria-label="Lưu vào sổ từ">☆</button>
       <button class="wp-btn" id="wpSpeak" title="Nghe phát âm">🔊</button>
       <button class="wp-btn" id="wpClose" title="Đóng">✕</button>
     </div>
@@ -679,10 +853,19 @@ const RATE_MIN = 0.6;    // dưới 0.6 nhiều giọng TTS bị méo và nuốt
 const RATE_MAX = 1.2;
 let playRate = 1;
 
-const historyCard = document.getElementById('historyCard');
-const historyLabel = document.getElementById('historyLabel');
+const modal = document.getElementById('modal');
+const modalBackdrop = document.getElementById('modalBackdrop');
+const modalTitle = document.getElementById('modalTitle');
+const modalClose = document.getElementById('modalClose');
+const paneHistory = document.getElementById('paneHistory');
+const paneVocab = document.getElementById('paneVocab');
+const vocabList = document.getElementById('vocabList');
+const reviewPanel = document.getElementById('reviewPanel');
+const reviewBtn = document.getElementById('reviewBtn');
 const historyList = document.getElementById('historyList');
-const resumeBox = document.getElementById('resumeBox');
+const resumeLine = document.getElementById('resumeLine');
+const openHistoryBtn = document.getElementById('openHistoryBtn');
+const openVocabBtn = document.getElementById('openVocabBtn');
 const favBtn = document.getElementById('favBtn');
 const favFilterBtn = document.getElementById('favFilterBtn');
 const prevBtn = document.getElementById('prevBtn');
@@ -1117,12 +1300,129 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString('vi-VN');
 }
 
+// ====== SỔ TỪ VỰNG + ÔN TẬP NGẮT QUÃNG (mục 1.3) ======
+// Mỗi mục có ĐÚNG các cột của bảng `vocab` trong Supabase (mục 10 kế hoạch),
+// trừ `id`/`user_id` do DB tự sinh. Giữ nguyên tên trường để tuần 16 chỉ cần
+// insert thẳng mảng này lên, không phải viết hàm chuyển đổi.
+const VOCAB_KEY = 'ep:vocab';
+
+// Hộp Leitner: nhớ -> lên hộp cao hơn, khoảng cách ôn giãn dần (ngày).
+// Quên -> rơi thẳng về hộp 1, ôn lại ngay trong phiên.
+const LEITNER_DAYS = [1, 3, 7, 14, 30];
+const BOX_MAX = 5;
+
+function homNay() {
+  const d = new Date();
+  // Dùng ngày theo giờ địa phương (không phải UTC) để "hôm nay" đúng với
+  // cảm nhận của người học; định dạng YYYY-MM-DD khớp kiểu `date` của Postgres.
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+function congNgay(soNgay) {
+  const d = new Date();
+  d.setDate(d.getDate() + soNgay);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+function readVocab() {
+  const v = readJson(VOCAB_KEY, []);
+  return Array.isArray(v) ? v : [];
+}
+
+function writeVocab(list) {
+  writeJson(VOCAB_KEY, list);
+}
+
+// DB có ràng buộc unique (user_id, lower(word)) nên ở đây cũng so khớp
+// không phân biệt hoa/thường để không tạo hai mục trùng nhau.
+function findVocab(word) {
+  const w = String(word || '').toLowerCase();
+  return readVocab().find(v => String(v.word).toLowerCase() === w) || null;
+}
+
+function isSaved(word) {
+  return !!findVocab(word);
+}
+
+function saveWord(word, info, sourceId) {
+  if (!word) return false;
+  const list = readVocab();
+  const w = String(word).toLowerCase();
+  if (list.some(v => String(v.word).toLowerCase() === w)) return false;
+  list.push({
+    word: word,
+    ipa: info && info.ipa ? info.ipa : '',
+    pos: info && info.pos ? info.pos : '',
+    meaning_vi: info && info.vi ? info.vi : '',
+    example: info && info.example ? info.example : '',
+    source_content_id: sourceId || null,
+    box: 1,
+    due_date: homNay(),   // lưu xong là ôn được ngay hôm nay
+    created_at: new Date().toISOString()
+  });
+  writeVocab(list);
+  return true;
+}
+
+function removeWord(word) {
+  const w = String(word || '').toLowerCase();
+  writeVocab(readVocab().filter(v => String(v.word).toLowerCase() !== w));
+}
+
+function dueWords() {
+  const t = homNay();
+  return readVocab().filter(v => !v.due_date || v.due_date <= t);
+}
+
+// Chấm một từ sau khi ôn. remembered = true -> lên hộp, false -> về hộp 1.
+function gradeWord(word, remembered) {
+  const list = readVocab();
+  const w = String(word || '').toLowerCase();
+  const item = list.find(v => String(v.word).toLowerCase() === w);
+  if (!item) return null;
+  if (remembered) {
+    item.box = Math.min(BOX_MAX, (item.box || 1) + 1);
+    item.due_date = congNgay(LEITNER_DAYS[item.box - 1]);
+  } else {
+    item.box = 1;
+    item.due_date = homNay(); // rơi về hộp 1 và ôn lại ngay trong phiên này
+  }
+  writeVocab(list);
+  return item;
+}
+
 // ====== VẼ KHUNG LỊCH SỬ ======
 // resumeTarget được chốt MỘT LẦN lúc khởi động, trước khi loadNewItem() mở bài
 // ngẫu nhiên mới. Nếu không, "bài gần nhất" sẽ luôn là bài vừa tự mở ra và ô
 // "Học tiếp" trở nên vô nghĩa.
 let resumeTarget = null;
 let favFilter = false;
+
+// Hai danh sách này dài nên không nằm trong luồng chính nữa mà hiện trong
+// popup chung. Màn hình chính chỉ giữ 2 nút mở + 1 dòng "Học tiếp".
+let modalPane = null; // 'history' | 'vocab' | null
+
+function openModal(pane) {
+  modalPane = pane;
+  paneHistory.hidden = pane !== 'history';
+  paneVocab.hidden = pane !== 'vocab';
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden'; // khoá cuộn nền khi popup đang mở
+  if (pane === 'history') renderHistory(); else renderVocab();
+  modalClose.focus();
+}
+
+function closeModal() {
+  modalPane = null;
+  modal.hidden = true;
+  document.body.style.overflow = '';
+  favFilterBtn.hidden = true;
+  reviewBtn.hidden = true;
+  // Thoát popup thì dừng luôn phiên ôn đang dở, tránh việc quay lại thấy
+  // hàng đợi cũ mà không nhớ mình đang ôn tới đâu.
+  reviewQueue = [];
+  reviewPanel.hidden = true;
+}
 
 function makeHistRow(item, isCurrent) {
   const row = document.createElement('div');
@@ -1167,49 +1467,53 @@ function makeHistRow(item, isCurrent) {
   return row;
 }
 
-function renderResume() {
-  resumeBox.innerHTML = '';
-  // Ẩn ô "Học tiếp" nếu bài gần nhất chính là bài đang mở — không có gì để tiếp.
+// Gọn trong đúng một dòng, bấm cả dòng là mở lại bài dở.
+function renderResumeLine() {
+  // Ẩn nếu bài gần nhất chính là bài đang mở — không có gì để "tiếp".
   if (!resumeTarget || (currentItem && currentItem.id === resumeTarget.id)) {
-    resumeBox.hidden = true;
+    resumeLine.hidden = true;
     return;
   }
-  const box = document.createElement('div');
-  box.className = 'resume-box';
+  resumeLine.innerHTML = '';
 
-  const info = document.createElement('div');
-  info.className = 'resume-info';
-  const hint = document.createElement('div');
-  hint.className = 'resume-hint';
-  hint.textContent = 'Lần trước bạn đang học · ' + timeAgo(resumeTarget.at);
-  const topic = document.createElement('div');
-  topic.className = 'resume-topic';
+  const nhan = document.createElement('span');
+  nhan.textContent = '↩️ Học tiếp:';
+
+  const topic = document.createElement('span');
+  topic.className = 'rl-topic';
   topic.textContent = (TYPE_ICON[resumeTarget.type] || '') + ' ' + resumeTarget.topic;
-  info.appendChild(hint);
-  info.appendChild(topic);
 
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'btn';
-  btn.innerHTML = '<span class="btn-icon">↩️ Học tiếp</span>';
-  btn.addEventListener('click', () => openLesson(resumeTarget.id, resumeTarget.type, resumeTarget.level));
+  const time = document.createElement('span');
+  time.className = 'rl-time';
+  time.textContent = timeAgo(resumeTarget.at);
 
-  box.appendChild(info);
-  box.appendChild(btn);
-  resumeBox.appendChild(box);
-  resumeBox.hidden = false;
+  resumeLine.appendChild(nhan);
+  resumeLine.appendChild(topic);
+  resumeLine.appendChild(time);
+  resumeLine.hidden = false;
 }
 
 function renderHistory() {
   const items = favFilter ? getFavorites() : getHistory(10);
   const soFav = readJson(FAV_KEY, []).length;
+  const soLichSu = getHistory(10).length;
+
+  renderResumeLine();
+
+  // Nút ở màn hình chính: chỉ hiện khi đã có gì đó để xem.
+  openHistoryBtn.hidden = soLichSu === 0 && soFav === 0;
+  openHistoryBtn.textContent = '🕘 Học gần đây' + (soLichSu ? ' (' + soLichSu + ')' : '');
+
+  // Phần còn lại chỉ có ý nghĩa khi popup đang mở ở tab lịch sử.
+  if (modalPane !== 'history') return;
 
   favFilterBtn.hidden = soFav === 0;
   favFilterBtn.classList.toggle('on', favFilter);
   favFilterBtn.setAttribute('aria-pressed', String(favFilter));
-  historyLabel.textContent = favFilter ? 'Chủ đề đã đánh dấu' : 'Học gần đây';
+  reviewBtn.hidden = true;
+  modalTitle.textContent = (favFilter ? 'Chủ đề đã đánh dấu' : 'Học gần đây')
+    + ' (' + items.length + ')';
 
-  renderResume();
   historyList.innerHTML = '';
 
   if (!items.length) {
@@ -1225,8 +1529,264 @@ function renderHistory() {
     });
   }
 
-  // Chỉ ẩn cả khung khi thực sự chưa có gì để hiện.
-  historyCard.hidden = !items.length && !resumeTarget && soFav === 0;
+}
+
+// ====== VẼ SỔ TỪ & PHIÊN ÔN TẬP ======
+let reviewQueue = [];   // hàng đợi từ cần ôn trong phiên hiện tại
+let reviewShow = false; // đã lật đáp án chưa
+
+function renderVocab() {
+  const list = readVocab();
+  const due = dueWords();
+
+  // Nút ở màn hình chính, kèm chấm đỏ số từ đến hạn để nhắc ôn.
+  // Cố ý LUÔN hiện kể cả khi sổ từ trống: nếu ẩn đi thì người dùng mới sẽ
+  // không bao giờ biết app có tính năng này.
+  openVocabBtn.hidden = false;
+  openVocabBtn.innerHTML = '';
+  openVocabBtn.appendChild(document.createTextNode(
+    '📒 Sổ từ' + (list.length ? ' (' + list.length + ')' : '')));
+  if (due.length) {
+    const dot = document.createElement('span');
+    dot.className = 'quick-dot';
+    dot.textContent = due.length + ' cần ôn';
+    openVocabBtn.appendChild(dot);
+  }
+
+  if (modalPane !== 'vocab') return;
+
+  favFilterBtn.hidden = true;
+  modalTitle.textContent = 'Sổ từ (' + list.length + ')';
+  reviewBtn.hidden = due.length === 0 || reviewQueue.length > 0;
+  reviewBtn.textContent = '🎯 Ôn tập (' + due.length + ')';
+
+  if (!list.length) {
+    reviewPanel.hidden = true;
+    vocabList.innerHTML = '';
+    const p = document.createElement('div');
+    p.className = 'hist-empty';
+    p.textContent = 'Sổ từ đang trống. Bấm vào một từ tiếng Anh trong bài, '
+      + 'rồi bấm ☆ ở góc popup để lưu từ đó vào đây học dần.';
+    vocabList.appendChild(p);
+    return;
+  }
+
+  vocabList.innerHTML = '';
+  // Từ đến hạn lên đầu, còn lại theo thứ tự lưu gần nhất.
+  const t = homNay();
+  const sorted = list.slice().sort((a, b) => {
+    const da = (!a.due_date || a.due_date <= t) ? 0 : 1;
+    const db = (!b.due_date || b.due_date <= t) ? 0 : 1;
+    if (da !== db) return da - db;
+    return String(b.created_at).localeCompare(String(a.created_at));
+  });
+
+  sorted.forEach(v => {
+    const denHan = !v.due_date || v.due_date <= t;
+    const row = document.createElement('div');
+    row.className = 'vocab-item';
+
+    const main = document.createElement('div');
+    main.className = 'vocab-main';
+    const top = document.createElement('div');
+    const w = document.createElement('span');
+    w.className = 'vocab-word';
+    w.textContent = v.word;
+    top.appendChild(w);
+    if (v.ipa) {
+      const ipa = document.createElement('span');
+      ipa.className = 'vocab-ipa';
+      ipa.textContent = v.ipa;
+      top.appendChild(ipa);
+    }
+    const vi = document.createElement('div');
+    vi.className = 'vocab-vi';
+    vi.textContent = v.meaning_vi || '(chưa có nghĩa)';
+    main.appendChild(top);
+    main.appendChild(vi);
+
+    const box = document.createElement('span');
+    box.className = 'vocab-box' + (denHan ? ' due' : '');
+    box.textContent = denHan ? 'Cần ôn' : 'Hộp ' + (v.box || 1);
+    box.title = denHan ? 'Đến hạn ôn' : 'Ôn lại ngày ' + v.due_date;
+
+    const speak = document.createElement('button');
+    speak.type = 'button';
+    speak.className = 'vocab-del';
+    speak.textContent = '🔊';
+    speak.title = 'Nghe phát âm';
+    speak.addEventListener('click', () => speakWord(v.word));
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'vocab-del';
+    del.textContent = '🗑';
+    del.title = 'Xoá khỏi sổ từ';
+    del.addEventListener('click', () => {
+      removeWord(v.word);
+      reviewQueue = reviewQueue.filter(x => x !== v.word);
+      if (currentPopupWord === v.word) syncSaveButton();
+      if (reviewQueue.length) renderReview(); else { reviewPanel.hidden = true; }
+      renderVocab();
+    });
+
+    row.appendChild(main);
+    row.appendChild(box);
+    row.appendChild(speak);
+    row.appendChild(del);
+    vocabList.appendChild(row);
+  });
+}
+
+function batDauOnTap() {
+  reviewQueue = dueWords().map(v => v.word);
+  reviewShow = false;
+  renderReview();
+  renderVocab();
+}
+
+function renderReview() {
+  reviewPanel.innerHTML = '';
+  if (!reviewQueue.length) {
+    reviewPanel.hidden = true;
+    return;
+  }
+  reviewPanel.hidden = false;
+
+  const item = findVocab(reviewQueue[0]);
+  if (!item) { // từ đã bị xoá giữa chừng
+    reviewQueue.shift();
+    renderReview();
+    return;
+  }
+
+  const box = document.createElement('div');
+  box.className = 'review-box';
+
+  const prog = document.createElement('div');
+  prog.className = 'review-progress';
+  prog.textContent = 'Còn ' + reviewQueue.length + ' từ · Hộp ' + (item.box || 1) + '/' + BOX_MAX;
+  box.appendChild(prog);
+
+  const w = document.createElement('div');
+  w.className = 'review-word';
+  w.textContent = item.word;
+  box.appendChild(w);
+
+  if (item.ipa) {
+    const ipa = document.createElement('div');
+    ipa.className = 'review-ipa';
+    ipa.textContent = item.ipa;
+    box.appendChild(ipa);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'review-actions';
+
+  const speak = document.createElement('button');
+  speak.type = 'button';
+  speak.className = 'btn secondary ctrl-btn';
+  speak.textContent = '🔊';
+  speak.title = 'Nghe phát âm';
+  speak.addEventListener('click', () => speakWord(item.word));
+  actions.appendChild(speak);
+
+  if (!reviewShow) {
+    const show = document.createElement('button');
+    show.type = 'button';
+    show.className = 'btn';
+    show.textContent = 'Hiện nghĩa';
+    show.addEventListener('click', () => { reviewShow = true; renderReview(); });
+    actions.appendChild(show);
+  } else {
+    const ans = document.createElement('div');
+    ans.className = 'review-answer';
+    const vi = document.createElement('div');
+    vi.className = 'review-vi';
+    vi.textContent = item.meaning_vi || '(chưa có nghĩa)';
+    ans.appendChild(vi);
+    if (item.example) {
+      const ex = document.createElement('div');
+      ex.className = 'review-example';
+      ex.textContent = '“' + item.example + '”';
+      ans.appendChild(ex);
+    }
+    box.appendChild(ans);
+
+    const quen = document.createElement('button');
+    quen.type = 'button';
+    quen.className = 'btn forgot';
+    quen.textContent = '😕 Quên';
+    quen.addEventListener('click', () => chamTu(false));
+
+    const nho = document.createElement('button');
+    nho.type = 'button';
+    nho.className = 'btn knew';
+    nho.textContent = '🙂 Nhớ';
+    nho.addEventListener('click', () => chamTu(true));
+
+    actions.appendChild(quen);
+    actions.appendChild(nho);
+  }
+
+  const thoat = document.createElement('button');
+  thoat.type = 'button';
+  thoat.className = 'btn secondary ctrl-btn';
+  thoat.textContent = '✕';
+  thoat.title = 'Thoát ôn tập';
+  thoat.addEventListener('click', () => {
+    reviewQueue = [];
+    reviewPanel.hidden = true;
+    renderVocab();
+  });
+  actions.appendChild(thoat);
+
+  box.appendChild(actions);
+  reviewPanel.appendChild(box);
+}
+
+function chamTu(nho) {
+  const word = reviewQueue.shift();
+  const item = gradeWord(word, nho);
+  // Quên -> đẩy xuống cuối hàng đợi để gặp lại ngay trong phiên này.
+  if (!nho) reviewQueue.push(word);
+  reviewShow = false;
+
+  if (!reviewQueue.length) {
+    reviewPanel.hidden = false;
+    reviewPanel.innerHTML = '';
+    const done = document.createElement('div');
+    done.className = 'review-box review-done';
+    done.textContent = '🎉 Xong rồi! Hẹn gặp lại các từ này vào lúc chúng đến hạn.';
+    reviewPanel.appendChild(done);
+    setTimeout(() => { reviewPanel.hidden = true; renderVocab(); }, 2500);
+    renderVocab();
+    return;
+  }
+  renderReview();
+  renderVocab();
+}
+
+// Người dùng hay bấm ⭐ ngay khi popup vừa mở, lúc nghĩa/phiên âm chưa tải xong.
+// Khi API trả về thì bổ sung nốt vào mục đã lưu, để sổ từ không bị trống nghĩa.
+function boSungNghiaChoSoTu(word, info) {
+  const list = readVocab();
+  const w = String(word || '').toLowerCase();
+  const item = list.find(v => String(v.word).toLowerCase() === w);
+  if (!item) return;
+  let doi = false;
+  if (!item.ipa && info.ipa) { item.ipa = info.ipa; doi = true; }
+  if (!item.pos && info.pos) { item.pos = info.pos; doi = true; }
+  if (!item.example && info.example) { item.example = info.example; doi = true; }
+  if (!item.meaning_vi && info.vi) { item.meaning_vi = info.vi; doi = true; }
+  if (doi) { writeVocab(list); renderVocab(); }
+}
+
+function syncSaveButton() {
+  const on = !!(currentPopupWord && isSaved(currentPopupWord));
+  wpSave.textContent = on ? '★' : '☆';
+  wpSave.classList.toggle('on', on);
+  wpSave.title = on ? 'Đã có trong sổ từ — bấm để bỏ' : 'Lưu vào sổ từ';
 }
 
 function syncFavButton() {
@@ -1262,6 +1822,9 @@ function setTabAndLevel(tab, level) {
 
 async function openLesson(id, tab, level) {
   stopSpeaking();
+  // Chọn bài xong thì đóng popup lại, nếu không người dùng vẫn bị popup che
+  // mất chính cái bài vừa chọn.
+  if (!modal.hidden) closeModal();
   setTabAndLevel(tab, level);
   loadTopicOptions(); // làm mới danh sách cho combobox, không cần chờ
   await loadSelectedTopic({ id: id });
@@ -1499,9 +2062,27 @@ function clearHighlight() {
 // để người dùng luôn biết bấm ⏭ thì sẽ đi đâu.
 function markCurrent(scroll) {
   clearHighlight();
+
+  // Trả mọi nút về ▶ trước, rồi chỉ câu ĐANG đọc mới thành ■ (dừng).
+  document.querySelectorAll('.line-play').forEach(b => {
+    b.textContent = '▶';
+    b.title = 'Đọc câu này';
+    b.setAttribute('aria-label', 'Đọc câu này');
+  });
+
   const el = document.getElementById('line-' + currentIndex);
   if (!el) return;
   el.classList.add(isPlaying ? 'active' : 'current');
+
+  if (isPlaying) {
+    const btn = el.querySelector('.line-play');
+    if (btn) {
+      btn.textContent = '■';
+      btn.title = 'Dừng';
+      btn.setAttribute('aria-label', 'Dừng đọc');
+    }
+  }
+
   if (scroll) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
@@ -1611,6 +2192,7 @@ const wpIpa = document.getElementById('wpIpa');
 const wpPos = document.getElementById('wpPos');
 const wpVi = document.getElementById('wpVi');
 const wpExample = document.getElementById('wpExample');
+const wpSave = document.getElementById('wpSave');
 const wpSpeak = document.getElementById('wpSpeak');
 const wpClose = document.getElementById('wpClose');
 
@@ -1806,6 +2388,7 @@ async function showWordPopup(rawWord, anchorEl) {
 
   wpWord.textContent = word;
   renderPopupData(info);
+  syncSaveButton();
   positionPopup(anchorEl);
 
   if (info.dDone && info.vDone) return; // đã đủ dữ liệu, không cần gọi API
@@ -1816,6 +2399,7 @@ async function showWordPopup(rawWord, anchorEl) {
       if (mySession !== lookupSession) return;
       info.ipa = d.ipa; info.pos = d.pos; info.example = d.example; info.dDone = true;
       cacheSet(word, info);
+      boSungNghiaChoSoTu(word, info);
       renderPopupData(info);
       positionPopup(anchorEl);
     }).catch(() => {}); // lỗi/huỷ → giữ nguyên, lần sau bấm sẽ thử lại
@@ -1825,6 +2409,7 @@ async function showWordPopup(rawWord, anchorEl) {
       if (mySession !== lookupSession) return;
       info.vi = vi; info.vDone = true;
       cacheSet(word, info);
+      boSungNghiaChoSoTu(word, info);
       renderPopupData(info);
       positionPopup(anchorEl);
     }).catch(() => {});
@@ -1874,7 +2459,12 @@ wordPopup.addEventListener('click', (e) => e.stopPropagation());
 
 // Đóng popup khi bấm ra ngoài, cuộn trang, đổi kích thước hoặc nhấn Esc
 document.addEventListener('click', hideWordPopup);
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideWordPopup(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  hideWordPopup();
+  // Esc đóng popup Học gần đây / Sổ từ nếu đang mở.
+  if (!modal.hidden) closeModal();
+});
 window.addEventListener('resize', hideWordPopup);
 window.addEventListener('scroll', hideWordPopup, true);
 
@@ -2055,7 +2645,10 @@ scriptBox.addEventListener('click', (e) => {
   const btn = e.target.closest('.line-play');
   if (!btn) return;
   e.stopPropagation();
-  goToSentence(Number(btn.dataset.i));
+  const i = Number(btn.dataset.i);
+  // Bấm lại đúng câu đang đọc = dừng. Bấm câu khác = nhảy sang đọc câu đó.
+  if (isPlaying && i === currentIndex) stopSpeaking('Đã dừng. Bấm ▶ để đọc lại câu này.');
+  else goToSentence(i);
 });
 
 // Kéo thanh: cập nhật số ngay cho mượt, nhưng chưa lưu và chưa đọc lại.
@@ -2066,6 +2659,30 @@ rateRange.addEventListener('input', () => applyRate(parseFloat(rateRange.value),
 rateRange.addEventListener('change', () => {
   applyRate(parseFloat(rateRange.value), true);
   if (isPlaying) speakFrom(currentIndex);
+});
+
+wpSave.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!currentPopupWord) return;
+  if (isSaved(currentPopupWord)) {
+    removeWord(currentPopupWord);
+    reviewQueue = reviewQueue.filter(x => x !== currentPopupWord);
+  } else {
+    saveWord(currentPopupWord, cacheGet(currentPopupWord) || {}, currentItem ? currentItem.id : null);
+  }
+  syncSaveButton();
+  renderVocab();
+});
+
+reviewBtn.addEventListener('click', batDauOnTap);
+
+openHistoryBtn.addEventListener('click', () => openModal('history'));
+openVocabBtn.addEventListener('click', () => openModal('vocab'));
+modalClose.addEventListener('click', closeModal);
+modalBackdrop.addEventListener('click', closeModal);
+
+resumeLine.addEventListener('click', () => {
+  if (resumeTarget) openLesson(resumeTarget.id, resumeTarget.type, resumeTarget.level);
 });
 
 favBtn.addEventListener('click', () => {
@@ -2090,6 +2707,7 @@ const logKhiKhoiDong = readLog();
 resumeTarget = getHistory(1, logKhiKhoiDong)[0] || null;
 syncFavButton();
 renderHistory();
+renderVocab();
 
 loadNewItem();
 
