@@ -284,14 +284,75 @@
     font-size: 16px;
     min-height: 60px;
   }
+  /* Mỗi câu = 1 hàng flex: [nút ▶ đọc câu này] + [phần chữ].
+     Cố ý KHÔNG cho bấm cả dòng để đọc: vùng chữ đã dành cho thao tác bấm từ
+     để tra nghĩa, hai cử chỉ đó sẽ đè lên nhau. */
   .line {
-    padding: 10px 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px 8px 8px;
     border-radius: 8px;
     margin-bottom: 6px;
     transition: background 0.2s;
   }
+  .line-text { flex: 1; min-width: 0; }
+  .line-play {
+    flex-shrink: 0;
+    margin-top: 3px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    line-height: 1;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .line-play:hover { border-color: var(--primary); color: var(--primary); }
+  /* .active = câu ĐANG được đọc; .current = câu đang trỏ tới khi đã dừng.
+     Cần cả hai: nếu chỉ có một, người dùng bấm ⏭ sẽ không biết sẽ đi đâu. */
   .line.active {
     background: var(--highlight);
+  }
+  .line.active .line-play { border-color: var(--primary); color: var(--primary); }
+  .line.current { background: #eef2f7; }
+  .line.current .line-play { border-color: var(--muted); color: var(--text); }
+
+  .ctrl-btn {
+    padding: 10px 14px;
+    font-size: 15px;
+    line-height: 1;
+  }
+  .ctrl-btn.on {
+    background: #dbeafe;
+    border-color: var(--primary);
+    color: var(--primary-dark);
+  }
+  .speed-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .speed-row input[type="range"] {
+    flex: 1;
+    min-width: 100px;
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+  .speed-value {
+    min-width: 46px;
+    text-align: right;
+    font-weight: 600;
+    color: var(--text);
   }
   .speaker-a { color: var(--primary); font-weight: 700; }
   .speaker-b { color: #dc2626; font-weight: 700; }
@@ -412,7 +473,7 @@
   <header>
     <h1>🎧 Luyện Nghe &amp; Đọc Tiếng Anh</h1>
     <p>Chọn trình độ, random chủ đề, luyện nghe/đọc mỗi ngày</p>
-    <p style="margin-top:4px">👆 Bấm vào bất kỳ từ nào để xem phiên âm &amp; nghĩa</p>
+    <p style="margin-top:4px">👆 Bấm vào <b>từ</b> để xem phiên âm &amp; nghĩa · Bấm nút <b>▶</b> đầu mỗi câu để nghe riêng câu đó</p>
   </header>
 
   <div class="tabs">
@@ -452,7 +513,16 @@
     </div>
 
     <div class="controls">
+      <button class="btn secondary ctrl-btn" id="prevBtn" title="Câu trước" aria-label="Câu trước">⏮</button>
       <button class="btn" id="playBtn"><span class="btn-icon">▶️ Nghe</span></button>
+      <button class="btn secondary ctrl-btn" id="nextBtn" title="Câu sau" aria-label="Câu sau">⏭</button>
+      <button class="btn secondary ctrl-btn" id="loopBtn" title="Lặp lại câu đang đọc"
+              aria-label="Lặp lại câu đang đọc" aria-pressed="false">🔁</button>
+    </div>
+    <div class="speed-row">
+      <label for="rateRange">Tốc độ đọc</label>
+      <input type="range" id="rateRange" min="0.6" max="1.2" step="0.05" value="1">
+      <span class="speed-value" id="rateValue">1.00×</span>
     </div>
     <div class="status" id="statusText">Đang tải nội dung...</div>
   </div>
@@ -511,6 +581,23 @@ let currentItem = null;
 // Dùng số phiên tăng dần để speakNext tự huỷ nếu không còn thuộc phiên hiện tại.
 let speechSession = 0;
 
+// ====== TRẠNG THÁI PHÁT (mục 1.1) ======
+// Trước đây toàn bộ việc đọc nằm gọn trong closure của speakAll(), nên không
+// có cách nào từ ngoài nhảy tới câu số N hay lặp lại một câu. Nay nâng lên
+// biến ngoài để các nút ⏮ ⏭ 🔁 và nút ▶ ở từng dòng đều điều khiển được.
+let sentences = [];      // [{ text, speaker }] — nguồn dữ liệu chung cho cả render lẫn đọc
+let currentIndex = 0;    // câu đang trỏ tới / đang đọc
+let isPlaying = false;
+let loopOne = false;     // 🔁 lặp lại mãi câu hiện tại cho tới khi bấm Dừng
+const RATE_MIN = 0.6;    // dưới 0.6 nhiều giọng TTS bị méo và nuốt âm
+const RATE_MAX = 1.2;
+let playRate = 1;
+
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const loopBtn = document.getElementById('loopBtn');
+const rateRange = document.getElementById('rateRange');
+const rateValue = document.getElementById('rateValue');
 const topicText = document.getElementById('topicText');
 const scriptBox = document.getElementById('scriptBox');
 const scriptLabel = document.getElementById('scriptLabel');
@@ -1000,97 +1087,165 @@ function tokenizeWords(text) {
   }).join('');
 }
 
+// Tách nội dung hiện tại thành danh sách câu. Dùng CHUNG cho cả việc vẽ script
+// lẫn việc đọc, nên chỉ số câu trên màn hình luôn khớp với chỉ số câu đang đọc.
+function buildSentences() {
+  if (!currentItem) return [];
+  if (currentTab === 'dialogue') {
+    return currentItem.lines.map(l => ({ text: l.t, speaker: l.s }));
+  }
+  // `[.!?]*` (không phải `+`) để giữ lại đoạn cuối khi bài viết không kết thúc
+  // bằng dấu câu — regex cũ `[^.!?]+[.!?]+` nuốt mất câu cuối trong trường hợp
+  // đó, khiến câu này biến mất khỏi cả script hiển thị lẫn phần đọc.
+  const parts = currentItem.text.match(/[^.!?]+[.!?]*/g) || [];
+  return parts.map(s => ({ text: s.trim(), speaker: null })).filter(s => s.text);
+}
+
 function renderScript() {
   scriptBox.innerHTML = '';
-  if (currentTab === 'dialogue') {
-    scriptLabel.textContent = 'Hội thoại';
-    currentItem.lines.forEach((line, i) => {
-      const div = document.createElement('div');
-      div.className = 'line';
-      div.id = 'line-' + i;
-      const speakerLabel = line.s === 'A' ? 'Người A' : 'Người B';
-      const speakerClass = line.s === 'A' ? 'speaker-a' : 'speaker-b';
-      div.innerHTML = `<span class="${speakerClass}">${speakerLabel}:</span> ${tokenizeWords(line.t)}`;
-      scriptBox.appendChild(div);
-    });
-  } else {
-    scriptLabel.textContent = 'Script luyện nghe';
-    const sentences = currentItem.text.match(/[^.!?]+[.!?]+/g) || [currentItem.text];
-    sentences.forEach((sent, i) => {
-      const div = document.createElement('div');
-      div.className = 'line listen-line';
-      div.id = 'line-' + i;
-      div.innerHTML = tokenizeWords(sent.trim());
-      scriptBox.appendChild(div);
-    });
-  }
+  sentences = buildSentences();
+  currentIndex = 0;
+  scriptLabel.textContent = currentTab === 'dialogue' ? 'Hội thoại' : 'Script luyện nghe';
+
+  sentences.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'line' + (s.speaker ? '' : ' listen-line');
+    div.id = 'line-' + i;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'line-play';
+    btn.dataset.i = String(i);
+    btn.title = 'Đọc câu này';
+    btn.setAttribute('aria-label', 'Đọc câu này');
+    btn.textContent = '▶';
+
+    const textEl = document.createElement('div');
+    textEl.className = 'line-text';
+    if (s.speaker) {
+      const label = s.speaker === 'A' ? 'Người A' : 'Người B';
+      const cls = s.speaker === 'A' ? 'speaker-a' : 'speaker-b';
+      textEl.innerHTML = `<span class="${cls}">${label}:</span> ${tokenizeWords(s.text)}`;
+    } else {
+      textEl.innerHTML = tokenizeWords(s.text);
+    }
+
+    div.appendChild(btn);
+    div.appendChild(textEl);
+    scriptBox.appendChild(div);
+  });
+
+  markCurrent(false);
 }
 
 function clearHighlight() {
-  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active', 'current'));
 }
 
-// Trạng thái nút Nghe: 'idle' (chưa đọc/đã đọc xong) | 'playing' (đang đọc) | 'paused' (đang tạm dừng)
-let playState = 'idle';
+// Tô sáng câu hiện tại. Đang đọc -> .active (vàng); đã dừng -> .current (xám),
+// để người dùng luôn biết bấm ⏭ thì sẽ đi đâu.
+function markCurrent(scroll) {
+  clearHighlight();
+  const el = document.getElementById('line-' + currentIndex);
+  if (!el) return;
+  el.classList.add(isPlaying ? 'active' : 'current');
+  if (scroll) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
 function setPlayButton(state) {
-  playState = state;
-  if (state === 'playing') {
-    playBtn.innerHTML = '<span class="btn-icon">⏸️ Tạm dừng</span>';
-  } else if (state === 'paused') {
-    playBtn.innerHTML = '<span class="btn-icon">▶️ Tiếp tục</span>';
-  } else {
-    playBtn.innerHTML = '<span class="btn-icon">▶️ Nghe</span>';
-  }
+  isPlaying = state === 'playing';
+  playBtn.innerHTML = isPlaying
+    ? '<span class="btn-icon">⏹️ Dừng</span>'
+    : '<span class="btn-icon">▶️ Nghe</span>';
 }
 
-function speakAll() {
-  if (!currentItem) return;
+// Dừng hẳn. Cố ý KHÔNG dùng speechSynthesis.pause()/resume(): trên Chrome
+// Android có máy pause xong không resume lại được. Khi đã có ⏮ ⏭ và 🔁 thì
+// pause gần như thừa — dừng rồi phát lại câu hiện tại đơn giản và chắc hơn.
+function stopSpeaking(msg) {
+  speechSession++;
+  window.speechSynthesis.cancel();
+  setPlayButton('idle');
+  markCurrent(false);
+  if (msg) setStatus(msg);
+}
+
+function speakFrom(index) {
+  if (!sentences.length) return;
+
   speechSession++;
   const mySession = speechSession;
   window.speechSynthesis.cancel();
-  let textsToSpeak = [];
-
-  if (currentTab === 'dialogue') {
-    textsToSpeak = currentItem.lines.map(l => l.t);
-  } else {
-    textsToSpeak = (currentItem.text.match(/[^.!?]+[.!?]+/g) || [currentItem.text]).map(s => s.trim());
-  }
-
-  setStatus('Đang đọc...');
   setPlayButton('playing');
+  setStatus(loopOne ? 'Đang lặp lại một câu... Bấm "Dừng" để thoát.' : 'Đang đọc...');
 
-  function speakNext(index) {
-    // Nếu người dùng đã đổi chủ đề/trình độ/tab (loadNewItem tăng speechSession)
-    // trong lúc utterance trước đang phát/tạm dừng, dừng hẳn vòng lặp này lại,
-    // không đọc tiếp câu tiếp theo của chủ đề cũ nữa.
+  const step = (i) => {
+    // Người dùng đã đổi chủ đề/trình độ/tab, bấm nút khác, hoặc bấm Dừng
+    // -> speechSession đã tăng -> vòng đọc cũ tự huỷ tại đây.
     if (mySession !== speechSession) return;
-    if (index >= textsToSpeak.length) {
-      clearHighlight();
-      setStatus('Đã đọc xong. Nhấn "Nghe" để nghe lại.');
+
+    if (i >= sentences.length) {
+      currentIndex = 0; // đọc xong quay về đầu để bấm "Nghe" là chạy lại từ câu 1
       setPlayButton('idle');
+      markCurrent(false);
+      setStatus('Đã đọc xong. Nhấn "Nghe" để nghe lại.');
       return;
     }
-    clearHighlight();
-    const lineEl = document.getElementById('line-' + index);
-    if (lineEl) {
-      lineEl.classList.add('active');
-      lineEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    const utter = new SpeechSynthesisUtterance(textsToSpeak[index]);
+
+    currentIndex = i;
+    markCurrent(true);
+
+    const s = sentences[i];
+    const utter = new SpeechSynthesisUtterance(s.text);
     utter.lang = 'en-US';
-    utter.rate = 1;
-    if (currentTab === 'dialogue' && currentItem.lines[index]) {
-      const voiceSettings = getSpeakerVoiceSettings(currentItem.lines[index].s);
+    utter.rate = playRate;
+    if (s.speaker) {
+      const voiceSettings = getSpeakerVoiceSettings(s.speaker);
       if (voiceSettings.voice) utter.voice = voiceSettings.voice;
       utter.pitch = voiceSettings.pitch;
     }
-    utter.onend = () => speakNext(index + 1);
-    utter.onerror = () => speakNext(index + 1);
-    window.speechSynthesis.speak(utter);
-  }
 
-  speakNext(0);
+    const goOn = () => {
+      if (mySession !== speechSession) return;
+      // Lặp câu: nghỉ một nhịp ngắn cho người học kịp nhắc lại theo.
+      if (loopOne) setTimeout(() => step(i), 700);
+      else step(i + 1);
+    };
+    utter.onend = goOn;
+    utter.onerror = goOn;
+    window.speechSynthesis.speak(utter);
+  };
+
+  step(Math.max(0, Math.min(index, sentences.length - 1)));
+}
+
+// Nhảy tới một câu rồi đọc luôn — dùng cho ⏮ ⏭ và nút ▶ ở đầu mỗi dòng.
+function goToSentence(i) {
+  if (!sentences.length) return;
+  if (i < 0 || i >= sentences.length) return;
+  speakFrom(i);
+}
+
+// ====== TỐC ĐỘ ĐỌC ======
+const RATE_KEY = 'ep:rate';
+
+function loadRate() {
+  try {
+    const v = parseFloat(localStorage.getItem(RATE_KEY));
+    if (v >= RATE_MIN && v <= RATE_MAX) return v;
+  } catch (err) { /* localStorage bị chặn -> dùng mặc định */ }
+  return 1;
+}
+
+function saveRate(v) {
+  try { localStorage.setItem(RATE_KEY, String(v)); } catch (err) { /* bỏ qua */ }
+}
+
+function applyRate(v, persist) {
+  playRate = Math.min(RATE_MAX, Math.max(RATE_MIN, v));
+  rateRange.value = String(playRate);
+  rateValue.textContent = playRate.toFixed(2) + '×';
+  if (persist) saveRate(playRate);
 }
 
 // ====== TRA TỪ: PHIÊN ÂM (IPA) + NGHĨA TIẾNG VIỆT ======
@@ -1212,6 +1367,7 @@ function speakWord(word) {
   speechSession++;                 // dừng vòng đọc script đang chạy (nếu có)
   window.speechSynthesis.cancel();
   setPlayButton('idle');
+  markCurrent(false);              // đổi câu đang sáng vàng về trạng thái "đang trỏ tới"
   const utter = new SpeechSynthesisUtterance(word);
   utter.lang = 'en-US';
   utter.rate = 0.85;
@@ -1519,20 +1675,48 @@ document.addEventListener('mousedown', (e) => {
   if (comboOpen && !topicCombo.contains(e.target)) closeCombo();
 });
 playBtn.addEventListener('click', () => {
-  if (playState === 'idle') {
-    speakAll();
-  } else if (playState === 'playing') {
-    window.speechSynthesis.pause();
-    setStatus('Đã tạm dừng');
-    setPlayButton('paused');
-  } else if (playState === 'paused') {
-    window.speechSynthesis.resume();
-    setStatus('Đang đọc...');
-    setPlayButton('playing');
+  if (isPlaying) stopSpeaking('Đã dừng. Nhấn "Nghe" để đọc tiếp từ câu đang chọn.');
+  else speakFrom(currentIndex);
+});
+
+prevBtn.addEventListener('click', () => goToSentence(currentIndex - 1));
+nextBtn.addEventListener('click', () => goToSentence(currentIndex + 1));
+
+loopBtn.addEventListener('click', () => {
+  loopOne = !loopOne;
+  loopBtn.classList.toggle('on', loopOne);
+  loopBtn.setAttribute('aria-pressed', String(loopOne));
+  if (isPlaying) {
+    // Đọc lại chính câu này ngay để người dùng thấy hiệu lực tức thì.
+    speakFrom(currentIndex);
+  } else {
+    setStatus(loopOne
+      ? 'Đã bật lặp câu. Nhấn "Nghe" để lặp câu đang chọn.'
+      : 'Đã tắt lặp câu.');
   }
 });
 
+// Nút ▶ ở đầu mỗi dòng. Dùng listener riêng, tách hẳn khỏi listener bấm từ để
+// tra nghĩa: nút nằm ngoài .line-text nên hai thao tác không đè lên nhau.
+scriptBox.addEventListener('click', (e) => {
+  const btn = e.target.closest('.line-play');
+  if (!btn) return;
+  e.stopPropagation();
+  goToSentence(Number(btn.dataset.i));
+});
+
+// Kéo thanh: cập nhật số ngay cho mượt, nhưng chưa lưu và chưa đọc lại.
+rateRange.addEventListener('input', () => applyRate(parseFloat(rateRange.value), false));
+
+// Thả tay: lưu lựa chọn. Web Speech không đổi được tốc độ của câu đang đọc dở,
+// nên nếu đang đọc thì phát lại câu hiện tại với tốc độ mới.
+rateRange.addEventListener('change', () => {
+  applyRate(parseFloat(rateRange.value), true);
+  if (isPlaying) speakFrom(currentIndex);
+});
+
 // init
+applyRate(loadRate(), false);
 loadNewItem();
 </script>
 
