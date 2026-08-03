@@ -354,6 +354,80 @@
     font-weight: 600;
     color: var(--text);
   }
+
+  /* ===== Lịch sử học (mục 1.5) ===== */
+  .resume-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+  }
+  .resume-info { flex: 1; min-width: 160px; }
+  .resume-hint { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .resume-topic { font-weight: 600; color: var(--text); }
+  .hist-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hist-item:last-child { border-bottom: none; }
+  .hist-open {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 4px;
+    text-align: left;
+    font-size: 14px;
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: inherit;
+  }
+  .hist-open:hover { background: #f1f5f9; }
+  .hist-topic {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .hist-now { color: var(--primary); font-weight: 600; }
+  .hist-meta { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+  .hist-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .hist-fav {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    color: var(--muted);
+  }
+  .hist-fav:hover { background: #f1f5f9; }
+  .hist-fav.on { color: #f59e0b; }
+  .hist-empty { font-size: 13px; color: var(--muted); padding: 6px 4px; }
+  #favBtn.on { background: #fef3c7; border-color: #f59e0b; color: #b45309; }
+  #favFilterBtn.on { background: #fef3c7; border-color: #f59e0b; color: #b45309; }
   .speaker-a { color: var(--primary); font-weight: 700; }
   .speaker-b { color: #dc2626; font-weight: 700; }
   .listen-line { }
@@ -493,6 +567,8 @@
     <div class="row-label">Chủ đề hôm nay</div>
     <div class="topic-display">
       <span id="topicText">—</span>
+      <button class="btn secondary ctrl-btn" id="favBtn" title="Đánh dấu chủ đề này"
+              aria-label="Đánh dấu chủ đề này" aria-pressed="false">☆</button>
       <button class="btn secondary" id="randomBtn">🔀 Đổi chủ đề</button>
     </div>
 
@@ -525,6 +601,16 @@
       <span class="speed-value" id="rateValue">1.00×</span>
     </div>
     <div class="status" id="statusText">Đang tải nội dung...</div>
+  </div>
+
+  <!-- LỊCH SỬ HỌC (mục 1.5) — ẩn hoàn toàn khi chưa học bài nào -->
+  <div class="card" id="historyCard" hidden>
+    <div class="script-header">
+      <div class="row-label" id="historyLabel">Học gần đây</div>
+      <button class="btn secondary copy-btn" id="favFilterBtn" aria-pressed="false">⭐ Đã đánh dấu</button>
+    </div>
+    <div id="resumeBox" hidden></div>
+    <div id="historyList"></div>
   </div>
 
   <!-- SCRIPT DISPLAY -->
@@ -593,6 +679,12 @@ const RATE_MIN = 0.6;    // dưới 0.6 nhiều giọng TTS bị méo và nuốt
 const RATE_MAX = 1.2;
 let playRate = 1;
 
+const historyCard = document.getElementById('historyCard');
+const historyLabel = document.getElementById('historyLabel');
+const historyList = document.getElementById('historyList');
+const resumeBox = document.getElementById('resumeBox');
+const favBtn = document.getElementById('favBtn');
+const favFilterBtn = document.getElementById('favFilterBtn');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const loopBtn = document.getElementById('loopBtn');
@@ -914,6 +1006,267 @@ function pickUnseenOption() {
   return { opt: pool[Math.floor(Math.random() * pool.length)], exhausted };
 }
 
+// ====== LỊCH SỬ HỌC & ĐÁNH DẤU (mục 1.5) ======
+// Hai kho lưu RIÊNG, cố ý không nhét thêm trường vào `ep:log`:
+//  - ep:titles — bộ nhớ đệm tên bài { id: {topic, type, level} }, để vẽ lịch sử
+//    tức thì không cần gọi mạng.
+//  - ep:fav    — mảng id các chủ đề đã đánh dấu ⭐.
+// Lý do tách: `ep:log` phải giữ đúng 5 cột của bảng study_log (mục 7 kế hoạch),
+// thêm trường vào đó sẽ làm hỏng việc đẩy thẳng dữ liệu lên Supabase sau này.
+const TITLE_KEY = 'ep:titles';
+const FAV_KEY = 'ep:fav';
+const TITLE_MAX = 600;
+
+function readJson(key, fallback) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key));
+    return v === null || v === undefined ? fallback : v;
+  } catch (err) {
+    return fallback;
+  }
+}
+
+function writeJson(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (err) { /* bỏ qua */ }
+}
+
+function rememberTitle(id, topic, type, level) {
+  if (!id || !topic) return;
+  const titles = readJson(TITLE_KEY, {});
+  titles[id] = { topic, type, level };
+  const keys = Object.keys(titles);
+  // Xoá bớt mục cũ nhất nếu vượt trần (chỉ là cache, mất cũng không sao).
+  for (let i = 0; i < keys.length - TITLE_MAX; i++) delete titles[keys[i]];
+  writeJson(TITLE_KEY, titles);
+}
+
+function isFav(id) {
+  return readJson(FAV_KEY, []).indexOf(id) !== -1;
+}
+
+function toggleFav(id) {
+  if (!id) return false;
+  const favs = readJson(FAV_KEY, []);
+  const i = favs.indexOf(id);
+  if (i === -1) favs.push(id); else favs.splice(i, 1);
+  writeJson(FAV_KEY, favs);
+  return i === -1;
+}
+
+// Lịch sử = duyệt ngược nhật ký, mỗi bài chỉ lấy lần học GẦN NHẤT.
+function getHistory(limit, logArr) {
+  const titles = readJson(TITLE_KEY, {});
+  const log = logArr || readLog();
+  const seen = new Set();
+  const out = [];
+  for (let i = log.length - 1; i >= 0; i--) {
+    const id = log[i].content_id;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const meta = titles[id];
+    if (!meta) continue; // chưa có tên trong cache -> để backfillTitles() bổ sung sau
+    out.push({ id: id, topic: meta.topic, type: meta.type, level: meta.level, at: log[i].created_at });
+    if (limit && out.length >= limit) break;
+  }
+  return out;
+}
+
+function getFavorites() {
+  const titles = readJson(TITLE_KEY, {});
+  return readJson(FAV_KEY, [])
+    .map(id => titles[id] ? { id: id, topic: titles[id].topic, type: titles[id].type, level: titles[id].level } : null)
+    .filter(Boolean)
+    .reverse();
+}
+
+// Nhật ký từ tuần 1 chỉ có content_id, chưa có tên bài. Gọi 1 lần lúc khởi động
+// để lấp tên cho các id còn thiếu, nhờ vậy lịch sử hiện được ngay từ lần đầu.
+async function backfillTitles() {
+  if (!supabaseClient) return false;
+  const titles = readJson(TITLE_KEY, {});
+  const missing = [...new Set(readLog().map(e => e.content_id))]
+    .filter(id => id && !titles[id])
+    .slice(-60); // chỉ lấp các bài gần đây nhất, tránh query quá to
+  if (!missing.length) return false;
+  try {
+    const { data, error } = await supabaseClient
+      .from('content').select('id, topic, type, level').in('id', missing);
+    if (error || !data) return false;
+    data.forEach(r => { titles[r.id] = { topic: r.topic, type: r.type, level: r.level }; });
+    writeJson(TITLE_KEY, titles);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+const LEVEL_LABEL = { beginner: 'Cơ bản', intermediate: 'Trung cấp', advanced: 'Nâng cao' };
+const TYPE_ICON = { dialogue: '💬', listening: '🎙️' };
+
+function timeAgo(iso) {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!isFinite(ms) || ms < 0) return '';
+  const phut = Math.floor(ms / 60000);
+  if (phut < 1) return 'vừa xong';
+  if (phut < 60) return phut + ' phút trước';
+  const gio = Math.floor(phut / 60);
+  if (gio < 24) return gio + ' giờ trước';
+  const ngay = Math.floor(gio / 24);
+  if (ngay === 1) return 'hôm qua';
+  if (ngay < 30) return ngay + ' ngày trước';
+  return new Date(iso).toLocaleDateString('vi-VN');
+}
+
+// ====== VẼ KHUNG LỊCH SỬ ======
+// resumeTarget được chốt MỘT LẦN lúc khởi động, trước khi loadNewItem() mở bài
+// ngẫu nhiên mới. Nếu không, "bài gần nhất" sẽ luôn là bài vừa tự mở ra và ô
+// "Học tiếp" trở nên vô nghĩa.
+let resumeTarget = null;
+let favFilter = false;
+
+function makeHistRow(item, isCurrent) {
+  const row = document.createElement('div');
+  row.className = 'hist-item';
+
+  const star = document.createElement('button');
+  star.type = 'button';
+  star.className = 'hist-fav' + (isFav(item.id) ? ' on' : '');
+  star.textContent = isFav(item.id) ? '★' : '☆';
+  star.title = 'Đánh dấu chủ đề này';
+  star.setAttribute('aria-label', 'Đánh dấu chủ đề này');
+  star.addEventListener('click', () => {
+    toggleFav(item.id);
+    if (currentItem && currentItem.id === item.id) syncFavButton();
+    renderHistory();
+  });
+
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'hist-open';
+
+  const name = document.createElement('span');
+  name.className = 'hist-topic' + (isCurrent ? ' hist-now' : '');
+  name.textContent = (TYPE_ICON[item.type] || '') + ' ' + item.topic + (isCurrent ? ' (đang mở)' : '');
+
+  const badge = document.createElement('span');
+  badge.className = 'hist-badge';
+  badge.textContent = LEVEL_LABEL[item.level] || item.level || '';
+
+  open.appendChild(name);
+  open.appendChild(badge);
+  if (item.at) {
+    const meta = document.createElement('span');
+    meta.className = 'hist-meta';
+    meta.textContent = timeAgo(item.at);
+    open.appendChild(meta);
+  }
+  open.addEventListener('click', () => openLesson(item.id, item.type, item.level));
+
+  row.appendChild(star);
+  row.appendChild(open);
+  return row;
+}
+
+function renderResume() {
+  resumeBox.innerHTML = '';
+  // Ẩn ô "Học tiếp" nếu bài gần nhất chính là bài đang mở — không có gì để tiếp.
+  if (!resumeTarget || (currentItem && currentItem.id === resumeTarget.id)) {
+    resumeBox.hidden = true;
+    return;
+  }
+  const box = document.createElement('div');
+  box.className = 'resume-box';
+
+  const info = document.createElement('div');
+  info.className = 'resume-info';
+  const hint = document.createElement('div');
+  hint.className = 'resume-hint';
+  hint.textContent = 'Lần trước bạn đang học · ' + timeAgo(resumeTarget.at);
+  const topic = document.createElement('div');
+  topic.className = 'resume-topic';
+  topic.textContent = (TYPE_ICON[resumeTarget.type] || '') + ' ' + resumeTarget.topic;
+  info.appendChild(hint);
+  info.appendChild(topic);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn';
+  btn.innerHTML = '<span class="btn-icon">↩️ Học tiếp</span>';
+  btn.addEventListener('click', () => openLesson(resumeTarget.id, resumeTarget.type, resumeTarget.level));
+
+  box.appendChild(info);
+  box.appendChild(btn);
+  resumeBox.appendChild(box);
+  resumeBox.hidden = false;
+}
+
+function renderHistory() {
+  const items = favFilter ? getFavorites() : getHistory(10);
+  const soFav = readJson(FAV_KEY, []).length;
+
+  favFilterBtn.hidden = soFav === 0;
+  favFilterBtn.classList.toggle('on', favFilter);
+  favFilterBtn.setAttribute('aria-pressed', String(favFilter));
+  historyLabel.textContent = favFilter ? 'Chủ đề đã đánh dấu' : 'Học gần đây';
+
+  renderResume();
+  historyList.innerHTML = '';
+
+  if (!items.length) {
+    const p = document.createElement('div');
+    p.className = 'hist-empty';
+    p.textContent = favFilter
+      ? 'Chưa đánh dấu chủ đề nào. Bấm ☆ cạnh tên chủ đề để đánh dấu.'
+      : 'Chưa có bài nào. Học một bài là nó xuất hiện ở đây.';
+    historyList.appendChild(p);
+  } else {
+    items.forEach(it => {
+      historyList.appendChild(makeHistRow(it, !!(currentItem && currentItem.id === it.id)));
+    });
+  }
+
+  // Chỉ ẩn cả khung khi thực sự chưa có gì để hiện.
+  historyCard.hidden = !items.length && !resumeTarget && soFav === 0;
+}
+
+function syncFavButton() {
+  const on = !!(currentItem && isFav(currentItem.id));
+  favBtn.textContent = on ? '★' : '☆';
+  favBtn.classList.toggle('on', on);
+  favBtn.setAttribute('aria-pressed', String(on));
+  favBtn.disabled = !currentItem;
+}
+
+// Ghi nhận một bài vừa được mở: vừa vào nhật ký (đúng cột study_log), vừa vào
+// cache tên bài để lịch sử vẽ được mà không cần gọi mạng.
+function recordLesson() {
+  if (!currentItem || !currentItem.id) return;
+  logStudy(currentItem.id, 'read');
+  rememberTitle(currentItem.id, currentItem.topic, currentTab, currentLevel);
+  syncFavButton();
+  renderHistory();
+}
+
+// Mở lại một bài từ lịch sử: phải chỉnh tab + trình độ cho khớp rồi mới tải,
+// nếu không nội dung sẽ được dựng sai hình dạng (lines với text khác nhau).
+function setTabAndLevel(tab, level) {
+  if (tab && tab !== currentTab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  }
+  if (level && level !== currentLevel) {
+    currentLevel = level;
+    document.querySelectorAll('.level-btn').forEach(b => b.classList.toggle('active', b.dataset.level === level));
+  }
+}
+
+async function openLesson(id, tab, level) {
+  stopSpeaking();
+  setTabAndLevel(tab, level);
+  loadTopicOptions(); // làm mới danh sách cho combobox, không cần chờ
+  await loadSelectedTopic({ id: id });
+}
+
 // Gemini đôi khi sinh trùng tên chủ đề giữa các lần chạy khác ngày (cùng
 // type/level), nên danh sách có thể có 2 bản ghi khác id nhưng cùng tên
 // chủ đề. Lọc bớt (so sánh không phân biệt hoa/thường), giữ bản đầu tiên.
@@ -979,7 +1332,7 @@ async function loadSelectedTopic(opt) {
     if (!supabaseClient) throw new Error('Chưa cấu hình Supabase');
 
     currentItem = await fetchContentById(opt.id, currentTab);
-    logStudy(currentItem.id, 'read');
+    recordLesson();
     topicText.textContent = currentItem.topic;
     renderScript();
     refreshComboIfOpen();
@@ -1055,7 +1408,7 @@ async function loadNewItem() {
     }
 
     currentItem = newItem;
-    logStudy(currentItem.id, 'read');
+    recordLesson();
     topicText.textContent = currentItem.topic;
     renderScript();
     refreshComboIfOpen();
@@ -1715,9 +2068,38 @@ rateRange.addEventListener('change', () => {
   if (isPlaying) speakFrom(currentIndex);
 });
 
+favBtn.addEventListener('click', () => {
+  if (!currentItem) return;
+  toggleFav(currentItem.id);
+  syncFavButton();
+  renderHistory();
+});
+
+favFilterBtn.addEventListener('click', () => {
+  favFilter = !favFilter;
+  renderHistory();
+});
+
 // init
 applyRate(loadRate(), false);
+
+// Ảnh chụp nhật ký NGAY LÚC MỞ TRANG, trước khi loadNewItem() mở một bài ngẫu
+// nhiên mới. "Bài lần trước" luôn tính trên ảnh chụp này — nếu tính trên nhật
+// ký sống, bài gần nhất sẽ luôn là bài vừa tự mở ra và ô "Học tiếp" vô nghĩa.
+const logKhiKhoiDong = readLog();
+resumeTarget = getHistory(1, logKhiKhoiDong)[0] || null;
+syncFavButton();
+renderHistory();
+
 loadNewItem();
+
+// Nhật ký cũ (ghi từ trước khi có cache tên bài) chỉ có id. Lấp tên ở chế độ
+// nền rồi vẽ lại — chạy sau nên không làm chậm lần tải đầu.
+backfillTitles().then(coBoSung => {
+  if (!coBoSung) return;
+  if (!resumeTarget) resumeTarget = getHistory(1, logKhiKhoiDong)[0] || null;
+  renderHistory();
+});
 </script>
 
 <!-- Vercel Web Analytics (bật ngày 2026-08-03, gói Hobby miễn phí).
