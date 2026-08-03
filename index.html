@@ -760,6 +760,73 @@ function refreshComboIfOpen() {
   if (comboOpen) renderTopicList();
 }
 
+// ====== NHẬT KÝ HỌC (localStorage) ======
+// Ghi lại các bài đã mở để (a) "Đổi chủ đề" không random trúng bài cũ, và
+// (b) làm sẵn dữ liệu cho tính năng "Lịch sử học" sau này.
+//
+// QUAN TRỌNG: hình dạng mỗi bản ghi được đặt TRÙNG ĐÚNG cột của bảng
+// `study_log` trong Supabase (xem KE_HOACH_PHAT_TRIEN.md mục 10). Nhờ vậy khi
+// làm tính năng đăng nhập, việc đẩy dữ liệu cũ lên tài khoản chỉ là insert
+// thẳng mảng này, không phải viết hàm chuyển đổi. Đừng đổi tên trường.
+const LOG_KEY = 'ep:log';
+const LOG_MAX = 2000; // cắt bớt bản ghi cũ nhất để không làm phình localStorage
+
+function readLog() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LOG_KEY));
+    return Array.isArray(raw) ? raw : [];
+  } catch (err) {
+    return []; // localStorage bị chặn hoặc dữ liệu hỏng -> coi như chưa học gì
+  }
+}
+
+function writeLog(entries) {
+  try {
+    localStorage.setItem(LOG_KEY, JSON.stringify(entries.slice(-LOG_MAX)));
+  } catch (err) {
+    // Hết dung lượng hoặc trình duyệt chặn: bỏ qua, app vẫn chạy bình thường.
+  }
+}
+
+// mode: 'read' | 'listen' | 'quiz' — khớp ràng buộc check của bảng study_log.
+function logStudy(contentId, mode) {
+  if (!contentId) return;
+  const entries = readLog();
+  entries.push({
+    content_id: contentId,
+    mode: mode || 'read',
+    score: null,
+    seconds: null,
+    created_at: new Date().toISOString()
+  });
+  writeLog(entries);
+}
+
+function getSeenIds() {
+  return new Set(readLog().map(e => e.content_id));
+}
+
+// Chọn ngẫu nhiên 1 chủ đề CHƯA HỌC trong danh sách của tab/trình độ hiện tại.
+// Trả về { opt, exhausted } — exhausted = true nghĩa là đã học hết, đang vào
+// vòng ôn lại (lúc đó chỉ tránh lặp lại đúng bài đang mở).
+function pickUnseenOption() {
+  if (!topicOptions.length) return null;
+
+  const seen = getSeenIds();
+  const currentId = currentItem ? currentItem.id : null;
+
+  let pool = topicOptions.filter(opt => !seen.has(opt.id) && opt.id !== currentId);
+  let exhausted = false;
+
+  if (!pool.length) {
+    exhausted = true;
+    pool = topicOptions.filter(opt => opt.id !== currentId);
+    if (!pool.length) pool = topicOptions; // chỉ còn đúng 1 chủ đề ở mức này
+  }
+
+  return { opt: pool[Math.floor(Math.random() * pool.length)], exhausted };
+}
+
 // Gemini đôi khi sinh trùng tên chủ đề giữa các lần chạy khác ngày (cùng
 // type/level), nên danh sách có thể có 2 bản ghi khác id nhưng cùng tên
 // chủ đề. Lọc bớt (so sánh không phân biệt hoa/thường), giữ bản đầu tiên.
@@ -801,6 +868,20 @@ async function loadTopicOptions() {
   }
 }
 
+// Lấy 1 bản ghi theo id, trả về đúng hình dạng của `currentItem` (luôn kèm id).
+// Dùng chung cho cả "chọn chủ đề trong danh sách" lẫn "đổi chủ đề ngẫu nhiên".
+async function fetchContentById(id, type) {
+  const { data, error } = await supabaseClient
+    .from('content')
+    .select('id, topic, data')
+    .eq('id', id)
+    .single();
+  if (error || !data) throw error || new Error('Không tìm thấy chủ đề');
+  return type === 'dialogue'
+    ? { id: data.id, topic: data.topic, lines: data.data.lines }
+    : { id: data.id, topic: data.topic, text: data.data.text };
+}
+
 async function loadSelectedTopic(opt) {
   speechSession++;
   window.speechSynthesis.cancel();
@@ -810,16 +891,8 @@ async function loadSelectedTopic(opt) {
   try {
     if (!supabaseClient) throw new Error('Chưa cấu hình Supabase');
 
-    const { data, error } = await supabaseClient
-      .from('content')
-      .select('topic, data')
-      .eq('id', opt.id)
-      .single();
-    if (error || !data) throw error || new Error('Không tìm thấy chủ đề đã chọn');
-
-    currentItem = currentTab === 'dialogue'
-      ? { topic: data.topic, lines: data.data.lines }
-      : { topic: data.topic, text: data.data.text };
+    currentItem = await fetchContentById(opt.id, currentTab);
+    logStudy(currentItem.id, 'read');
     topicText.textContent = currentItem.topic;
     renderScript();
     refreshComboIfOpen();
@@ -840,10 +913,12 @@ async function fetchFromSupabase(type, level) {
     if (error) throw error;
     if (!data || data.length === 0) return null;
     const row = data[0];
+    // Giữ lại `id` (trước đây bị bỏ mất) — không có nó thì không ghi được
+    // nhật ký học và không biết bài nào đã xem để loại trừ.
     if (type === 'dialogue') {
-      return { topic: row.topic, lines: row.data.lines };
+      return { id: row.id, topic: row.topic, lines: row.data.lines };
     }
-    return { topic: row.topic, text: row.data.text };
+    return { id: row.id, topic: row.topic, text: row.data.text };
   } catch (err) {
     console.warn('Không lấy được dữ liệu từ Supabase, dùng nội dung dự phòng:', err.message || err);
     return null;
@@ -856,22 +931,33 @@ async function loadNewItem() {
   setPlayButton('idle');
   randomBtn.disabled = true;
   setStatus('Đang tải chủ đề mới...');
-  loadTopicOptions(); // làm mới danh sách chủ đề để chọn, chạy song song không cần chờ
 
-  // Ghi nhớ chủ đề đang hiển thị để tránh việc "random" ra đúng chủ đề cũ
-  // khi data pool cho trình độ này còn ít bản ghi.
-  const previousTopic = currentItem ? currentItem.topic : null;
-  const maxAttempts = 3;
+  // Chốt tab/trình độ tại thời điểm bắt đầu. Nếu người dùng đổi tab hoặc trình
+  // độ trong lúc đang chờ mạng, lần chạy này phải tự bỏ đi — nếu không sẽ hiển
+  // thị nội dung của tab cũ, hoặc dựng sai hình dạng (lines vs text).
+  const myTab = currentTab;
+  const myLevel = currentLevel;
+  const isStale = () => myTab !== currentTab || myLevel !== currentLevel;
 
   try {
-    let newItem = null;
+    // Phải CHỜ danh sách chủ đề rồi mới chọn được bài chưa học.
+    // (Trước đây gọi song song không chờ, nên không có gì để loại trừ.)
+    await loadTopicOptions();
+    if (isStale()) return;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const fromDb = await fetchFromSupabase(currentTab, currentLevel);
-      if (!fromDb) break;
-      newItem = fromDb;
-      if (!previousTopic || newItem.topic !== previousTopic) break;
+    let newItem = null;
+    let exhausted = false;
+
+    const picked = pickUnseenOption();
+    if (picked) {
+      exhausted = picked.exhausted;
+      newItem = await fetchContentById(picked.opt.id, myTab);
+    } else {
+      // Dự phòng: không lấy được danh sách chủ đề (mất mạng, DB pause...).
+      // Quay về cách random cũ qua RPC để app vẫn dùng được.
+      newItem = await fetchFromSupabase(myTab, myLevel);
     }
+    if (isStale()) return;
 
     if (!newItem) {
       topicText.textContent = '—';
@@ -882,10 +968,13 @@ async function loadNewItem() {
     }
 
     currentItem = newItem;
+    logStudy(currentItem.id, 'read');
     topicText.textContent = currentItem.topic;
     renderScript();
     refreshComboIfOpen();
-    setStatus('Nhấn "Nghe" để bắt đầu');
+    setStatus(exhausted
+      ? `Bạn đã học hết ${topicOptions.length} chủ đề ở mức này — bắt đầu vòng ôn lại. Nhấn "Nghe" để bắt đầu`
+      : 'Nhấn "Nghe" để bắt đầu');
   } catch (err) {
     console.error('Lỗi khi tải chủ đề mới:', err);
     setStatus('Có lỗi khi tải chủ đề mới, vui lòng thử lại.', true);
