@@ -1535,5 +1535,15 @@ playBtn.addEventListener('click', () => {
 // init
 loadNewItem();
 </script>
+
+<!-- Vercel Web Analytics (bật ngày 2026-08-03, gói Hobby miễn phí).
+     Site này là HTML tĩnh nên không dùng package @vercel/analytics; chèn thẳng
+     script theo dõi. Route /_vercel/insights/* chỉ tồn tại sau lần deploy kế
+     tiếp — bật trong dashboard thôi là CHƯA đủ, phải có đoạn này.
+     Muốn tắt: xoá cả khối này và tắt trong dashboard Vercel. -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
