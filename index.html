@@ -405,6 +405,91 @@
   .line.current { background: #eef2f7; }
   .line.current .line-play { border-color: var(--muted); color: var(--text); }
 
+  /* ===== 1.4 — bản dịch cả câu ===== */
+  .line-vi {
+    margin-top: 4px;
+    padding-left: 10px;
+    border-left: 2px solid var(--border);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+  /* Nút 👁 nằm CUỐI hàng, ngoài .line-text — vùng chữ vẫn dành trọn cho thao
+     tác bấm từ để tra nghĩa, đúng nguyên tắc đã chốt ở mục 1.1. */
+  .line-eye {
+    flex-shrink: 0;
+    margin-top: 3px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    opacity: 0.55;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .line-eye:hover { opacity: 1; border-color: var(--primary); }
+  .line-eye[aria-pressed="true"] { opacity: 1; border-color: var(--primary); background: #eff6ff; }
+  #biBtn.on { border-color: var(--primary); color: var(--primary); background: #eff6ff; }
+
+  /* ===== 2.5 — câu hỏi hiểu bài ===== */
+  .quiz-q { padding: 12px 0; border-top: 1px solid var(--border); }
+  .quiz-q:first-child { border-top: 0; padding-top: 4px; }
+  .quiz-q .qt { font-weight: 600; margin-bottom: 8px; line-height: 1.5; }
+  .quiz-q .qt .qn { color: var(--muted); margin-right: 6px; }
+  .quiz-opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 6px;
+    padding: 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .quiz-opt:hover { border-color: var(--primary); }
+  .quiz-opt .ol { flex-shrink: 0; font-weight: 700; color: var(--muted); }
+  .quiz-opt.picked { border-color: var(--primary); background: #eff6ff; }
+  /* Sau khi nộp: xanh = đáp án đúng, đỏ = chỗ người học chọn sai.
+     Đáp án đúng LUÔN được tô xanh dù người học có chọn hay không — mục đích là
+     để học, không phải để chấm điểm. */
+  .quiz-opt.right { border-color: var(--green); background: #ecfdf5; }
+  .quiz-opt.wrong { border-color: #dc2626; background: #fef2f2; }
+  .quiz-opt:disabled { cursor: default; }
+  .quiz-explain {
+    margin-top: 6px;
+    padding: 8px 11px;
+    background: #f8fafc;
+    border-left: 2px solid var(--border);
+    border-radius: 0 6px 6px 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  .quiz-foot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .quiz-score { font-size: 14px; font-weight: 600; }
+
   .ctrl-btn {
     padding: 10px 14px;
     font-size: 15px;
@@ -699,7 +784,7 @@
   <header>
     <h1>🎧 Luyện Nghe &amp; Đọc Tiếng Anh</h1>
     <p>Chọn trình độ, random chủ đề, luyện nghe/đọc mỗi ngày</p>
-    <p style="margin-top:4px">👆 Bấm vào <b>từ</b> để xem phiên âm &amp; nghĩa · Bấm nút <b>▶</b> đầu mỗi câu để nghe riêng câu đó</p>
+    <p style="margin-top:4px">👆 Bấm vào <b>từ</b> để xem phiên âm &amp; nghĩa · Nút <b>▶</b> đầu câu để nghe riêng câu đó · Nút <b>👁</b> cuối câu để xem nghĩa cả câu</p>
   </header>
 
   <div class="tabs">
@@ -767,9 +852,24 @@
   <div class="card">
     <div class="script-header">
       <div class="row-label" id="scriptLabel">Nội dung</div>
+      <!-- Tự ẩn khi bài chưa có bản dịch (mục 1.4) -->
+      <button class="btn secondary copy-btn" id="biBtn" aria-pressed="false" hidden>🇻🇳 Bản dịch</button>
       <button class="btn secondary copy-btn" id="copyBtn">📋 Copy</button>
     </div>
     <div class="script-box" id="scriptBox"></div>
+  </div>
+
+  <!-- CÂU HỎI HIỂU BÀI (mục 2.5). Tự ẩn khi bài chưa soạn quiz. -->
+  <div class="card" id="quizCard" hidden>
+    <div class="script-header">
+      <div class="row-label">📝 Câu hỏi hiểu bài</div>
+      <button class="btn secondary copy-btn" id="quizResetBtn" hidden>↻ Làm lại</button>
+    </div>
+    <div id="quizBox"></div>
+    <div class="quiz-foot">
+      <button class="btn" id="quizSubmitBtn">Nộp bài</button>
+      <span class="quiz-score" id="quizScore"></span>
+    </div>
   </div>
 </div>
 
@@ -845,13 +945,21 @@ let speechSession = 0;
 // Trước đây toàn bộ việc đọc nằm gọn trong closure của speakAll(), nên không
 // có cách nào từ ngoài nhảy tới câu số N hay lặp lại một câu. Nay nâng lên
 // biến ngoài để các nút ⏮ ⏭ 🔁 và nút ▶ ở từng dòng đều điều khiển được.
-let sentences = [];      // [{ text, speaker }] — nguồn dữ liệu chung cho cả render lẫn đọc
+let sentences = [];      // [{ text, speaker, vi }] — nguồn dữ liệu chung cho cả render lẫn đọc
 let currentIndex = 0;    // câu đang trỏ tới / đang đọc
 let isPlaying = false;
 let loopOne = false;     // 🔁 lặp lại mãi câu hiện tại cho tới khi bấm Dừng
 const RATE_MIN = 0.6;    // dưới 0.6 nhiều giọng TTS bị méo và nuốt âm
 const RATE_MAX = 1.2;
 let playRate = 1;
+
+// ====== GIAI ĐOẠN 2 ======
+// 1.4 — chế độ song ngữ: hiện bản dịch dưới MỌI câu. Lựa chọn nhớ giữa các bài.
+let bilingual = false;
+// 2.5 — quiz: { câu số -> đáp án đã chọn }. `quizDone` = đã nộp bài, lúc đó
+// khoá lựa chọn lại để người học không sửa đáp án sau khi đã thấy kết quả.
+let quizAnswers = {};
+let quizDone = false;
 
 const modal = document.getElementById('modal');
 const modalBackdrop = document.getElementById('modalBackdrop');
@@ -876,6 +984,12 @@ const rateValue = document.getElementById('rateValue');
 const topicText = document.getElementById('topicText');
 const scriptBox = document.getElementById('scriptBox');
 const scriptLabel = document.getElementById('scriptLabel');
+const biBtn = document.getElementById('biBtn');
+const quizCard = document.getElementById('quizCard');
+const quizBox = document.getElementById('quizBox');
+const quizSubmitBtn = document.getElementById('quizSubmitBtn');
+const quizResetBtn = document.getElementById('quizResetBtn');
+const quizScore = document.getElementById('quizScore');
 const statusText = document.getElementById('statusText');
 const randomBtn = document.getElementById('randomBtn');
 const playBtn = document.getElementById('playBtn');
@@ -1151,13 +1265,15 @@ function writeLog(entries) {
 }
 
 // mode: 'read' | 'listen' | 'quiz' — khớp ràng buộc check của bảng study_log.
-function logStudy(contentId, mode) {
+// score: tỉ lệ đúng 0–1 cho bài quiz, null với các mode khác. Giữ đúng kiểu
+// `numeric` của cột study_log.score để tuần 16 đẩy thẳng lên Supabase.
+function logStudy(contentId, mode, score) {
   if (!contentId) return;
   const entries = readLog();
   entries.push({
     content_id: contentId,
     mode: mode || 'read',
-    score: null,
+    score: typeof score === 'number' && isFinite(score) ? score : null,
     seconds: null,
     created_at: new Date().toISOString()
   });
@@ -1871,6 +1987,30 @@ async function loadTopicOptions() {
   }
 }
 
+// Dựng `currentItem` từ một bản ghi Supabase.
+// Tách thành hàm riêng vì có HAI đường lấy bài (chọn theo id và random qua RPC).
+// Trước đây mỗi đường tự dựng lấy, nên chỉ cần quên một chỗ là bài mở bằng
+// đường kia sẽ mất bản dịch/quiz mà không báo lỗi gì.
+//   - dialogue : bản dịch nằm trong từng phần tử lines[i].vi
+//   - listening: bản dịch nằm ở mảng data.vi, xếp đúng thứ tự câu
+// `quiz` dùng chung cho cả hai loại. Bài chưa soạn thì các trường này là null
+// và giao diện tự ẩn nút — không báo lỗi (mục 14 kế hoạch).
+function buildItem(row, type) {
+  const d = row.data || {};
+  const item = {
+    id: row.id,
+    topic: row.topic,
+    quiz: Array.isArray(d.quiz) && d.quiz.length ? d.quiz : null
+  };
+  if (type === 'dialogue') {
+    item.lines = d.lines;
+  } else {
+    item.text = d.text;
+    item.vi = Array.isArray(d.vi) && d.vi.length ? d.vi : null;
+  }
+  return item;
+}
+
 // Lấy 1 bản ghi theo id, trả về đúng hình dạng của `currentItem` (luôn kèm id).
 // Dùng chung cho cả "chọn chủ đề trong danh sách" lẫn "đổi chủ đề ngẫu nhiên".
 async function fetchContentById(id, type) {
@@ -1880,9 +2020,7 @@ async function fetchContentById(id, type) {
     .eq('id', id)
     .single();
   if (error || !data) throw error || new Error('Không tìm thấy chủ đề');
-  return type === 'dialogue'
-    ? { id: data.id, topic: data.topic, lines: data.data.lines }
-    : { id: data.id, topic: data.topic, text: data.data.text };
+  return buildItem(data, type);
 }
 
 async function loadSelectedTopic(opt) {
@@ -1918,10 +2056,7 @@ async function fetchFromSupabase(type, level) {
     const row = data[0];
     // Giữ lại `id` (trước đây bị bỏ mất) — không có nó thì không ghi được
     // nhật ký học và không biết bài nào đã xem để loại trừ.
-    if (type === 'dialogue') {
-      return { id: row.id, topic: row.topic, lines: row.data.lines };
-    }
-    return { id: row.id, topic: row.topic, text: row.data.text };
+    return buildItem(row, type);
   } catch (err) {
     console.warn('Không lấy được dữ liệu từ Supabase, dùng nội dung dự phòng:', err.message || err);
     return null;
@@ -2008,13 +2143,23 @@ function tokenizeWords(text) {
 function buildSentences() {
   if (!currentItem) return [];
   if (currentTab === 'dialogue') {
-    return currentItem.lines.map(l => ({ text: l.t, speaker: l.s }));
+    return currentItem.lines.map(l => ({ text: l.t, speaker: l.s, vi: l.vi || '' }));
   }
   // `[.!?]*` (không phải `+`) để giữ lại đoạn cuối khi bài viết không kết thúc
   // bằng dấu câu — regex cũ `[^.!?]+[.!?]+` nuốt mất câu cuối trong trường hợp
   // đó, khiến câu này biến mất khỏi cả script hiển thị lẫn phần đọc.
   const parts = currentItem.text.match(/[^.!?]+[.!?]*/g) || [];
-  return parts.map(s => ({ text: s.trim(), speaker: null })).filter(s => s.text);
+  const list = parts.map(s => ({ text: s.trim(), speaker: null, vi: '' })).filter(s => s.text);
+
+  // Bài nghe lưu bản dịch ở mảng `data.vi` xếp theo đúng thứ tự câu. Chỉ gắn
+  // khi số phần tử KHỚP TUYỆT ĐỐI: lệch một câu là mọi câu phía sau bị dịch
+  // sai chỗ, mà người học không có cách nào phát hiện. Thà không hiện bản dịch
+  // còn hơn hiện bản dịch của câu khác.
+  const vi = currentItem.vi;
+  if (Array.isArray(vi) && vi.length === list.length) {
+    list.forEach((s, i) => { s.vi = String(vi[i] || ''); });
+  }
+  return list;
 }
 
 function renderScript() {
@@ -2048,10 +2193,224 @@ function renderScript() {
 
     div.appendChild(btn);
     div.appendChild(textEl);
+
+    // 1.4 — bản dịch cả câu. Chỉ dựng cho câu ĐÃ CÓ bản dịch: bài chưa soạn thì
+    // không có nút 👁 nào, người dùng không thấy một tính năng bấm vào không
+    // chạy được. Dùng textContent (không phải innerHTML) vì bản dịch là dữ liệu
+    // từ DB — tokenizeWords chỉ dành cho phần tiếng Anh cần bấm tra từ.
+    if (s.vi) {
+      const viEl = document.createElement('div');
+      viEl.className = 'line-vi';
+      viEl.textContent = s.vi;
+      viEl.hidden = !bilingual;
+      textEl.appendChild(viEl);
+
+      const eye = document.createElement('button');
+      eye.type = 'button';
+      eye.className = 'line-eye';
+      eye.dataset.i = String(i);
+      eye.title = 'Hiện/ẩn bản dịch câu này';
+      eye.setAttribute('aria-label', 'Hiện hoặc ẩn bản dịch câu này');
+      eye.setAttribute('aria-pressed', bilingual ? 'true' : 'false');
+      eye.textContent = '👁';
+      div.appendChild(eye);
+    }
+
     scriptBox.appendChild(div);
   });
 
+  syncBilingualButton();
+  renderQuiz();
   markCurrent(false);
+}
+
+// ============================================================
+// 1.4 — Dịch cả câu (bật/tắt)
+// Bản dịch được soạn sẵn và lưu trong cột `data` của Supabase. Cố ý KHÔNG gọi
+// API dịch máy lúc chạy: dịch realtime hay sai, chậm, và bị chặn theo IP —
+// dự án đã gặp đúng vấn đề đó với API từ điển.
+// ============================================================
+const BILINGUAL_KEY = 'ep:bilingual';
+
+function loadBilingual() {
+  try {
+    return localStorage.getItem(BILINGUAL_KEY) === '1';
+  } catch (err) {
+    return false; // localStorage bị chặn -> mặc định tắt, app vẫn chạy
+  }
+}
+
+function saveBilingual(on) {
+  try {
+    localStorage.setItem(BILINGUAL_KEY, on ? '1' : '0');
+  } catch (err) {
+    // bỏ qua: không lưu được lựa chọn thì lần sau về mặc định, không phải lỗi
+  }
+}
+
+// Bài nào có ít nhất một câu đã dịch thì mới hiện nút bật/tắt song ngữ.
+function coBanDich() {
+  return sentences.some(s => s.vi);
+}
+
+function syncBilingualButton() {
+  const co = coBanDich();
+  biBtn.hidden = !co;
+  biBtn.setAttribute('aria-pressed', bilingual ? 'true' : 'false');
+  biBtn.classList.toggle('on', bilingual);
+  biBtn.textContent = bilingual ? '🇻🇳 Ẩn bản dịch' : '🇻🇳 Bản dịch';
+}
+
+// Bật/tắt bản dịch của MỘT câu. Trả về trạng thái mới, hoặc null nếu câu đó
+// không có bản dịch (bấm vào chỗ trống thì không làm gì, không ném lỗi).
+function toggleLineVi(i) {
+  const el = document.getElementById('line-' + i);
+  if (!el) return null;
+  const viEl = el.querySelector('.line-vi');
+  if (!viEl) return null;
+  viEl.hidden = !viEl.hidden;
+  const eye = el.querySelector('.line-eye');
+  if (eye) eye.setAttribute('aria-pressed', viEl.hidden ? 'false' : 'true');
+  return !viEl.hidden;
+}
+
+// Bật/tắt chế độ song ngữ cho CẢ BÀI. Lựa chọn được nhớ giữa các bài và các
+// lần vào trang — người học đã quen đọc song ngữ thì không phải bấm lại mỗi bài.
+function setBilingual(on) {
+  bilingual = !!on;
+  saveBilingual(bilingual);
+  document.querySelectorAll('#scriptBox .line-vi').forEach(el => { el.hidden = !bilingual; });
+  document.querySelectorAll('#scriptBox .line-eye').forEach(el => {
+    el.setAttribute('aria-pressed', bilingual ? 'true' : 'false');
+  });
+  syncBilingualButton();
+}
+
+// ============================================================
+// 2.5 — Câu hỏi hiểu bài
+// Bộ câu hỏi nằm trong `data.quiz` của Supabase, dạng
+//   [{ q: "...", a: ["...", ...], correct: 0, explain: "..." }]
+// JSONB nên không phải đổi schema. Bài chưa soạn quiz thì cả khung tự ẩn.
+// ============================================================
+const OPT_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+// Lọc bỏ những câu hỏi hỏng (thiếu đề, ít hơn 2 lựa chọn, `correct` trỏ ra
+// ngoài mảng). Một câu hỏi hỏng không được phép làm sập cả bộ đề.
+function layQuiz() {
+  const raw = currentItem && Array.isArray(currentItem.quiz) ? currentItem.quiz : [];
+  return raw.filter(q =>
+    q && typeof q.q === 'string' && q.q.trim() &&
+    Array.isArray(q.a) && q.a.length >= 2 &&
+    Number.isInteger(q.correct) && q.correct >= 0 && q.correct < q.a.length
+  );
+}
+
+function renderQuiz() {
+  quizAnswers = {};
+  quizDone = false;
+  const quiz = layQuiz();
+
+  quizCard.hidden = quiz.length === 0;
+  quizBox.innerHTML = '';
+  quizScore.textContent = '';
+  quizResetBtn.hidden = true;
+  quizSubmitBtn.hidden = false;
+  quizSubmitBtn.disabled = true; // chỉ bật khi đã trả lời hết
+  quizSubmitBtn.textContent = 'Nộp bài';
+  if (!quiz.length) return;
+
+  quiz.forEach((q, qi) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'quiz-q';
+    wrap.dataset.q = String(qi);
+
+    const title = document.createElement('div');
+    title.className = 'qt';
+    const num = document.createElement('span');
+    num.className = 'qn';
+    num.textContent = `Câu ${qi + 1}.`;
+    title.appendChild(num);
+    title.appendChild(document.createTextNode(q.q));
+    wrap.appendChild(title);
+
+    q.a.forEach((opt, oi) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'quiz-opt';
+      b.dataset.q = String(qi);
+      b.dataset.o = String(oi);
+      const lab = document.createElement('span');
+      lab.className = 'ol';
+      lab.textContent = (OPT_LABELS[oi] || String(oi + 1)) + '.';
+      b.appendChild(lab);
+      b.appendChild(document.createTextNode(opt));
+      wrap.appendChild(b);
+    });
+
+    quizBox.appendChild(wrap);
+  });
+}
+
+function chonDapAn(qi, oi) {
+  if (quizDone) return; // đã nộp thì khoá lại, không cho sửa
+  const quiz = layQuiz();
+  if (!quiz[qi] || oi < 0 || oi >= quiz[qi].a.length) return;
+
+  quizAnswers[qi] = oi;
+  quizBox.querySelectorAll(`.quiz-opt[data-q="${qi}"]`).forEach(b => {
+    b.classList.toggle('picked', Number(b.dataset.o) === oi);
+  });
+  // Bắt trả lời hết rồi mới cho nộp: nộp sớm sẽ tính là sai những câu chỉ vì
+  // chưa kịp đọc, làm điểm số mất ý nghĩa.
+  quizSubmitBtn.disabled = Object.keys(quizAnswers).length < quiz.length;
+}
+
+// Chấm điểm. Trả về { dung, tong, diem } với `diem` là tỉ lệ 0–1 — đúng kiểu
+// cột `score numeric` của bảng study_log (mục 10), để tuần 16 đẩy thẳng lên
+// Supabase mà không phải quy đổi.
+function chamQuiz() {
+  const quiz = layQuiz();
+  if (!quiz.length) return null;
+  let dung = 0;
+  quiz.forEach((q, qi) => { if (quizAnswers[qi] === q.correct) dung++; });
+  return { dung: dung, tong: quiz.length, diem: Math.round((dung / quiz.length) * 100) / 100 };
+}
+
+function nopQuiz() {
+  const quiz = layQuiz();
+  if (!quiz.length || quizDone) return null;
+  if (Object.keys(quizAnswers).length < quiz.length) return null;
+
+  quizDone = true;
+  const kq = chamQuiz();
+
+  quiz.forEach((q, qi) => {
+    const wrap = quizBox.querySelector(`.quiz-q[data-q="${qi}"]`);
+    if (!wrap) return;
+    wrap.querySelectorAll('.quiz-opt').forEach(b => {
+      const oi = Number(b.dataset.o);
+      b.disabled = true;
+      b.classList.remove('picked');
+      if (oi === q.correct) b.classList.add('right');
+      else if (quizAnswers[qi] === oi) b.classList.add('wrong');
+    });
+    // Giải thích hiện cho MỌI câu, kể cả câu làm đúng: đôi khi người học chọn
+    // đúng do đoán, và đó chính là lúc cần biết vì sao.
+    if (q.explain) {
+      const ex = document.createElement('div');
+      ex.className = 'quiz-explain';
+      ex.textContent = q.explain;
+      wrap.appendChild(ex);
+    }
+  });
+
+  quizScore.textContent = `Đúng ${kq.dung}/${kq.tong} — ${Math.round(kq.diem * 100)}%`;
+  quizScore.style.color = kq.diem >= 0.75 ? 'var(--green)' : (kq.diem >= 0.5 ? 'var(--text)' : '#dc2626');
+  quizSubmitBtn.hidden = true;
+  quizResetBtn.hidden = false;
+
+  if (currentItem && currentItem.id) logStudy(currentItem.id, 'quiz', kq.diem);
+  return kq;
 }
 
 function clearHighlight() {
@@ -2651,6 +3010,32 @@ scriptBox.addEventListener('click', (e) => {
   else goToSentence(i);
 });
 
+// Nút 👁 ở cuối mỗi dòng — hiện/ẩn bản dịch riêng câu đó (mục 1.4).
+// Cố ý KHÔNG dừng phần đang đọc: xem nghĩa không nên cắt ngang bài đang nghe,
+// giống hệt cách xử lý khi bấm vào một từ để tra nghĩa.
+scriptBox.addEventListener('click', (e) => {
+  const eye = e.target.closest('.line-eye');
+  if (!eye) return;
+  e.stopPropagation();
+  toggleLineVi(Number(eye.dataset.i));
+});
+
+biBtn.addEventListener('click', () => setBilingual(!bilingual));
+
+// Quiz (mục 2.5) — event delegation, vì các nút được dựng lại sau mỗi bài.
+quizBox.addEventListener('click', (e) => {
+  const b = e.target.closest('.quiz-opt');
+  if (!b) return;
+  chonDapAn(Number(b.dataset.q), Number(b.dataset.o));
+});
+
+quizSubmitBtn.addEventListener('click', () => {
+  const kq = nopQuiz();
+  if (kq) quizCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+quizResetBtn.addEventListener('click', renderQuiz);
+
 // Kéo thanh: cập nhật số ngay cho mượt, nhưng chưa lưu và chưa đọc lại.
 rateRange.addEventListener('input', () => applyRate(parseFloat(rateRange.value), false));
 
@@ -2699,6 +3084,7 @@ favFilterBtn.addEventListener('click', () => {
 
 // init
 applyRate(loadRate(), false);
+bilingual = loadBilingual(); // nhớ lựa chọn song ngữ từ lần vào trước
 
 // Ảnh chụp nhật ký NGAY LÚC MỞ TRANG, trước khi loadNewItem() mở một bài ngẫu
 // nhiên mới. "Bài lần trước" luôn tính trên ảnh chụp này — nếu tính trên nhật
