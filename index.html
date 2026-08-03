@@ -1490,6 +1490,19 @@ function dueWords() {
   return readVocab().filter(v => !v.due_date || v.due_date <= t);
 }
 
+// Ngày đến hạn gần nhất trong tương lai (YYYY-MM-DD), hoặc '' nếu sổ trống.
+// Dùng để trả lời câu hỏi "vậy khi nào tôi ôn tiếp?" ngay trong sổ từ.
+function ngayOnGanNhat() {
+  const ngay = readVocab().map(v => v.due_date).filter(Boolean).sort();
+  return ngay.length ? ngay[0] : '';
+}
+
+// '2026-08-10' -> '10/08/2026'. Trả nguyên chuỗi nếu dữ liệu không đúng dạng.
+function dinhDangNgay(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(s || '');
+}
+
 // Chấm một từ sau khi ôn. remembered = true -> lên hộp, false -> về hộp 1.
 function gradeWord(word, remembered) {
   const list = readVocab();
@@ -1673,8 +1686,17 @@ function renderVocab() {
 
   favFilterBtn.hidden = true;
   modalTitle.textContent = 'Sổ từ (' + list.length + ')';
-  reviewBtn.hidden = due.length === 0 || reviewQueue.length > 0;
+
+  // Nút ôn tập LUÔN hiện khi sổ có từ, chỉ **mờ đi** khi chưa tới hạn ôn.
+  // Trước đây nút bị ẩn hẳn lúc `due.length === 0`, nên người dùng ôn hết một
+  // lượt là tính năng biến mất và họ tưởng app không có nó — đúng lỗi đã rút ra
+  // ở nút "Sổ từ" trước đây: KHÔNG ẩn lối vào của một tính năng chỉ vì nó đang trống.
+  reviewBtn.hidden = reviewQueue.length > 0 || list.length === 0;
+  reviewBtn.disabled = due.length === 0;
   reviewBtn.textContent = '🎯 Ôn tập (' + due.length + ')';
+  reviewBtn.title = due.length
+    ? 'Ôn ' + due.length + ' từ đến hạn hôm nay'
+    : 'Hôm nay chưa có từ nào tới hạn ôn';
 
   if (!list.length) {
     reviewPanel.hidden = true;
@@ -1688,6 +1710,19 @@ function renderVocab() {
   }
 
   vocabList.innerHTML = '';
+
+  // Sổ có từ nhưng chưa tới hạn ôn: nói rõ ngày quay lại, thay vì để người dùng
+  // nhìn nút mờ mà không hiểu vì sao bấm không được.
+  if (!due.length) {
+    const note = document.createElement('div');
+    note.className = 'hist-empty';
+    const ngay = ngayOnGanNhat();
+    note.textContent = ngay
+      ? 'Hôm nay không có từ nào tới hạn ôn. Lượt ôn kế tiếp: ' + dinhDangNgay(ngay) + '.'
+      : 'Hôm nay không có từ nào tới hạn ôn.';
+    vocabList.appendChild(note);
+  }
+
   // Từ đến hạn lên đầu, còn lại theo thứ tự lưu gần nhất.
   const t = homNay();
   const sorted = list.slice().sort((a, b) => {
