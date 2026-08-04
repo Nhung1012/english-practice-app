@@ -56,6 +56,19 @@ const openHistoryBtn = document.getElementById('openHistoryBtn');
 const openVocabBtn = document.getElementById('openVocabBtn');
 const openHelpBtn = document.getElementById('openHelpBtn');
 const paneHelp = document.getElementById('paneHelp');
+const accBtn = document.getElementById('accBtn');
+const accLabel = document.getElementById('accLabel');
+const accAvatar = document.getElementById('accAvatar');
+const paneAccount = document.getElementById('paneAccount');
+const accGuest = document.getElementById('accGuest');
+const accUser = document.getElementById('accUser');
+const accEmail = document.getElementById('accEmail');
+const accSigninBtn = document.getElementById('accSigninBtn');
+const accSignoutBtn = document.getElementById('accSignoutBtn');
+const signinBar = document.getElementById('signinBar');
+const signinCount = document.getElementById('signinCount');
+const signinBarBtn = document.getElementById('signinBarBtn');
+const signinBarClose = document.getElementById('signinBarClose');
 const favBtn = document.getElementById('favBtn');
 const favFilterBtn = document.getElementById('favFilterBtn');
 const prevBtn = document.getElementById('prevBtn');
@@ -590,25 +603,26 @@ let favFilter = false;
 
 // Hai danh sách này dài nên không nằm trong luồng chính nữa mà hiện trong
 // popup chung. Màn hình chính chỉ giữ 2 nút mở + 1 dòng "Học tiếp".
-let modalPane = null; // 'history' | 'vocab' | 'help' | null
+let modalPane = null; // 'history' | 'vocab' | 'help' | 'account' | null
 
 function openModal(pane) {
   modalPane = pane;
   paneHistory.hidden = pane !== 'history';
   paneVocab.hidden = pane !== 'vocab';
   paneHelp.hidden = pane !== 'help';
+  paneAccount.hidden = pane !== 'account';
   modal.hidden = false;
   document.body.style.overflow = 'hidden'; // khoá cuộn nền khi popup đang mở
-  // Ngăn "Hướng dẫn" mở kèm các nút của hai khung kia: cả favFilterBtn lẫn
+  // Ngăn các khung tĩnh mở kèm nút của Sổ từ / Lịch sử: cả favFilterBtn lẫn
   // reviewBtn đều nằm ở hàng tiêu đề dùng chung, closeModal() mới ẩn chúng.
   if (pane === 'history') renderHistory();
   else if (pane === 'vocab') renderVocab();
   else {
     favFilterBtn.hidden = true;
     reviewBtn.hidden = true;
-    // Nội dung hướng dẫn là HTML tĩnh viết sẵn trong index.html, không sinh
-    // từ dữ liệu, nên ở đây chỉ cần đặt tiêu đề.
-    modalTitle.textContent = 'Hướng dẫn nhanh';
+    // Hai khung này là HTML tĩnh viết sẵn trong index.html, không sinh từ
+    // dữ liệu, nên ở đây chỉ cần đặt tiêu đề.
+    modalTitle.textContent = pane === 'account' ? 'Tài khoản' : 'Hướng dẫn nhanh';
   }
   modalClose.focus();
 }
@@ -1028,6 +1042,51 @@ function recordLesson() {
   rememberTitle(currentItem.id, currentItem.topic, currentTab, currentLevel);
   syncFavButton();
   renderHistory();
+  kiemTraDaiMoi();
+}
+
+// ============================================================
+// TÀI KHOẢN (tuần 14–15)
+// Đăng nhập KHÔNG mở khoá tính năng nào — app vẫn chạy đủ ở chế độ khách.
+// Phần này chỉ đổi nhãn nút và quyết định lúc nào hiện dải mời.
+// ============================================================
+const SIGNIN_HINT_KEY = 'ep:signinHint'; // 'tu-choi' = đã bấm ✕, không mời lại
+const SIGNIN_MIN_BAI = 3;                // mục 2.1: chỉ mời sau 2–3 bài
+
+function daTuChoiMoi() {
+  try { return localStorage.getItem(SIGNIN_HINT_KEY) === 'tu-choi'; }
+  catch (err) { return false; }
+}
+
+function ghiNhoDaTuChoiMoi() {
+  try { localStorage.setItem(SIGNIN_HINT_KEY, 'tu-choi'); } catch (err) {}
+}
+
+// Đếm số bài KHÁC NHAU đã học, không phải số dòng nhật ký. Mở lại cùng một
+// bài mười lần không có nghĩa là đã học mười bài — đếm kiểu đó thì dải mời
+// bật lên ngay lần đầu vào trang và mất hết ý nghĩa "đã dùng thử rồi".
+function soBaiDaHoc() {
+  return getSeenIds().size; // getSeenIds() trả về Set, không phải mảng
+}
+
+function kiemTraDaiMoi() {
+  if (!signinBar) return;
+  const nen = !nguoiDungHienTai() && !daTuChoiMoi() && soBaiDaHoc() >= SIGNIN_MIN_BAI;
+  if (nen) signinCount.textContent = String(soBaiDaHoc());
+  signinBar.hidden = !nen;
+}
+
+function capNhatGiaoDienTaiKhoan() {
+  const user = nguoiDungHienTai();
+  accLabel.textContent = user ? tenHienThi(user) : 'Đăng nhập';
+  const anh = user ? anhDaiDien(user) : '';
+  accAvatar.hidden = !anh;
+  accAvatar.style.backgroundImage = anh ? `url("${anh}")` : '';
+  accGuest.hidden = !!user;
+  accUser.hidden = !user;
+  if (user) accEmail.textContent = user.email || tenHienThi(user);
+  // Đăng nhập xong thì dải mời không còn lý do tồn tại.
+  kiemTraDaiMoi();
 }
 
 // Mở lại một bài từ lịch sử: phải chỉnh tab + trình độ cho khớp rồi mới tải,
@@ -2075,6 +2134,17 @@ reviewBtn.addEventListener('click', batDauOnTap);
 openHistoryBtn.addEventListener('click', () => openModal('history'));
 openVocabBtn.addEventListener('click', () => openModal('vocab'));
 openHelpBtn.addEventListener('click', () => openModal('help'));
+accBtn.addEventListener('click', () => openModal('account'));
+accSigninBtn.addEventListener('click', dangNhapGoogle);
+signinBarBtn.addEventListener('click', dangNhapGoogle);
+accSignoutBtn.addEventListener('click', async () => {
+  await dangXuat();
+  closeModal();
+});
+signinBarClose.addEventListener('click', () => {
+  ghiNhoDaTuChoiMoi();
+  signinBar.hidden = true;
+});
 modalClose.addEventListener('click', closeModal);
 modalBackdrop.addEventListener('click', closeModal);
 
@@ -2106,8 +2176,18 @@ resumeTarget = getHistory(1, logKhiKhoiDong)[0] || null;
 syncFavButton();
 renderHistory();
 renderVocab();
+capNhatGiaoDienTaiKhoan(); // vẽ ngay ở chế độ khách, không chờ mạng
+kiemTraDaiMoi();
 
 loadNewItem();
+
+// Khôi phục phiên đăng nhập (nếu có) rồi cập nhật lại nút tài khoản.
+// Chạy sau loadNewItem() và KHÔNG await: mạng chậm hay Supabase lỗi thì app
+// vẫn dùng được bình thường ở chế độ khách, chỉ là nút vẫn ghi "Đăng nhập".
+khoiTaoAuth(phien => {
+  capNhatGiaoDienTaiKhoan();
+  if (phien && phien.user) taoHoSoNeuChua(phien.user);
+});
 
 // Nhật ký cũ (ghi từ trước khi có cache tên bài) chỉ có id. Lấp tên ở chế độ
 // nền rồi vẽ lại — chạy sau nên không làm chậm lần tải đầu.

@@ -12,7 +12,21 @@
   <header>
     <h1>🎧 Luyện Nghe &amp; Đọc Tiếng Anh</h1>
     <p>Chọn trình độ, random chủ đề, luyện nghe/đọc mỗi ngày</p>
+    <!-- Nút tài khoản LUÔN hiện (kể cả khi chưa đăng nhập). Bấm vào mở
+         popup, không phải trang riêng. -->
+    <button type="button" class="acc-btn" id="accBtn" aria-label="Tài khoản">
+      <span id="accAvatar" class="acc-avatar" hidden></span>
+      <span id="accLabel">Đăng nhập</span>
+    </button>
   </header>
+
+  <!-- Dải mời đăng nhập: hiện MỘT LẦN sau bài thứ 3, đóng là không hiện lại.
+       Không chặn thao tác nào, không phải hộp thoại phủ màn hình. -->
+  <div class="signin-bar" id="signinBar" hidden>
+    <span class="signin-text">Đã học <b id="signinCount">3</b> bài rồi 👏 Đăng nhập để sổ từ và tiến độ theo bạn sang điện thoại, máy khác.</span>
+    <button type="button" class="btn" id="signinBarBtn">Đăng nhập với Google</button>
+    <button type="button" class="wp-btn signin-close" id="signinBarClose" aria-label="Để sau">✕</button>
+  </div>
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="dialogue">💬 Hội thoại 2 người</button>
@@ -126,6 +140,19 @@
       <div id="paneVocab" hidden>
         <div id="reviewPanel" hidden></div>
         <div id="vocabList"></div>
+      </div>
+      <div id="paneAccount" hidden>
+        <div id="accGuest">
+          <p class="acc-lead">Bạn đang dùng ở <b>chế độ khách</b>. Mọi tính năng đều dùng được bình thường, không có gì bị khoá.</p>
+          <p class="acc-note">Sổ từ, lịch sử và các lựa chọn đang lưu <b>trên máy này</b>. Xoá dữ liệu trình duyệt hoặc mở bằng máy khác là không thấy nữa.</p>
+          <button type="button" class="btn" id="accSigninBtn">Đăng nhập với Google</button>
+          <p class="acc-note acc-warn">Ở bản này việc đăng nhập <b>chưa</b> đồng bộ dữ liệu — tính năng đó làm ở bước sau. Đăng nhập bây giờ không làm mất gì cả.</p>
+        </div>
+        <div id="accUser" hidden>
+          <p class="acc-lead">Đang đăng nhập: <b id="accEmail"></b></p>
+          <p class="acc-note">Sổ từ và lịch sử vẫn đang lưu trên máy này. Việc đưa dữ liệu lên tài khoản sẽ làm ở bước sau — đăng xuất bây giờ <b>không mất gì</b>.</p>
+          <button type="button" class="btn secondary" id="accSignoutBtn">Đăng xuất</button>
+        </div>
       </div>
       <div id="paneHelp" hidden>
         <ul class="help-list">

@@ -814,3 +814,76 @@
     color: var(--muted);
     line-height: 1.55;
   }
+
+  /* ====== Tài khoản (tuần 14-15) ======
+     Nút tài khoản đặt ở góc trên phải của header. Header đang là text-align
+     center nên dùng position absolute để không phá thế căn giữa của tiêu đề. */
+  header { position: relative; }
+  .acc-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 45%;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+  }
+  .acc-btn:hover { color: var(--primary); border-color: var(--primary); }
+  .acc-btn span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .acc-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+  }
+
+  /* Dải mời đăng nhập — một dòng, đóng được, không phủ màn hình */
+  .signin-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+  }
+  .signin-text { flex: 1; min-width: 200px; font-size: 14px; line-height: 1.5; }
+  .signin-close { flex-shrink: 0; }
+
+  .acc-lead { font-size: 15px; margin: 0 0 10px; line-height: 1.6; }
+  .acc-note {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.55;
+    margin: 0 0 12px;
+  }
+  .acc-warn {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    margin-bottom: 0;
+  }
+
+  /* Trên điện thoại nút tài khoản dễ đè lên tiêu đề dài, nên cho tiêu đề
+     chừa chỗ và rút nút lại còn phần chữ ngắn. */
+  @media (max-width: 560px) {
+    header h1 { padding: 0 84px; font-size: 21px; }
+    .acc-btn { max-width: 80px; font-size: 12px; padding: 5px 10px; }
+  }

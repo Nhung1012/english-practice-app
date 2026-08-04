@@ -135,3 +135,93 @@ async function backfillTitles() {
     return false;
   }
 }
+
+// ============================================================
+// TUẦN 14–15 — ĐĂNG NHẬP (Supabase Auth, provider Google)
+//
+// ⚠️ NGUYÊN TẮC BẤT DI BẤT DỊCH: app phải dùng được KHÔNG CẦN đăng nhập.
+// Không tính năng nào bị khoá sau đăng nhập. Đăng nhập chỉ là để dữ liệu
+// theo được sang máy khác (tuần 16–17). Bắt đăng nhập từ đầu sẽ giết lượng
+// người dùng vốn đã ít — mục 2.1 kế hoạch.
+//
+// ⚠️ Ở tuần này việc đăng nhập CHƯA đồng bộ dữ liệu. Sổ từ và lịch sử vẫn
+// nằm nguyên trong localStorage. Tuyệt đối KHÔNG xoá localStorage ở đây.
+// ============================================================
+
+// Phiên hiện tại: null = đang ở chế độ khách. Chỉ đọc từ app.js.
+let phienDangNhap = null;
+
+function nguoiDungHienTai() {
+  return phienDangNhap ? phienDangNhap.user : null;
+}
+
+// Tên hiển thị ngắn gọn cho nút tài khoản. Google trả về `name`/`full_name`
+// tuỳ trường hợp; không có thì lấy phần trước @ của email.
+function tenHienThi(user) {
+  if (!user) return '';
+  const m = user.user_metadata || {};
+  return m.full_name || m.name || (user.email || '').split('@')[0] || 'Tài khoản';
+}
+
+function anhDaiDien(user) {
+  const m = (user && user.user_metadata) || {};
+  return m.avatar_url || m.picture || '';
+}
+
+async function dangNhapGoogle() {
+  if (!supabaseClient) return { error: new Error('Chưa cấu hình Supabase') };
+  // redirectTo dùng window.location.origin chứ KHÔNG viết cứng tên miền:
+  // nhờ vậy chạy đúng ở cả localhost, bản preview của Vercel lẫn tên miền
+  // thật, không phải sửa code mỗi lần đổi. Nhớ khai báo cả ba trong
+  // Supabase → Authentication → URL Configuration → Redirect URLs.
+  return supabaseClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin }
+  });
+}
+
+async function dangXuat() {
+  if (!supabaseClient) return;
+  // KHÔNG đụng tới localStorage. Người dùng đăng xuất vẫn phải thấy nguyên
+  // sổ từ và lịch sử của mình — đây là dữ liệu của máy, không phải của
+  // tài khoản (ít nhất là cho tới tuần 17).
+  await supabaseClient.auth.signOut();
+}
+
+// Tạo dòng `profiles` ở lần đăng nhập đầu tiên.
+// Dùng upsert + ignoreDuplicates: chạy lại mỗi lần đăng nhập vẫn an toàn và
+// KHÔNG ghi đè daily_goal / streak người dùng đã có.
+async function taoHoSoNeuChua(user) {
+  if (!supabaseClient || !user) return false;
+  try {
+    const { error } = await supabaseClient
+      .from('profiles')
+      .upsert({ id: user.id, display_name: tenHienThi(user) },
+              { onConflict: 'id', ignoreDuplicates: true });
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    // Không tạo được hồ sơ thì app vẫn phải chạy bình thường ở chế độ khách.
+    console.warn('Chưa tạo được hồ sơ người dùng:', err.message || err);
+    return false;
+  }
+}
+
+// Theo dõi phiên. `onThayDoi` được gọi một lần lúc khởi động (với phiên đã
+// khôi phục từ localStorage của thư viện supabase-js, hoặc null), rồi mỗi
+// lần đăng nhập/đăng xuất.
+async function khoiTaoAuth(onThayDoi) {
+  if (!supabaseClient) { onThayDoi(null); return; }
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    phienDangNhap = data ? data.session : null;
+  } catch (err) {
+    phienDangNhap = null;
+  }
+  onThayDoi(phienDangNhap);
+
+  supabaseClient.auth.onAuthStateChange((sukien, phien) => {
+    phienDangNhap = phien || null;
+    onThayDoi(phienDangNhap);
+  });
+}
