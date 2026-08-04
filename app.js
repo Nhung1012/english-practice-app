@@ -54,6 +54,8 @@ const historyList = document.getElementById('historyList');
 const resumeLine = document.getElementById('resumeLine');
 const openHistoryBtn = document.getElementById('openHistoryBtn');
 const openVocabBtn = document.getElementById('openVocabBtn');
+const openHelpBtn = document.getElementById('openHelpBtn');
+const paneHelp = document.getElementById('paneHelp');
 const favBtn = document.getElementById('favBtn');
 const favFilterBtn = document.getElementById('favFilterBtn');
 const prevBtn = document.getElementById('prevBtn');
@@ -588,15 +590,26 @@ let favFilter = false;
 
 // Hai danh sách này dài nên không nằm trong luồng chính nữa mà hiện trong
 // popup chung. Màn hình chính chỉ giữ 2 nút mở + 1 dòng "Học tiếp".
-let modalPane = null; // 'history' | 'vocab' | null
+let modalPane = null; // 'history' | 'vocab' | 'help' | null
 
 function openModal(pane) {
   modalPane = pane;
   paneHistory.hidden = pane !== 'history';
   paneVocab.hidden = pane !== 'vocab';
+  paneHelp.hidden = pane !== 'help';
   modal.hidden = false;
   document.body.style.overflow = 'hidden'; // khoá cuộn nền khi popup đang mở
-  if (pane === 'history') renderHistory(); else renderVocab();
+  // Ngăn "Hướng dẫn" mở kèm các nút của hai khung kia: cả favFilterBtn lẫn
+  // reviewBtn đều nằm ở hàng tiêu đề dùng chung, closeModal() mới ẩn chúng.
+  if (pane === 'history') renderHistory();
+  else if (pane === 'vocab') renderVocab();
+  else {
+    favFilterBtn.hidden = true;
+    reviewBtn.hidden = true;
+    // Nội dung hướng dẫn là HTML tĩnh viết sẵn trong index.html, không sinh
+    // từ dữ liệu, nên ở đây chỉ cần đặt tiêu đề.
+    modalTitle.textContent = 'Hướng dẫn nhanh';
+  }
   modalClose.focus();
 }
 
@@ -2061,6 +2074,7 @@ reviewBtn.addEventListener('click', batDauOnTap);
 
 openHistoryBtn.addEventListener('click', () => openModal('history'));
 openVocabBtn.addEventListener('click', () => openModal('vocab'));
+openHelpBtn.addEventListener('click', () => openModal('help'));
 modalClose.addEventListener('click', closeModal);
 modalBackdrop.addEventListener('click', closeModal);
 

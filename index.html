@@ -12,7 +12,6 @@
   <header>
     <h1>🎧 Luyện Nghe &amp; Đọc Tiếng Anh</h1>
     <p>Chọn trình độ, random chủ đề, luyện nghe/đọc mỗi ngày</p>
-    <p style="margin-top:4px">👆 Bấm vào <b>từ</b> để xem phiên âm &amp; nghĩa · Nút <b>▶</b> đầu câu để nghe riêng câu đó · Nút <b>👁</b> cuối câu để xem nghĩa cả câu</p>
   </header>
 
   <div class="tabs">
@@ -99,6 +98,14 @@
       <span class="quiz-score" id="quizScore"></span>
     </div>
   </div>
+
+  <!-- Hướng dẫn nay nằm sau một nút nhỏ ở cuối trang thay vì chiếm 2 dòng
+       trên đầu màn hình. Nút LUÔN hiện — ẩn lối vào của một tính năng là
+       lỗi đã mắc hai lần ở mục 10 kế hoạch. -->
+  <footer class="page-foot">
+    <button type="button" class="help-btn" id="openHelpBtn"
+            aria-label="Hướng dẫn sử dụng">❓ Hướng dẫn</button>
+  </footer>
 </div>
 
 <!-- Popup chung cho "Học gần đây" và "Sổ từ" (mục 1.5 & 1.3).
@@ -119,6 +126,19 @@
       <div id="paneVocab" hidden>
         <div id="reviewPanel" hidden></div>
         <div id="vocabList"></div>
+      </div>
+      <div id="paneHelp" hidden>
+        <ul class="help-list">
+          <li><b>Bấm vào một từ</b> trong bài → hiện phiên âm, nghĩa và ví dụ. Bấm <b>☆</b> trong popup để lưu từ vào sổ.</li>
+          <li><b>▶</b> ở đầu mỗi câu → nghe riêng câu đó. Đang đọc thì nút đổi thành <b>■</b>, bấm lại là dừng ngay tại chỗ.</li>
+          <li><b>👁</b> ở cuối câu → hiện nghĩa tiếng Việt của cả câu. Câu chưa có bản dịch thì không có nút này.</li>
+          <li><b>🇻🇳 Bản dịch</b> → bật chế độ song ngữ cho cả bài. Lựa chọn được nhớ cho các bài sau.</li>
+          <li><b>⏮ ▶ ⏭ 🔁</b> → chuyển câu, phát, và lặp lại mãi một câu. Kéo <b>thanh tốc độ</b> để đọc chậm lại (0.6×–1.2×).</li>
+          <li><b>🕘 Học gần đây</b> → 10 bài gần nhất và ô "học tiếp" bài đang dở. <b>☆</b> cạnh tên chủ đề để đánh dấu bài hay.</li>
+          <li><b>📒 Sổ từ</b> → các từ đã lưu. Nút <b>🎯 Ôn tập</b> nằm <i>bên trong</i> popup này, ôn theo 5 hộp: nhớ thì giãn dần 1 → 3 → 7 → 14 → 30 ngày, quên thì về hộp 1.</li>
+          <li><b>📝 Câu hỏi hiểu bài</b> ở cuối bài → 4 câu trắc nghiệm, nộp xong có giải thích cho <i>mọi</i> câu. Bài chưa soạn thì khung này tự ẩn.</li>
+        </ul>
+        <p class="help-note">Chưa cần tài khoản. Lịch sử, sổ từ và các lựa chọn được lưu ngay trên máy này — dùng máy khác sẽ không thấy.</p>
       </div>
     </div>
   </div>
