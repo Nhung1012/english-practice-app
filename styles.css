@@ -881,6 +881,21 @@
     margin-bottom: 0;
   }
 
+  /* Dòng trạng thái gộp dữ liệu (tuần 16). Cố ý nhẹ nhàng, không phải hộp
+     thoại chặn màn hình: việc gộp chạy nền và không cản thao tác nào. */
+  .acc-sync {
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 0 0 12px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(37, 99, 235, 0.08);
+    color: var(--muted);
+  }
+  .acc-sync.dang-chay { color: var(--muted); }
+  .acc-sync.xong { background: rgba(22, 163, 74, 0.1); color: #15803d; }
+  .acc-sync.hong { background: rgba(220, 38, 38, 0.08); color: #b91c1c; }
+
   /* Trên điện thoại nút tài khoản dễ đè lên tiêu đề dài, nên cho tiêu đề
      chừa chỗ và rút nút lại còn phần chữ ngắn. */
   @media (max-width: 560px) {

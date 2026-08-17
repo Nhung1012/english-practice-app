@@ -225,3 +225,172 @@ async function khoiTaoAuth(onThayDoi) {
     onThayDoi(phienDangNhap);
   });
 }
+
+// ============================================================
+// TUẦN 16 — GỘP DỮ LIỆU localStorage LÊN TÀI KHOẢN (một chiều, một lần)
+//
+// Mục đích: người dùng đã học ở chế độ khách nhiều tháng, đăng nhập xong mà
+// sổ từ trống trơn thì họ tưởng mất dữ liệu và bỏ app — rủi ro "Cao" số 1 ở
+// mục 9 kế hoạch. Đây cũng là cây cầu một chiều để tuần 17 có cái mà đồng bộ
+// hai chiều.
+//
+// ⚠️ HÀM Ở ĐÂY KHÔNG ĐỌC VÀ KHÔNG XOÁ localStorage. Dữ liệu được app.js đọc
+// rồi truyền vào dưới dạng mảng, kết quả trả về là con số. Tách như vậy để
+// (a) phần gọi DB nằm gọn trong file này đúng quy ước ở đầu file, và (b) test
+// kiểm được logic lọc/chuyển đổi mà không phải giả lập localStorage.
+// ============================================================
+
+const GOP_LO_INSERT = 500; // số dòng mỗi lệnh insert
+const GOP_LO_KIEM_ID = 300; // số id mỗi lệnh kiểm tra tồn tại
+const MODE_HOP_LE = new Set(['read', 'listen', 'quiz']); // khớp check của study_log
+
+// Trả về Set các id CÒN TỒN TẠI trong bảng `content`.
+//
+// ⚠️ Vì sao bắt buộc phải có bước này: `study_log.content_id` và
+// `vocab.source_content_id` đều là khoá ngoại trỏ tới `content(id)`, mà đối
+// chiếu bảng sao lưu 27/7 cho thấy **178 id từng tồn tại nay đã bị xoá**.
+// Người dùng học từ tháng 7 thì nhật ký của họ chắc chắn có id thuộc nhóm đó,
+// và chỉ một dòng như vậy là **hỏng cả lệnh insert** — đúng vào tuần nguy hiểm
+// nhất của lộ trình. `on delete set null` của vocab KHÔNG cứu được: nó chỉ chạy
+// khi xoá, còn insert vẫn bị chặn như thường.
+async function locIdConTonTai(ids) {
+  const con = new Set();
+  const canKiem = [...new Set(ids.filter(id => id !== null && id !== undefined && id !== ''))];
+  for (let i = 0; i < canKiem.length; i += GOP_LO_KIEM_ID) {
+    const lo = canKiem.slice(i, i + GOP_LO_KIEM_ID);
+    const { data, error } = await supabaseClient.from('content').select('id').in('id', lo);
+    if (error) throw error;
+    (data || []).forEach(r => con.add(r.id));
+  }
+  return con;
+}
+
+// Chuyển mảng `ep:log` thành các dòng `study_log` hợp lệ.
+// Trả về { dong, boQua } — `boQua` là số bản ghi bị loại, để báo lại cho người dùng.
+function chuanBiDongLog(userId, nhatKy, conSong) {
+  const dong = [];
+  const daCo = new Set(); // chống trùng ngay trong chính mảng cục bộ
+  let boQua = 0;
+
+  nhatKy.forEach((e) => {
+    if (!e || !conSong.has(e.content_id) || !MODE_HOP_LE.has(e.mode)) { boQua++; return; }
+
+    // created_at là một phần của khoá chống trùng (user_id, content_id,
+    // created_at). Bản ghi không có mốc thời gian đọc được thì vừa vô dụng cho
+    // lịch sử lẫn thống kê, vừa phá khoá đó — nên loại hẳn thay vì bịa ngày.
+    const moc = new Date(e.created_at);
+    if (!e.created_at || isNaN(moc.getTime())) { boQua++; return; }
+    const created_at = moc.toISOString();
+
+    const khoa = `${e.content_id}|${created_at}`;
+    if (daCo.has(khoa)) { boQua++; return; }
+    daCo.add(khoa);
+
+    dong.push({
+      user_id: userId,
+      content_id: e.content_id,
+      mode: e.mode,
+      score: typeof e.score === 'number' && isFinite(e.score) ? e.score : null,
+      seconds: typeof e.seconds === 'number' && isFinite(e.seconds) ? e.seconds : null,
+      created_at: created_at
+    });
+  });
+
+  return { dong, boQua };
+}
+
+// Chuyển mảng `ep:vocab` thành các dòng `vocab` chưa có trên server.
+// `daCoTrenServer` là Set các từ (đã lowercase) tài khoản này đang có.
+function chuanBiDongVocab(userId, soTu, conSong, daCoTrenServer) {
+  const dong = [];
+  const daThem = new Set();
+  let boQua = 0;
+
+  soTu.forEach((v) => {
+    const tu = String((v && v.word) || '').trim();
+    if (!tu) { boQua++; return; }
+    const khoa = tu.toLowerCase();
+    // Đã có trên server thì GIỮ NGUYÊN bản trên server, không ghi đè. Người
+    // dùng có thể đã ôn từ đó lên hộp 4 ở máy khác — đẩy bản box 1 của máy này
+    // đè lên là xoá sạch tiến độ ôn tập của họ.
+    if (daCoTrenServer.has(khoa) || daThem.has(khoa)) { boQua++; return; }
+    daThem.add(khoa);
+
+    const box = Math.min(5, Math.max(1, parseInt(v.box, 10) || 1)); // check (box between 1 and 5)
+    dong.push({
+      user_id: userId,
+      word: tu,
+      ipa: v.ipa || '',
+      pos: v.pos || '',
+      meaning_vi: v.meaning_vi || '',
+      example: v.example || '',
+      // Bài nguồn đã bị xoá thì để null (mất ngữ cảnh còn hơn mất cả từ).
+      source_content_id: conSong.has(v.source_content_id) ? v.source_content_id : null,
+      box: box,
+      due_date: /^\d{4}-\d{2}-\d{2}$/.test(v.due_date) ? v.due_date : homNay(),
+      created_at: v.created_at || new Date().toISOString()
+    });
+  });
+
+  return { dong, boQua };
+}
+
+// Đẩy một lần dữ liệu khách lên tài khoản.
+//
+// CHẠY LẠI ĐƯỢC AN TOÀN — đây là yêu cầu bắt buộc, vì mạng có thể đứt giữa
+// chừng: nhật ký dựa vào unique index uq_log_user_content_time + ignoreDuplicates,
+// sổ từ dựa vào việc đọc trước danh sách từ đã có. Nhờ vậy lần chạy lại chỉ
+// chèn đúng phần còn thiếu.
+//
+// Trả về { ok, soLuot, soTu, boQua } hoặc { ok: false, loi }.
+async function gopDuLieuLenTaiKhoan(user, nhatKy, soTu) {
+  if (!supabaseClient || !user) return { ok: false, loi: 'chua-san-sang' };
+  const log = Array.isArray(nhatKy) ? nhatKy : [];
+  const vocab = Array.isArray(soTu) ? soTu : [];
+  if (!log.length && !vocab.length) return { ok: true, soLuot: 0, soTu: 0, boQua: 0 };
+
+  try {
+    // Một lượt kiểm id dùng chung cho CẢ HAI bảng: cả content_id lẫn
+    // source_content_id đều trỏ về content(id).
+    const conSong = await locIdConTonTai([
+      ...log.map(e => e && e.content_id),
+      ...vocab.map(v => v && v.source_content_id)
+    ]);
+
+    const kqLog = chuanBiDongLog(user.id, log, conSong);
+    for (let i = 0; i < kqLog.dong.length; i += GOP_LO_INSERT) {
+      const { error } = await supabaseClient
+        .from('study_log')
+        .upsert(kqLog.dong.slice(i, i + GOP_LO_INSERT),
+                { onConflict: 'user_id,content_id,created_at', ignoreDuplicates: true });
+      if (error) throw error;
+    }
+
+    // ⚠️ Không dùng upsert cho vocab: ràng buộc unique của bảng là index BIỂU
+    // THỨC `(user_id, lower(word))`, PostgREST không nhận được tên cột dạng đó.
+    // Nên đọc trước rồi lọc ở client.
+    const { data: daCo, error: loiDoc } = await supabaseClient
+      .from('vocab').select('word').eq('user_id', user.id);
+    if (loiDoc) throw loiDoc;
+    const coRoi = new Set((daCo || []).map(r => String(r.word || '').toLowerCase()));
+
+    const kqVocab = chuanBiDongVocab(user.id, vocab, conSong, coRoi);
+    for (let i = 0; i < kqVocab.dong.length; i += GOP_LO_INSERT) {
+      const { error } = await supabaseClient
+        .from('vocab').insert(kqVocab.dong.slice(i, i + GOP_LO_INSERT));
+      if (error) throw error;
+    }
+
+    return {
+      ok: true,
+      soLuot: kqLog.dong.length,
+      soTu: kqVocab.dong.length,
+      boQua: kqLog.boQua + kqVocab.boQua
+    };
+  } catch (err) {
+    // Hỏng thì KHÔNG được coi là xong: app.js sẽ không đặt cờ, lần đăng nhập
+    // sau tự thử lại. Dữ liệu gốc vẫn nguyên trong localStorage.
+    console.warn('Chưa đưa được dữ liệu lên tài khoản:', err.message || err);
+    return { ok: false, loi: err.message || String(err) };
+  }
+}

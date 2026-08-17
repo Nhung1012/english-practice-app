@@ -65,6 +65,7 @@ const accUser = document.getElementById('accUser');
 const accEmail = document.getElementById('accEmail');
 const accSigninBtn = document.getElementById('accSigninBtn');
 const accSignoutBtn = document.getElementById('accSignoutBtn');
+const accSync = document.getElementById('accSync');
 const signinBar = document.getElementById('signinBar');
 const signinCount = document.getElementById('signinCount');
 const signinBarBtn = document.getElementById('signinBarBtn');
@@ -1085,8 +1086,86 @@ function capNhatGiaoDienTaiKhoan() {
   accGuest.hidden = !!user;
   accUser.hidden = !user;
   if (user) accEmail.textContent = user.email || tenHienThi(user);
+  veTrangThaiGop();
   // Đăng nhập xong thì dải mời không còn lý do tồn tại.
   kiemTraDaiMoi();
+}
+
+// ============================================================
+// GỘP DỮ LIỆU LÊN TÀI KHOẢN (tuần 16)
+//
+// Phần gọi DB nằm ở supabase.js (`gopDuLieuLenTaiKhoan`). Ở đây chỉ lo:
+// đọc localStorage, nhớ đã gộp chưa, và vẽ dòng trạng thái.
+//
+// ⚠️ TUYỆT ĐỐI KHÔNG XOÁ localStorage sau khi gộp. Cho tới hết tuần 17,
+// localStorage vẫn là nguồn đọc DUY NHẤT của toàn bộ giao diện — xoá đi là
+// người dùng đăng nhập xong thấy sổ từ trống trơn, đúng thứ việc gộp này sinh
+// ra để tránh. Test K7 canh điều đó.
+// ============================================================
+const MERGED_PREFIX = 'ep:merged:'; // + user.id, vì một máy có thể có nhiều tài khoản
+let dangGopDuLieu = false;          // chống chạy chồng: onAuthStateChange bắn nhiều lần
+
+function docTomTatGop(userId) {
+  if (!userId) return null;
+  const t = readJson(MERGED_PREFIX + userId, null);
+  return t && typeof t === 'object' ? t : null;
+}
+
+function ghiNhoDaGop(userId, ketQua) {
+  writeJson(MERGED_PREFIX + userId, {
+    soLuot: ketQua.soLuot, soTu: ketQua.soTu, luc: new Date().toISOString()
+  });
+}
+
+// trangThai: 'dang-chay' | 'xong' | 'hong' | null (ẩn hẳn)
+function veTrangThaiGop(trangThai, tomTat) {
+  if (!accSync) return;
+  const user = nguoiDungHienTai();
+  if (!user) { accSync.hidden = true; return; }
+
+  // Không truyền gì thì tự tra lại lần gộp trước — nhờ vậy mở khung Tài khoản
+  // ở những lần vào trang sau vẫn thấy kết quả, không phải khoảng trống khó hiểu.
+  const tt = trangThai || (docTomTatGop(user.id) ? 'xong' : null);
+  const tk = tomTat || docTomTatGop(user.id);
+
+  accSync.className = 'acc-sync' + (tt ? ' ' + tt : '');
+  if (tt === 'dang-chay') {
+    accSync.textContent = '⏳ Đang đưa dữ liệu trên máy này lên tài khoản…';
+  } else if (tt === 'xong') {
+    accSync.textContent = tk
+      ? `✅ Đã đưa ${tk.soLuot} lượt học và ${tk.soTu} từ lên tài khoản.`
+      : '✅ Đã đưa dữ liệu lên tài khoản.';
+  } else if (tt === 'hong') {
+    accSync.textContent = '⚠️ Chưa đưa được dữ liệu lên tài khoản. '
+      + 'Dữ liệu trên máy vẫn còn nguyên, lần đăng nhập sau sẽ tự thử lại.';
+  }
+  accSync.hidden = !tt;
+}
+
+// Gọi sau mỗi lần có phiên đăng nhập. Chỉ thực sự chạy đúng MỘT lần cho mỗi
+// tài khoản trên mỗi máy — `khoiTaoAuth` bắn callback cả lúc khôi phục phiên
+// từ lần trước, không riêng lúc bấm đăng nhập.
+async function gopNeuCanThiet(user) {
+  if (!user || dangGopDuLieu) return null;
+  if (docTomTatGop(user.id)) { veTrangThaiGop(); return null; }
+
+  dangGopDuLieu = true;
+  veTrangThaiGop('dang-chay');
+  try {
+    const kq = await gopDuLieuLenTaiKhoan(user, readLog(), readVocab());
+    if (kq && kq.ok) {
+      // Chỉ đặt cờ khi CẢ HAI bảng đã chèn xong. Hỏng giữa chừng thì không
+      // đặt, lần sau chạy lại — an toàn nhờ unique index của study_log và
+      // nhờ sổ từ được đọc trước rồi mới lọc.
+      ghiNhoDaGop(user.id, kq);
+      veTrangThaiGop('xong', kq);
+    } else {
+      veTrangThaiGop('hong');
+    }
+    return kq;
+  } finally {
+    dangGopDuLieu = false;
+  }
 }
 
 // Mở lại một bài từ lịch sử: phải chỉnh tab + trình độ cho khớp rồi mới tải,
@@ -2186,7 +2265,11 @@ loadNewItem();
 // vẫn dùng được bình thường ở chế độ khách, chỉ là nút vẫn ghi "Đăng nhập".
 khoiTaoAuth(phien => {
   capNhatGiaoDienTaiKhoan();
-  if (phien && phien.user) taoHoSoNeuChua(phien.user);
+  if (!phien || !phien.user) return;
+  // Nối tiếp chứ không chạy song song: hai việc này cùng bắn lúc mở trang,
+  // và tạo hồ sơ là việc nhẹ hơn nhiều nên để nó xong trước cho gọn.
+  // Không await ở ngoài — mạng chậm thì app vẫn dùng bình thường.
+  taoHoSoNeuChua(phien.user).then(() => gopNeuCanThiet(phien.user));
 });
 
 // Nhật ký cũ (ghi từ trước khi có cache tên bài) chỉ có id. Lấp tên ở chế độ

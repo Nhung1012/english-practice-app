@@ -36,6 +36,17 @@ create policy "Public read access"
   to anon
   using (true);
 
+-- ⚠️ BẮT BUỘC có policy thứ hai cho role `authenticated` (thêm 2026-08-04,
+-- tuần 13). Sau khi bật Auth, người ĐÃ đăng nhập gửi request với role
+-- `authenticated`, không khớp policy `to anon` ở trên → RLS trả về 0 dòng và
+-- app hiện màn hình trống mà KHÔNG báo lỗi gì. Đây là bẫy đã ghi ở mục 7 của
+-- KE_HOACH_PHAT_TRIEN.md; xoá policy này đi là hỏng app cho người đăng nhập.
+create policy "Authenticated read access"
+  on content
+  for select
+  to authenticated
+  using (true);
+
 -- Không tạo policy insert/update/delete cho role "anon" hay "authenticated"
 -- => chỉ script sinh nội dung (dùng service_role key, bypass RLS) mới ghi được.
 -- Tuyệt đối KHÔNG để lộ service_role key ở phía frontend.
@@ -44,10 +55,14 @@ create policy "Public read access"
 -- (Tuỳ chọn) Hàm lấy ngẫu nhiên 1 bản ghi theo type + level,
 -- nhanh hơn là SELECT * rồi random ở client khi bảng lớn dần.
 -- ============================================================
+-- `set search_path` để hàm không bị trỏ sang schema khác (linter Supabase
+-- cảnh báo `function_search_path_mutable`; ghim lại 2026-08-04).
+-- Từ mục 1.6, việc random chủ yếu làm ở client; hàm này còn là đường dự phòng.
 create or replace function get_random_content(p_type text, p_level text)
 returns setof content
 language sql
 stable
+set search_path = public, pg_temp
 as $$
   select *
   from content
@@ -55,3 +70,86 @@ as $$
   order by random()
   limit 1;
 $$;
+
+-- ============================================================
+-- TUẦN 13 (Giai đoạn 4) — 3 bảng cho tài khoản người học.
+-- Đã chạy trên Supabase ngày 2026-08-04.
+--
+-- Cột được đặt KHỚP ĐÚNG dữ liệu localStorage app đang ghi từ tuần 1:
+--   ep:log   -> study_log (content_id, mode, score, seconds, created_at)
+--   ep:vocab -> vocab (word, ipa, pos, meaning_vi, example,
+--                      source_content_id, box, due_date, created_at)
+-- Nhờ vậy tuần 16 chỉ là insert thẳng, không cần hàm chuyển đổi.
+-- ============================================================
+
+-- Hồ sơ người học (1-1 với auth.users)
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  display_name text,
+  daily_goal int not null default 1,
+  streak_current int not null default 0,
+  streak_best int not null default 0,
+  last_active_date date,
+  created_at timestamptz not null default now()
+);
+
+-- Lịch sử học từng bài
+create table if not exists study_log (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  content_id bigint not null references content(id) on delete cascade,
+  mode text not null check (mode in ('read','listen','quiz')),
+  score numeric,
+  seconds int,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_study_log_user_date on study_log (user_id, created_at desc);
+-- Index cho khoá ngoại: mỗi lần xoá một bài khỏi `content`, cascade phải tìm
+-- các dòng tham chiếu. Không có index thì phải quét cả bảng.
+create index if not exists idx_study_log_content on study_log (content_id);
+
+-- ⚠️ Khoá chống trùng cho việc GỘP dữ liệu localStorage lên tài khoản (tuần 16).
+-- Không có ràng buộc unique thì `on conflict do nothing` không có đích để bám:
+-- việc gộp hỏng giữa chừng (mất mạng khi đang chèn lô thứ 2) rồi chạy lại sẽ
+-- nhân đôi phần đã chèn, làm sai luôn trang thống kê ở tuần 20.
+-- Bộ ba này là khoá tự nhiên thật: cùng người, cùng bài, cùng mốc thời gian ISO
+-- thì đúng là một lần học. Tuần 17 đồng bộ hai chiều dùng lại chính khoá này.
+create unique index if not exists uq_log_user_content_time
+  on study_log (user_id, content_id, created_at);
+
+-- Sổ từ vựng + trạng thái SRS (hộp Leitner)
+create table if not exists vocab (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  word text not null,
+  ipa text, pos text, meaning_vi text, example text,
+  source_content_id bigint references content(id) on delete set null,
+  box int not null default 1 check (box between 1 and 5),
+  due_date date not null default current_date,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_vocab_due on vocab (user_id, due_date);
+create index if not exists idx_vocab_source_content on vocab (source_content_id);
+
+-- Postgres không cho biểu thức trong UNIQUE của CREATE TABLE, nên ràng buộc
+-- "mỗi người mỗi từ một lần" phải là unique index riêng. Dùng lower() vì
+-- frontend so khớp từ không phân biệt hoa/thường (mục 10, tuần 5).
+create unique index if not exists uq_vocab_user_word_lower on vocab (user_id, lower(word));
+
+-- RLS: mỗi người chỉ thấy dữ liệu của chính mình.
+-- Viết `(select auth.uid())` chứ không phải `auth.uid()`: bọc trong subquery
+-- thì Postgres tính một lần cho cả câu lệnh thay vì tính lại trên từng dòng.
+alter table profiles  enable row level security;
+alter table study_log enable row level security;
+alter table vocab     enable row level security;
+
+create policy "own profile" on profiles for all to authenticated
+  using (id = (select auth.uid()))      with check (id = (select auth.uid()));
+create policy "own log" on study_log for all to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+create policy "own vocab" on vocab for all to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
+-- Bảng sao lưu ngày 27/7: bật RLS và KHÔNG tạo policy nào = không đọc được
+-- qua API công khai, vẫn xem bình thường trong SQL Editor.
+alter table if exists content_backup_20260727 enable row level security;

@@ -146,11 +146,12 @@
           <p class="acc-lead">Bạn đang dùng ở <b>chế độ khách</b>. Mọi tính năng đều dùng được bình thường, không có gì bị khoá.</p>
           <p class="acc-note">Sổ từ, lịch sử và các lựa chọn đang lưu <b>trên máy này</b>. Xoá dữ liệu trình duyệt hoặc mở bằng máy khác là không thấy nữa.</p>
           <button type="button" class="btn" id="accSigninBtn">Đăng nhập với Google</button>
-          <p class="acc-note acc-warn">Ở bản này việc đăng nhập <b>chưa</b> đồng bộ dữ liệu — tính năng đó làm ở bước sau. Đăng nhập bây giờ không làm mất gì cả.</p>
+          <p class="acc-note acc-warn">Đăng nhập lần đầu, sổ từ và lịch sử đang có trên máy này sẽ được <b>đưa lên tài khoản</b>. Không có gì bị xoá hay ghi đè.</p>
         </div>
         <div id="accUser" hidden>
           <p class="acc-lead">Đang đăng nhập: <b id="accEmail"></b></p>
-          <p class="acc-note">Sổ từ và lịch sử vẫn đang lưu trên máy này. Việc đưa dữ liệu lên tài khoản sẽ làm ở bước sau — đăng xuất bây giờ <b>không mất gì</b>.</p>
+          <p class="acc-sync" id="accSync" hidden></p>
+          <p class="acc-note">Bản trên máy này vẫn được giữ nguyên, nên đăng xuất <b>không mất gì</b>.</p>
           <button type="button" class="btn secondary" id="accSignoutBtn">Đăng xuất</button>
         </div>
       </div>
