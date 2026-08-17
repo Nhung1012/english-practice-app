@@ -804,7 +804,7 @@ Trước: **3154 dòng trong một file**. Giờ chỗ cần sửa nằm ở fil
 | H4 | `app.js` không tự tạo client Supabase, không chứa khoá kết nối |
 | H5 | Thẻ `app.js` không có `defer`/`async` |
 
-**Bản gốc đã lưu:** `luu tru/index_truoc_khi_tach_2026-08-04.html` — cần đối chiếu lúc nào cũng có.
+**Bản gốc trước khi tách** từng được giữ ở `luu tru/index_truoc_khi_tach_2026-08-04.html`, **đã xoá ngày 2026-08-17**: việc tách đã đối chiếu khớp từng dòng ở bảng trên, và từ đó code đã đi thêm ba tuần nên không còn gì để đối chiếu nữa.
 
 **Tài liệu đã cập nhật theo:** `README.md` (bảng file + kiến trúc), `HUONG_DAN_SETUP.md` (mục 2 đổi sang `supabase.js`, mục 4 nhắc đẩy đủ 4 file).
 
@@ -1047,6 +1047,89 @@ create unique index if not exists uq_log_user_content_time
 Nhóm K cũng là nhóm test **bất đồng bộ đầu tiên**, nên phần in kết quả đã chuyển thành `nhomK().then(inKetQua)`.
 
 **Kiểm tra máy móc khác:** `node --check` hai file JS ✅ · không trùng tên khai báo giữa `supabase.js` và `app.js` (lỗi trang trắng `Identifier has already been declared`) ✅ · 65/65 id `getElementById` trong `app.js` đều có thật trong `index.html` ✅.
+
+### 🐞 Đăng nhập rồi vẫn thấy dải mời đăng nhập (2026-08-17)
+
+Bạn báo: đã đăng nhập, nút góc trên phải hiện đúng "Nhung Do", nhưng dải *"Đã học 39 bài rồi 👏 Đăng nhập để…"* vẫn nằm đó.
+
+**Code JS hoàn toàn đúng.** `kiemTraDaiMoi()` chạy chuẩn, `signinBar.hidden = true` được đặt, và test J5 vẫn xanh. Lỗi nằm ở CSS:
+
+```css
+.signin-bar { display: flex; ... }   /* đè lên luật ẩn của trình duyệt */
+```
+
+Trình duyệt ẩn phần tử có thuộc tính `hidden` bằng `display: none` trong **bảng kiểu mặc định của chính nó** — mà bảng đó thuộc nhóm **yếu nhất**: bất kỳ `display` nào ta tự viết cũng thắng, kể cả selector chỉ có một class. Nên `hidden = true` **không có tác dụng gì về mặt hình ảnh**, và console không báo một dòng nào.
+
+**Rà lại thì có 2 chỗ dính, không phải 1:** `signinBar` và `resumeLine` (ô "↩️ Học tiếp"). Nghĩa là ô "Học tiếp" cũng không ẩn đi được khi không có bài dở.
+
+**Đã sửa bằng một dòng ở đầu `styles.css`** thay vì vá từng class:
+
+```css
+[hidden] { display: none !important; }
+```
+
+Viết `.signin-bar[hidden]` cho từng chỗ thì lần sau thêm class mới lại quên tiếp — trong file đã có sẵn `.tc-btn[hidden]` và `.tc-panel[hidden]`, tức là lỗi này **đã gặp và đã vá lẻ hai lần trước đây** mà không ai rút ra luật chung.
+
+**Vì sao 88 test cũ không bắt được:** DOM giả trong `tests/minidom.js` chỉ có *thuộc tính*, không có tầng CSS — `el.hidden = true` thì `el.hidden === true`, hết. Không có cách nào biết trình duyệt thật sẽ vẽ ra sao.
+
+**Thêm nhóm L (2 test) đọc thẳng file CSS** — cách duy nhất bắt được loại lỗi này mà không cần trình duyệt thật:
+
+| Test | Canh điều gì |
+|---|---|
+| L1 | `styles.css` phải có luật `[hidden]` toàn cục |
+| L2 | Rà **mọi** phần tử được bật/tắt bằng `.hidden` trong `app.js`: không cái nào có class đặt `display` mà không được luật `[hidden]` phủ |
+
+L2 là cái đáng giá: thêm tính năng mới có class đặt `display` là nó tự canh, không cần nhớ.
+
+**Tổng 90/90 qua.** Đã thử xoá luật toàn cục để chắc test đỏ thật.
+
+**Bài học, lần thứ ba cho cùng một chủ đề:** hai lần trước là *nút bị ẩn khi không nên ẩn* (nút "Sổ từ", nút "🎯 Ôn tập" ở Giai đoạn 1). Lần này ngược lại — *không ẩn được thứ đáng lẽ phải ẩn*. Điểm chung: **trạng thái ẩn/hiện của giao diện chưa bao giờ được kiểm tự động ở tầng CSS**, chỉ ở tầng thuộc tính. Nhóm L lấp đúng khoảng trống đó.
+
+### 🐞 "Đã học 39 bài" là sai — mở bài không phải là học (2026-08-17)
+
+Truy lại chuỗi tính lúc bạn hỏi: `soBaiDaHoc()` → `getSeenIds().size` → số `content_id` khác nhau trong `ep:log`. Mà `ep:log` được ghi ngay khi **bài tải xong**, ở cả hai đường lấy bài.
+
+**Hệ quả:** app tự mở một bài ngẫu nhiên ngay lúc vào trang, và `pickUnseenOption()` lại cố tình ưu tiên bài **chưa mở** — nên **mỗi lần mở trang là +1 "bài đã học"**, chưa nghe câu nào, chưa ở lại giây nào. Con số 39 phần lớn là số lần mở trang.
+
+Kéo theo hai thứ nữa: kho bài bị "tiêu" dần cho tới khi app báo *"đã học hết N chủ đề"* trong khi người dùng chưa học thật; và trang thống kê tuần 20 sẽ đọc đúng nguồn dữ liệu sai này.
+
+**Đã tách hai khái niệm ra hai kho:**
+
+| Kho | Nghĩa | Ghi khi nào | Dùng cho |
+|---|---|---|---|
+| `ep:seen` **(mới)** | đã **MỞ** | bài tải xong, không điều kiện | loại trừ bài trùng lúc random · khung "Học gần đây" · ô "Học tiếp" |
+| `ep:log` | đã **HỌC** | bấm phát, **hoặc** ở lại đủ 60 giây, **hoặc** làm quiz | dải mời đăng nhập · thống kê tuần 20 · đẩy lên `study_log` |
+
+`ep:seen` cố ý dùng **đúng hình dạng** `{ content_id, created_at }` của `ep:log`, nên `getHistory()` dùng chung được cho cả hai, không phải viết hàm thứ hai.
+
+**Bốn chi tiết đáng ghi lại:**
+
+**1. Chốt mốc "đã học" ở `speakFrom()`.** Đây là **cửa duy nhất** của mọi thao tác phát — nút ▶ chung, nút ▶ từng câu, ⏮ ⏭, 🔁 đều đi qua đó. Gắn vào từng nút thì chắc chắn sẽ sót một cái.
+
+**2. Đồng hồ dừng khi tab bị ẩn.** Mở tab rồi đi ăn trưa không phải là học. `document.hidden` không có trong DOM giả nên phải dò kiểu chứ không đọc thẳng.
+
+**3. Mỗi lần mở bài chỉ ghi ĐÚNG MỘT dòng** (`daGhi`). Không thì một bài nghe 5 lần thành 5 dòng, phá luôn thống kê.
+
+**4. `seconds` cuối cùng cũng có giá trị** — trước nay luôn `null`. Ghi là số giây **tính tới lúc đủ điều kiện**, không phải tổng thời gian ở trong bài (bấm Nghe ở giây thứ 5 thì ghi 5). Muốn tổng chính xác thì phải cập nhật lại bản ghi lúc rời bài, mà việc đó sẽ vướng phần đồng bộ hai chiều ở tuần 17 — để sau.
+
+**Nhật ký cũ: bạn chọn "đếm lại từ 0".** `chuyenNhatKyCu()` chạy đúng một lần (cờ `ep:migr:seen`): chuyển toàn bộ id sang `ep:seen` — nên **"Học gần đây" và việc loại trừ random không mất gì** — rồi làm rỗng `ep:log`.
+
+⚠️ **Không dùng `removeItem`, không vứt dữ liệu đi.** Bản gốc được cất nguyên vào `ep:log_truoc_2026-08-17`, lấy lại được bất cứ lúc nào. Nguyên tắc "không xoá dữ liệu người dùng" (mục 9) vẫn giữ — đây là *chuyển chỗ*, không phải xoá.
+
+⚠️ **Thứ tự chạy có ý nghĩa:** `chuyenNhatKyCu()` nằm trước `khoiTaoAuth()` trong phần init, nên lần đăng nhập đầu tiên sẽ gộp **nhật ký mới** lên Supabase chứ không phải 39 dòng cũ. Đúng ý "đếm lại từ 0".
+
+**Đã kiểm thử 100/100 qua** (90 cũ + 10 test mới nhóm M), và phá code 6 kiểu để chắc test không rỗng:
+
+| Cố tình phá | Test bắt được |
+|---|---|
+| Quay lại luật cũ "mở là tính" | ✅ M1, M3, M4 + 4 test khác |
+| Bấm Nghe không tính | ✅ M2 |
+| Đếm cả khi tab ẩn | ✅ M4 |
+| Bỏ chống ghi hai lần | ✅ M5 |
+| Chuyển đổi mà không cất bản gốc | ✅ M8 |
+| Chuyển đổi chạy lại nhiều lần | ✅ M9 |
+
+**🐞 Một lỗi trong khung test, phát hiện nhân tiện:** phiên học tạo một `setInterval` 1 giây cho mỗi bài mở, và timer thật của Node **giữ vòng lặp sự kiện sống** — `node tests/run.js` chạy xong vẫn treo, không bao giờ thoát (phải Ctrl+C). Đã `unref()` timer trong sandbox: chạy bình thường nhưng không níu tiến trình. Giờ thoát sau ~1,7 giây với mã 0.
 
 ### Việc của bạn — tuần 16
 

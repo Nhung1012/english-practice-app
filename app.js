@@ -363,21 +363,60 @@ function writeLog(entries) {
 // mode: 'read' | 'listen' | 'quiz' — khớp ràng buộc check của bảng study_log.
 // score: tỉ lệ đúng 0–1 cho bài quiz, null với các mode khác. Giữ đúng kiểu
 // `numeric` của cột study_log.score để tuần 16 đẩy thẳng lên Supabase.
-function logStudy(contentId, mode, score) {
+function logStudy(contentId, mode, score, seconds) {
   if (!contentId) return;
   const entries = readLog();
   entries.push({
     content_id: contentId,
     mode: mode || 'read',
     score: typeof score === 'number' && isFinite(score) ? score : null,
-    seconds: null,
+    seconds: typeof seconds === 'number' && isFinite(seconds) ? Math.round(seconds) : null,
     created_at: new Date().toISOString()
   });
   writeLog(entries);
 }
 
+// ============================================================
+// `ep:seen` — nhật ký MỞ BÀI, tách hẳn khỏi `ep:log` (nhật ký HỌC).
+//
+// Vì sao phải tách (sửa 2026-08-17): trước đây chỉ cần bài tải xong là ghi
+// thẳng một dòng `read` vào `ep:log`. Mà app TỰ MỞ một bài ngẫu nhiên ngay khi
+// vào trang, và hàm chọn ngẫu nhiên lại cố tình ưu tiên bài CHƯA mở — nên mỗi
+// lần mở trang là +1 "bài đã học", chưa nghe câu nào, chưa ở lại giây nào.
+// Người dùng thấy "đã học 39 bài" trong khi thực tế học vài bài.
+//
+// Nay hai việc dùng hai kho khác nhau:
+//   ep:seen — đã MỞ. Dùng để loại trừ bài trùng lúc random, vẽ "Học gần đây",
+//             và chốt bài "Học tiếp". Mở là ghi, không điều kiện gì.
+//   ep:log  — đã HỌC thật (bấm Nghe hoặc ở lại đủ lâu, hoặc làm quiz). Dùng cho
+//             dải mời đăng nhập, trang thống kê tuần 20, và đẩy lên `study_log`.
+//
+// `ep:seen` cố ý dùng ĐÚNG hình dạng { content_id, created_at } của `ep:log` để
+// `getHistory()` dùng chung được cho cả hai, không phải viết hàm thứ hai.
+// ============================================================
+const SEEN_KEY = 'ep:seen';
+const SEEN_MAX = 2000;
+
+function readSeen() {
+  const v = readJson(SEEN_KEY, []);
+  return Array.isArray(v) ? v : [];
+}
+
+function writeSeen(entries) {
+  writeJson(SEEN_KEY, entries.slice(-SEEN_MAX));
+}
+
+function markSeen(contentId) {
+  if (!contentId) return;
+  const entries = readSeen();
+  entries.push({ content_id: contentId, created_at: new Date().toISOString() });
+  writeSeen(entries);
+}
+
+// Dùng cho pickUnseenOption: "đã MỞ", không phải "đã học". Nếu đổi sang đếm
+// theo ep:log thì bài vừa mở xong lại được random chọn lại ngay lập tức.
 function getSeenIds() {
-  return new Set(readLog().map(e => e.content_id));
+  return new Set(readSeen().map(e => e.content_id));
 }
 
 // Chọn ngẫu nhiên 1 chủ đề CHƯA HỌC trong danh sách của tab/trình độ hiện tại.
@@ -451,7 +490,10 @@ function toggleFav(id) {
 // Lịch sử = duyệt ngược nhật ký, mỗi bài chỉ lấy lần học GẦN NHẤT.
 function getHistory(limit, logArr) {
   const titles = readJson(TITLE_KEY, {});
-  const log = logArr || readLog();
+  // Mặc định vẽ từ `ep:seen` (đã MỞ) chứ không phải `ep:log` (đã HỌC): khung
+  // này trả lời câu hỏi "vừa nãy tôi xem bài nào", nên bài mở ra rồi đóng ngay
+  // vẫn phải có mặt để mở lại được.
+  const log = logArr || readSeen();
   const seen = new Set();
   const out = [];
   for (let i = log.length - 1; i >= 0; i--) {
@@ -1035,15 +1077,108 @@ function syncFavButton() {
   favBtn.disabled = !currentItem;
 }
 
-// Ghi nhận một bài vừa được mở: vừa vào nhật ký (đúng cột study_log), vừa vào
-// cache tên bài để lịch sử vẽ được mà không cần gọi mạng.
+// Ghi nhận một bài vừa được MỞ. Cố ý KHÔNG ghi vào `ep:log` nữa — mở bài không
+// phải là học. Việc ghi "đã học" do phiên học phía dưới đảm nhiệm.
 function recordLesson() {
   if (!currentItem || !currentItem.id) return;
-  logStudy(currentItem.id, 'read');
+  markSeen(currentItem.id);
   rememberTitle(currentItem.id, currentItem.topic, currentTab, currentLevel);
   syncFavButton();
   renderHistory();
+  batDauPhienHoc(currentItem.id);
+}
+
+// ============================================================
+// PHIÊN HỌC — khi nào thì tính là "đã học" một bài
+//
+// Hai điều kiện, thoả cái nào trước thì tính cái đó:
+//   1. Bấm phát (nút ▶ chung, nút ▶ ở đầu câu, ⏮ ⏭ — tất cả đều đi qua
+//      `speakFrom`). Bấm phát là đã có ý định học, không cần chờ.
+//   2. Ở lại bài đó đủ NGUONG_GIAY giây.
+//
+// Mỗi bài chỉ ghi ĐÚNG MỘT bản ghi `read` cho mỗi lần mở — `daGhi` canh việc
+// đó. Không thì một bài nghe 5 lần thành 5 dòng, phá luôn trang thống kê.
+//
+// Bộ đếm KHÔNG chạy khi tab đang ẩn: mở tab rồi bỏ đó đi ăn trưa không phải
+// là học. `document.hidden` không có trong DOM giả của test nên phải dò kiểu.
+// ============================================================
+const NGUONG_GIAY = 60;
+let phienHoc = null; // { id, giay, daGhi } — null nghĩa là chưa mở bài nào
+
+function tabDangAn() {
+  return typeof document !== 'undefined' && document.hidden === true;
+}
+
+function batDauPhienHoc(id) {
+  dungPhienHoc();
+  if (!id) return;
+  phienHoc = { id: id, giay: 0, daGhi: false, timer: null };
+  phienHoc.timer = setInterval(nhipPhienHoc, 1000);
+}
+
+function nhipPhienHoc() {
+  if (!phienHoc || phienHoc.daGhi) return;
+  if (tabDangAn()) return;
+  phienHoc.giay++;
+  if (phienHoc.giay >= NGUONG_GIAY) danhDauDaHoc();
+}
+
+// `seconds` ghi lại là số giây tính TỚI LÚC đủ điều kiện, không phải tổng thời
+// gian ở trong bài. Bấm Nghe ở giây thứ 5 thì ghi 5. Đủ dùng cho tuần 20 để
+// phân biệt "học lướt" với "học kỹ"; muốn tổng chính xác thì phải cập nhật lại
+// bản ghi lúc rời bài, mà việc đó sẽ vướng phần đồng bộ hai chiều ở tuần 17.
+function danhDauDaHoc() {
+  if (!phienHoc || phienHoc.daGhi) return;
+  phienHoc.daGhi = true;
+  logStudy(phienHoc.id, 'read', null, phienHoc.giay);
+  if (phienHoc.timer) { clearInterval(phienHoc.timer); phienHoc.timer = null; }
   kiemTraDaiMoi();
+  return phienHoc.giay;
+}
+
+function dungPhienHoc() {
+  if (phienHoc && phienHoc.timer) clearInterval(phienHoc.timer);
+  phienHoc = null;
+}
+
+// ============================================================
+// CHUYỂN NHẬT KÝ CŨ (chạy đúng một lần, 2026-08-17)
+//
+// Nhật ký ghi trước hôm nay theo luật cũ "mở là tính", nên nó thực chất là
+// danh sách bài ĐÃ MỞ. Chuyển nguyên vẹn sang `ep:seen` — nhờ vậy khung
+// "Học gần đây" và ô "Học tiếp" giữ đủ nội dung, việc loại trừ bài random
+// cũng không bị đặt lại — rồi làm rỗng `ep:log` để số "đã học" đếm lại từ 0
+// theo luật mới.
+//
+// ⚠️ KHÔNG dùng removeItem và KHÔNG vứt dữ liệu đi: bản gốc được cất nguyên
+// vào `ep:log_truoc_2026-08-17`. Nguyên tắc "không xoá dữ liệu người dùng"
+// (mục 9 kế hoạch) vẫn giữ — đây là *chuyển chỗ*, lấy lại được bất cứ lúc nào.
+// ============================================================
+const MIGR_KEY = 'ep:migr:seen';       // '1' = đã chuyển rồi, không chuyển lại
+const LOG_CU_KEY = 'ep:log_truoc_2026-08-17';
+
+function chuyenNhatKyCu() {
+  try {
+    if (localStorage.getItem(MIGR_KEY) === '1') return false;
+  } catch (err) {
+    return false; // localStorage bị chặn -> không chuyển, app vẫn chạy
+  }
+
+  const cu = readLog();
+  if (cu.length) {
+    // Gộp vào ep:seen chứ không ghi đè, phòng khi máy đã có sẵn dữ liệu mới.
+    const daCo = new Set(readSeen().map(e => e.content_id));
+    const them = cu
+      .filter(e => e && e.content_id && !daCo.has(e.content_id))
+      .map(e => ({ content_id: e.content_id, created_at: e.created_at }));
+    if (them.length) writeSeen(readSeen().concat(them));
+
+    writeJson(LOG_CU_KEY, cu); // cất bản gốc trước khi làm rỗng
+    writeLog([]);
+  }
+
+  try { localStorage.setItem(MIGR_KEY, '1'); } catch (err) {}
+  return cu.length > 0;
 }
 
 // ============================================================
@@ -1066,8 +1201,11 @@ function ghiNhoDaTuChoiMoi() {
 // Đếm số bài KHÁC NHAU đã học, không phải số dòng nhật ký. Mở lại cùng một
 // bài mười lần không có nghĩa là đã học mười bài — đếm kiểu đó thì dải mời
 // bật lên ngay lần đầu vào trang và mất hết ý nghĩa "đã dùng thử rồi".
+// ⚠️ Đếm trên `ep:log` (đã HỌC), KHÔNG phải `ep:seen` (đã mở). Đây chính là chỗ
+// sinh ra con số "Đã học 39 bài rồi" sai trước đây: đếm theo bài đã mở thì mỗi
+// lần vào trang là +1, vì app tự mở một bài mới ngay lúc tải.
 function soBaiDaHoc() {
-  return getSeenIds().size; // getSeenIds() trả về Set, không phải mảng
+  return new Set(readLog().map(e => e.content_id)).size;
 }
 
 function kiemTraDaiMoi() {
@@ -1614,6 +1752,10 @@ function stopSpeaking(msg) {
 
 function speakFrom(index) {
   if (!sentences.length) return;
+
+  // Cửa duy nhất của mọi thao tác phát (nút ▶ chung, ▶ từng câu, ⏮ ⏭, 🔁), nên
+  // đặt mốc "đã học" ở đây là đủ cho tất cả — không phải nhớ gắn vào từng nút.
+  danhDauDaHoc();
 
   speechSession++;
   const mySession = speechSession;
@@ -2246,11 +2388,12 @@ favFilterBtn.addEventListener('click', () => {
 // init
 applyRate(loadRate(), false);
 bilingual = loadBilingual(); // nhớ lựa chọn song ngữ từ lần vào trước
+chuyenNhatKyCu();
 
 // Ảnh chụp nhật ký NGAY LÚC MỞ TRANG, trước khi loadNewItem() mở một bài ngẫu
 // nhiên mới. "Bài lần trước" luôn tính trên ảnh chụp này — nếu tính trên nhật
 // ký sống, bài gần nhất sẽ luôn là bài vừa tự mở ra và ô "Học tiếp" vô nghĩa.
-const logKhiKhoiDong = readLog();
+const logKhiKhoiDong = readSeen();
 resumeTarget = getHistory(1, logKhiKhoiDong)[0] || null;
 syncFavButton();
 renderHistory();

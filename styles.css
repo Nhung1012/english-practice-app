@@ -12,6 +12,16 @@
     --green: #16a34a;
   }
   * { box-sizing: border-box; }
+
+  /* ⚠️ BẮT BUỘC GIỮ. Trình duyệt ẩn phần tử có thuộc tính `hidden` bằng luật
+     `display: none` của chính nó, nhưng luật đó thuộc nhóm YẾU NHẤT: bất kỳ
+     `display` nào ta tự viết cũng thắng, kể cả selector chỉ có một class.
+     Nên `phanTu.hidden = true` trong JS trở nên VÔ TÁC DỤNG với mọi phần tử có
+     class đặt `display` — phần tử vẫn hiện nguyên, mà console không báo gì.
+     Đúng lỗi đã xảy ra với dải mời đăng nhập: đăng nhập rồi vẫn thấy nó.
+     Một dòng này chặn cho TẤT CẢ, thay vì phải nhớ viết `.abc[hidden]` cho
+     từng class mới. Test L1 canh không cho ai xoá đi. */
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
