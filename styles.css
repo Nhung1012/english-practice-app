@@ -891,6 +891,24 @@
     margin-bottom: 0;
   }
 
+  /* Bộ đếm tiến độ trong khung Tài khoản (2026-08-17). */
+  .acc-stats {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .acc-stats b { color: var(--primary); }
+  .acc-stats .as-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
   /* Dòng trạng thái gộp dữ liệu (tuần 16). Cố ý nhẹ nhàng, không phải hộp
      thoại chặn màn hình: việc gộp chạy nền và không cản thao tác nào. */
   .acc-sync {

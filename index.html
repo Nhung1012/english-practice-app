@@ -142,6 +142,11 @@
         <div id="vocabList"></div>
       </div>
       <div id="paneAccount" hidden>
+        <!-- Nằm NGOÀI accGuest/accUser để hiện cho cả khách lẫn người đã đăng
+             nhập. Trước đây con số "đã học" chỉ xuất hiện trong dải mời đăng
+             nhập, mà dải đó ẩn hẳn sau khi đăng nhập — nên người dùng không có
+             chỗ nào nhìn thấy tiến độ của mình. -->
+        <p class="acc-stats" id="accStats"></p>
         <div id="accGuest">
           <p class="acc-lead">Bạn đang dùng ở <b>chế độ khách</b>. Mọi tính năng đều dùng được bình thường, không có gì bị khoá.</p>
           <p class="acc-note">Sổ từ, lịch sử và các lựa chọn đang lưu <b>trên máy này</b>. Xoá dữ liệu trình duyệt hoặc mở bằng máy khác là không thấy nữa.</p>

@@ -66,6 +66,7 @@ const accEmail = document.getElementById('accEmail');
 const accSigninBtn = document.getElementById('accSigninBtn');
 const accSignoutBtn = document.getElementById('accSignoutBtn');
 const accSync = document.getElementById('accSync');
+const accStats = document.getElementById('accStats');
 const signinBar = document.getElementById('signinBar');
 const signinCount = document.getElementById('signinCount');
 const signinBarBtn = document.getElementById('signinBarBtn');
@@ -666,6 +667,9 @@ function openModal(pane) {
     // Hai khung này là HTML tĩnh viết sẵn trong index.html, không sinh từ
     // dữ liệu, nên ở đây chỉ cần đặt tiêu đề.
     modalTitle.textContent = pane === 'account' ? 'Tài khoản' : 'Hướng dẫn nhanh';
+    // Vẽ lại số liệu MỖI LẦN mở, không phải chỉ lúc khởi động: người dùng vừa
+    // học xong một bài rồi mở ra xem thì phải thấy con số đã đổi.
+    if (pane === 'account') veThongKe();
   }
   modalClose.focus();
 }
@@ -1224,9 +1228,44 @@ function capNhatGiaoDienTaiKhoan() {
   accGuest.hidden = !!user;
   accUser.hidden = !user;
   if (user) accEmail.textContent = user.email || tenHienThi(user);
+  veThongKe();
   veTrangThaiGop();
   // Đăng nhập xong thì dải mời không còn lý do tồn tại.
   kiemTraDaiMoi();
+}
+
+// ============================================================
+// BỘ ĐẾM TIẾN ĐỘ trong khung Tài khoản (2026-08-17)
+//
+// Vì sao cần: sau khi đổi luật đếm ("mở bài" không còn là "đã học"), con số
+// này là thứ DUY NHẤT để người dùng kiểm chứng luật mới. Mà trước đó nó chỉ
+// xuất hiện trong dải mời đăng nhập — dải ẩn hẳn sau khi đăng nhập, nên người
+// đã đăng nhập không có chỗ nào nhìn thấy tiến độ của mình.
+//
+// Bài học lặp lại lần thứ tư: đổi cách tính một con số thì phải có chỗ để
+// nhìn thấy con số đó, nếu không thay đổi là vô hình và không kiểm chứng được.
+//
+// Dòng gợi ý bên dưới cố ý nói rõ ĐIỀU KIỆN được tính — người dùng mở một bài
+// rồi thấy số không nhúc nhích sẽ tưởng app hỏng chứ không đoán ra là cố ý.
+// ============================================================
+function veThongKe() {
+  if (!accStats) return;
+  const soBai = soBaiDaHoc();
+  const soTu = readVocab().length;
+  const canOn = dueWords().length;
+
+  if (!soBai && !soTu) {
+    accStats.innerHTML = '📚 Chưa có bài nào được tính là đã học.'
+      + '<span class="as-hint">Bấm <b>▶ Nghe</b>, hoặc ở lại trong bài một phút, '
+      + 'hoặc làm xong phần 📝 câu hỏi — mở bài rồi thoát ngay thì không tính.</span>';
+    return;
+  }
+
+  const phan = [`📚 Đã học <b>${soBai}</b> bài`, `📒 <b>${soTu}</b> từ trong sổ`];
+  if (canOn) phan.push(`🎯 <b>${canOn}</b> từ cần ôn`);
+  accStats.innerHTML = phan.join(' · ')
+    + '<span class="as-hint">Một bài được tính khi bạn bấm ▶ Nghe, ở lại một phút, '
+    + 'hoặc làm câu hỏi hiểu bài.</span>';
 }
 
 // ============================================================
