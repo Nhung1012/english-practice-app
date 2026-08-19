@@ -45,14 +45,15 @@ const modal = document.getElementById('modal');
 const modalBackdrop = document.getElementById('modalBackdrop');
 const modalTitle = document.getElementById('modalTitle');
 const modalClose = document.getElementById('modalClose');
-const paneHistory = document.getElementById('paneHistory');
+const paneFav = document.getElementById('paneFav');
 const paneVocab = document.getElementById('paneVocab');
 const vocabList = document.getElementById('vocabList');
 const reviewPanel = document.getElementById('reviewPanel');
 const reviewBtn = document.getElementById('reviewBtn');
-const historyList = document.getElementById('historyList');
-const resumeLine = document.getElementById('resumeLine');
-const openHistoryBtn = document.getElementById('openHistoryBtn');
+const vocabActions = document.getElementById('vocabActions');
+const modalBack = document.getElementById('modalBack');
+const favList = document.getElementById('favList');
+const openFavBtn = document.getElementById('openFavBtn');
 const openVocabBtn = document.getElementById('openVocabBtn');
 const openHelpBtn = document.getElementById('openHelpBtn');
 const paneHelp = document.getElementById('paneHelp');
@@ -72,7 +73,6 @@ const signinCount = document.getElementById('signinCount');
 const signinBarBtn = document.getElementById('signinBarBtn');
 const signinBarClose = document.getElementById('signinBarClose');
 const favBtn = document.getElementById('favBtn');
-const favFilterBtn = document.getElementById('favFilterBtn');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const loopBtn = document.getElementById('loopBtn');
@@ -387,13 +387,13 @@ function logStudy(contentId, mode, score, seconds) {
 // Người dùng thấy "đã học 39 bài" trong khi thực tế học vài bài.
 //
 // Nay hai việc dùng hai kho khác nhau:
-//   ep:seen — đã MỞ. Dùng để loại trừ bài trùng lúc random, vẽ "Học gần đây",
-//             và chốt bài "Học tiếp". Mở là ghi, không điều kiện gì.
+//   ep:seen — đã MỞ. Mở là ghi, không điều kiện gì.
 //   ep:log  — đã HỌC thật (bấm Nghe hoặc ở lại đủ lâu, hoặc làm quiz). Dùng cho
-//             dải mời đăng nhập, trang thống kê tuần 20, và đẩy lên `study_log`.
+//             dải mời đăng nhập, bộ đếm khung Tài khoản, và đẩy lên `study_log`.
 //
-// `ep:seen` cố ý dùng ĐÚNG hình dạng { content_id, created_at } của `ep:log` để
-// `getHistory()` dùng chung được cho cả hai, không phải viết hàm thứ hai.
+// 2026-08-19: khung "Học gần đây" và dòng "Học tiếp" đã gỡ, nên `ep:seen` giờ
+// chỉ còn MỘT việc — cho hàm random biết bài nào vừa mở để khỏi trả lại. Đừng
+// gỡ nó theo: không có nó thì "Đổi chủ đề" sẽ lặp bài ngay lần bấm thứ hai.
 // ============================================================
 const SEEN_KEY = 'ep:seen';
 const SEEN_MAX = 2000;
@@ -488,27 +488,9 @@ function toggleFav(id) {
   return i === -1;
 }
 
-// Lịch sử = duyệt ngược nhật ký, mỗi bài chỉ lấy lần học GẦN NHẤT.
-function getHistory(limit, logArr) {
-  const titles = readJson(TITLE_KEY, {});
-  // Mặc định vẽ từ `ep:seen` (đã MỞ) chứ không phải `ep:log` (đã HỌC): khung
-  // này trả lời câu hỏi "vừa nãy tôi xem bài nào", nên bài mở ra rồi đóng ngay
-  // vẫn phải có mặt để mở lại được.
-  const log = logArr || readSeen();
-  const seen = new Set();
-  const out = [];
-  for (let i = log.length - 1; i >= 0; i--) {
-    const id = log[i].content_id;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const meta = titles[id];
-    if (!meta) continue; // chưa có tên trong cache -> để backfillTitles() bổ sung sau
-    out.push({ id: id, topic: meta.topic, type: meta.type, level: meta.level, at: log[i].created_at });
-    if (limit && out.length >= limit) break;
-  }
-  return out;
-}
-
+// 2026-08-19: `getHistory()` đã gỡ cùng với khung "Học gần đây" và dòng
+// "Học tiếp". `ep:seen` vẫn được ghi và vẫn có `getSeenIds()` — hàm random
+// dùng nó để khỏi trả lại bài vừa mở, đó mới là lý do kho này tồn tại.
 function getFavorites() {
   const titles = readJson(TITLE_KEY, {});
   return readJson(FAV_KEY, [])
@@ -520,19 +502,10 @@ function getFavorites() {
 const LEVEL_LABEL = { beginner: 'Cơ bản', intermediate: 'Trung cấp', advanced: 'Nâng cao' };
 const TYPE_ICON = { dialogue: '💬', listening: '🎙️' };
 
-function timeAgo(iso) {
-  const ms = Date.now() - new Date(iso).getTime();
-  if (!isFinite(ms) || ms < 0) return '';
-  const phut = Math.floor(ms / 60000);
-  if (phut < 1) return 'vừa xong';
-  if (phut < 60) return phut + ' phút trước';
-  const gio = Math.floor(phut / 60);
-  if (gio < 24) return gio + ' giờ trước';
-  const ngay = Math.floor(gio / 24);
-  if (ngay === 1) return 'hôm qua';
-  if (ngay < 30) return ngay + ' ngày trước';
-  return new Date(iso).toLocaleDateString('vi-VN');
-}
+// 2026-08-19: `timeAgo()` đã gỡ. Nó chỉ phục vụ dòng "Học tiếp" và cột thời
+// gian của danh sách "Học gần đây" — cả hai đều không còn. Danh sách đã đánh
+// dấu cố ý KHÔNG hiện thời gian: người dùng đánh dấu một bài để quay lại lúc
+// nào cũng được, "3 tuần trước" chỉ là chữ thừa.
 
 // ====== SỔ TỪ VỰNG + ÔN TẬP NGẮT QUÃNG (mục 1.3) ======
 // Mỗi mục có ĐÚNG các cột của bảng `vocab` trong Supabase (mục 10 kế hoạch),
@@ -601,6 +574,9 @@ function saveWord(word, info, sourceId) {
 function removeWord(word) {
   const w = String(word || '').toLowerCase();
   writeVocab(readVocab().filter(v => String(v.word).toLowerCase() !== w));
+  // Xoá cả trên tài khoản, nếu không máy khác vẫn thấy từ đã bỏ và "số từ
+  // trong sổ" lại lệch. Không await: thao tác cục bộ đã xong, đừng bắt chờ mạng.
+  if (typeof xoaTuTrenTaiKhoan === 'function') xoaTuTrenTaiKhoan(word);
 }
 
 function dueWords() {
@@ -635,41 +611,62 @@ function gradeWord(word, remembered) {
     item.due_date = homNay(); // rơi về hộp 1 và ôn lại ngay trong phiên này
   }
   writeVocab(list);
+  // Đẩy tiến độ ôn lên tài khoản. Hàm gộp cố ý KHÔNG ghi đè bản trên server
+  // (để khỏi xoá tiến độ máy khác), nên nếu không cập nhật ở đây thì hộp và
+  // ngày ôn mãi mãi đứng yên trên server và số "cần ôn" hai máy khác nhau.
+  if (typeof capNhatOnTuTrenTaiKhoan === 'function') {
+    capNhatOnTuTrenTaiKhoan(item.word, item.box, item.due_date);
+  }
   return item;
 }
 
-// ====== VẼ KHUNG LỊCH SỬ ======
-// resumeTarget được chốt MỘT LẦN lúc khởi động, trước khi loadNewItem() mở bài
-// ngẫu nhiên mới. Nếu không, "bài gần nhất" sẽ luôn là bài vừa tự mở ra và ô
-// "Học tiếp" trở nên vô nghĩa.
-let resumeTarget = null;
-let favFilter = false;
-
-// Hai danh sách này dài nên không nằm trong luồng chính nữa mà hiện trong
-// popup chung. Màn hình chính chỉ giữ 2 nút mở + 1 dòng "Học tiếp".
-let modalPane = null; // 'history' | 'vocab' | 'help' | 'account' | null
+// ====== VẼ KHUNG CHỦ ĐỀ ĐÃ ĐÁNH DẤU ======
+//
+// 2026-08-19: khung này trước là "Học gần đây" (10 bài mở gần nhất) kèm một
+// nút lọc để chuyển sang xem bài đã đánh dấu, cộng thêm dòng "Học tiếp" ở màn
+// hình chính. Nay chỉ còn danh sách đã đánh dấu.
+//
+// Vì sao gỡ: app random chủ đề mỗi ngày, nên "bài vừa mở" gần như luôn là bài
+// hệ thống tự chọn chứ không phải bài người dùng muốn quay lại — danh sách đó
+// tự lấp đầy bằng nhiễu. Việc "muốn quay lại bài này" đã có ☆ làm rồi, và ☆ là
+// người dùng CHỦ ĐỘNG chọn nên nó đúng ý hơn hẳn.
+let modalPane = null; // 'fav' | 'vocab' | 'help' | 'account' | null
 
 function openModal(pane) {
   modalPane = pane;
-  paneHistory.hidden = pane !== 'history';
+  paneFav.hidden = pane !== 'fav';
   paneVocab.hidden = pane !== 'vocab';
   paneHelp.hidden = pane !== 'help';
   paneAccount.hidden = pane !== 'account';
   modal.hidden = false;
   document.body.style.overflow = 'hidden'; // khoá cuộn nền khi popup đang mở
-  // Ngăn các khung tĩnh mở kèm nút của Sổ từ / Lịch sử: cả favFilterBtn lẫn
-  // reviewBtn đều nằm ở hàng tiêu đề dùng chung, closeModal() mới ẩn chúng.
-  if (pane === 'history') renderHistory();
+
+  // Hai khung con chỉ vào được TỪ khung Tài khoản (2026-08-19), nên chúng —
+  // và chỉ chúng — có đường về. Khung Tài khoản và Hướng dẫn mở thẳng từ
+  // màn hình chính, không đi ra từ đâu cả.
+  modalBack.hidden = !(pane === 'fav' || pane === 'vocab');
+
+  if (pane === 'fav') renderFav();
   else if (pane === 'vocab') renderVocab();
   else {
-    favFilterBtn.hidden = true;
-    reviewBtn.hidden = true;
     // Hai khung này là HTML tĩnh viết sẵn trong index.html, không sinh từ
     // dữ liệu, nên ở đây chỉ cần đặt tiêu đề.
     modalTitle.textContent = pane === 'account' ? 'Tài khoản' : 'Hướng dẫn nhanh';
     // Vẽ lại số liệu MỖI LẦN mở, không phải chỉ lúc khởi động: người dùng vừa
     // học xong một bài rồi mở ra xem thì phải thấy con số đã đổi.
-    if (pane === 'account') veThongKe();
+    // Mở khung Tài khoản là lúc người dùng thực sự nhìn con số -> đọc lại từ
+    // server ngay tại đây, đừng để họ xem số cũ từ lần mở trang trước.
+    //
+    // renderFav()/renderVocab() ở đây là để cập nhật NHÃN hai nút (số trong
+    // ngoặc, và việc ẩn/hiện nút Đã đánh dấu). Từ 2026-08-19 hai nút đó nằm
+    // trong chính khung này, nên không còn ai vẽ lại chúng hộ nữa — thiếu hai
+    // dòng này là người dùng đánh dấu xong mở khung Tài khoản vẫn thấy số cũ.
+    if (pane === 'account') {
+      veThongKe();
+      capNhatThongKe();
+      renderFav();
+      renderVocab();
+    }
   }
   modalClose.focus();
 }
@@ -678,28 +675,28 @@ function closeModal() {
   modalPane = null;
   modal.hidden = true;
   document.body.style.overflow = '';
-  favFilterBtn.hidden = true;
-  reviewBtn.hidden = true;
+  modalBack.hidden = true;
   // Thoát popup thì dừng luôn phiên ôn đang dở, tránh việc quay lại thấy
   // hàng đợi cũ mà không nhớ mình đang ôn tới đâu.
   reviewQueue = [];
   reviewPanel.hidden = true;
 }
 
-function makeHistRow(item, isCurrent) {
+function makeFavRow(item, isCurrent) {
   const row = document.createElement('div');
   row.className = 'hist-item';
 
+  // Sao ở đây là nút BỎ đánh dấu — trong danh sách này mọi bài đều đã có sao.
   const star = document.createElement('button');
   star.type = 'button';
-  star.className = 'hist-fav' + (isFav(item.id) ? ' on' : '');
-  star.textContent = isFav(item.id) ? '★' : '☆';
-  star.title = 'Đánh dấu chủ đề này';
-  star.setAttribute('aria-label', 'Đánh dấu chủ đề này');
+  star.className = 'hist-fav on';
+  star.textContent = '★';
+  star.title = 'Bỏ đánh dấu chủ đề này';
+  star.setAttribute('aria-label', 'Bỏ đánh dấu chủ đề này');
   star.addEventListener('click', () => {
     toggleFav(item.id);
     if (currentItem && currentItem.id === item.id) syncFavButton();
-    renderHistory();
+    renderFav();
   });
 
   const open = document.createElement('button');
@@ -716,12 +713,6 @@ function makeHistRow(item, isCurrent) {
 
   open.appendChild(name);
   open.appendChild(badge);
-  if (item.at) {
-    const meta = document.createElement('span');
-    meta.className = 'hist-meta';
-    meta.textContent = timeAgo(item.at);
-    open.appendChild(meta);
-  }
   open.addEventListener('click', () => openLesson(item.id, item.type, item.level));
 
   row.appendChild(star);
@@ -729,68 +720,35 @@ function makeHistRow(item, isCurrent) {
   return row;
 }
 
-// Gọn trong đúng một dòng, bấm cả dòng là mở lại bài dở.
-function renderResumeLine() {
-  // Ẩn nếu bài gần nhất chính là bài đang mở — không có gì để "tiếp".
-  if (!resumeTarget || (currentItem && currentItem.id === resumeTarget.id)) {
-    resumeLine.hidden = true;
-    return;
-  }
-  resumeLine.innerHTML = '';
+function renderFav() {
+  const items = getFavorites();
 
-  const nhan = document.createElement('span');
-  nhan.textContent = '↩️ Học tiếp:';
+  // Nút nằm trong khung Tài khoản (2026-08-19), không còn ở màn hình chính.
+  //
+  // ⚠️ Khác với nút Sổ từ (luôn hiện, kể cả khi trống, để người mới biết là có
+  // tính năng đó). Ở đây ẩn được vì lối vào của tính năng là nút ☆ cạnh tên
+  // chủ đề — nút đó luôn nhìn thấy, nên không có chuyện giấu mất tính năng.
+  openFavBtn.hidden = items.length === 0;
+  openFavBtn.textContent = '⭐ Đã đánh dấu' + (items.length ? ' (' + items.length + ')' : '');
 
-  const topic = document.createElement('span');
-  topic.className = 'rl-topic';
-  topic.textContent = (TYPE_ICON[resumeTarget.type] || '') + ' ' + resumeTarget.topic;
+  // Phần còn lại chỉ có ý nghĩa khi popup đang mở ở khung này.
+  if (modalPane !== 'fav') return;
 
-  const time = document.createElement('span');
-  time.className = 'rl-time';
-  time.textContent = timeAgo(resumeTarget.at);
+  modalTitle.textContent = 'Chủ đề đã đánh dấu (' + items.length + ')';
 
-  resumeLine.appendChild(nhan);
-  resumeLine.appendChild(topic);
-  resumeLine.appendChild(time);
-  resumeLine.hidden = false;
-}
-
-function renderHistory() {
-  const items = favFilter ? getFavorites() : getHistory(10);
-  const soFav = readJson(FAV_KEY, []).length;
-  const soLichSu = getHistory(10).length;
-
-  renderResumeLine();
-
-  // Nút ở màn hình chính: chỉ hiện khi đã có gì đó để xem.
-  openHistoryBtn.hidden = soLichSu === 0 && soFav === 0;
-  openHistoryBtn.textContent = '🕘 Học gần đây' + (soLichSu ? ' (' + soLichSu + ')' : '');
-
-  // Phần còn lại chỉ có ý nghĩa khi popup đang mở ở tab lịch sử.
-  if (modalPane !== 'history') return;
-
-  favFilterBtn.hidden = soFav === 0;
-  favFilterBtn.classList.toggle('on', favFilter);
-  favFilterBtn.setAttribute('aria-pressed', String(favFilter));
-  reviewBtn.hidden = true;
-  modalTitle.textContent = (favFilter ? 'Chủ đề đã đánh dấu' : 'Học gần đây')
-    + ' (' + items.length + ')';
-
-  historyList.innerHTML = '';
+  favList.innerHTML = '';
 
   if (!items.length) {
+    // Bỏ đánh dấu bài cuối cùng trong lúc popup đang mở thì rơi vào đây.
     const p = document.createElement('div');
     p.className = 'hist-empty';
-    p.textContent = favFilter
-      ? 'Chưa đánh dấu chủ đề nào. Bấm ☆ cạnh tên chủ đề để đánh dấu.'
-      : 'Chưa có bài nào. Học một bài là nó xuất hiện ở đây.';
-    historyList.appendChild(p);
+    p.textContent = 'Chưa đánh dấu chủ đề nào. Bấm ☆ cạnh tên chủ đề để đánh dấu.';
+    favList.appendChild(p);
   } else {
     items.forEach(it => {
-      historyList.appendChild(makeHistRow(it, !!(currentItem && currentItem.id === it.id)));
+      favList.appendChild(makeFavRow(it, !!(currentItem && currentItem.id === it.id)));
     });
   }
-
 }
 
 // ====== VẼ SỔ TỪ & PHIÊN ÔN TẬP ======
@@ -801,29 +759,29 @@ function renderVocab() {
   const list = readVocab();
   const due = dueWords();
 
-  // Nút ở màn hình chính, kèm chấm đỏ số từ đến hạn để nhắc ôn.
+  // Nút nằm trong khung Tài khoản (2026-08-19), không còn ở màn hình chính.
   // Cố ý LUÔN hiện kể cả khi sổ từ trống: nếu ẩn đi thì người dùng mới sẽ
   // không bao giờ biết app có tính năng này.
+  //
+  // Cùng ngày: bỏ chấm đỏ "N cần ôn" ở đây. Con số này nay chỉ nằm trong bộ
+  // đếm ngay phía trên, cùng chỗ với "đã học" và "từ trong sổ" — ba con số về
+  // tiến độ thì để chung một nơi.
   openVocabBtn.hidden = false;
-  openVocabBtn.innerHTML = '';
-  openVocabBtn.appendChild(document.createTextNode(
-    '📒 Sổ từ' + (list.length ? ' (' + list.length + ')' : '')));
-  if (due.length) {
-    const dot = document.createElement('span');
-    dot.className = 'quick-dot';
-    dot.textContent = due.length + ' cần ôn';
-    openVocabBtn.appendChild(dot);
-  }
+  openVocabBtn.textContent = '📒 Sổ từ' + (list.length ? ' (' + list.length + ')' : '');
 
   if (modalPane !== 'vocab') return;
 
-  favFilterBtn.hidden = true;
   modalTitle.textContent = 'Sổ từ (' + list.length + ')';
 
   // Nút ôn tập LUÔN hiện khi sổ có từ, chỉ **mờ đi** khi chưa tới hạn ôn.
   // Trước đây nút bị ẩn hẳn lúc `due.length === 0`, nên người dùng ôn hết một
   // lượt là tính năng biến mất và họ tưởng app không có nó — đúng lỗi đã rút ra
   // ở nút "Sổ từ" trước đây: KHÔNG ẩn lối vào của một tính năng chỉ vì nó đang trống.
+  //
+  // 2026-08-19: nút chuyển từ hàng tiêu đề dùng chung xuống thân khung, nên ẩn
+  // cả `vocabActions` bọc ngoài — ẩn mỗi nút thì cái khung rỗng vẫn chừa khoảng
+  // trắng ngay trên danh sách.
+  vocabActions.hidden = reviewQueue.length > 0 || list.length === 0;
   reviewBtn.hidden = reviewQueue.length > 0 || list.length === 0;
   reviewBtn.disabled = due.length === 0;
   reviewBtn.textContent = '🎯 Ôn tập (' + due.length + ')';
@@ -1088,7 +1046,7 @@ function recordLesson() {
   markSeen(currentItem.id);
   rememberTitle(currentItem.id, currentItem.topic, currentTab, currentLevel);
   syncFavButton();
-  renderHistory();
+  renderFav();
   batDauPhienHoc(currentItem.id);
 }
 
@@ -1137,6 +1095,7 @@ function danhDauDaHoc() {
   logStudy(phienHoc.id, 'read', null, phienHoc.giay);
   if (phienHoc.timer) { clearInterval(phienHoc.timer); phienHoc.timer = null; }
   kiemTraDaiMoi();
+  dayNgam(); // học xong là đẩy luôn, không đợi tới lần đăng nhập sau
   return phienHoc.giay;
 }
 
@@ -1228,6 +1187,9 @@ function capNhatGiaoDienTaiKhoan() {
   accGuest.hidden = !!user;
   accUser.hidden = !user;
   if (user) accEmail.textContent = user.email || tenHienThi(user);
+  // Đăng xuất thì bỏ số của tài khoản cũ đi, đừng để nó còn hiện cho người
+  // tiếp theo dùng máy này. Số của server sẽ do dayLenTaiKhoan() nạp lại.
+  if (!user) thongKeServer = null;
   veThongKe();
   veTrangThaiGop();
   // Đăng nhập xong thì dải mời không còn lý do tồn tại.
@@ -1248,11 +1210,27 @@ function capNhatGiaoDienTaiKhoan() {
 // Dòng gợi ý bên dưới cố ý nói rõ ĐIỀU KIỆN được tính — người dùng mở một bài
 // rồi thấy số không nhúc nhích sẽ tưởng app hỏng chứ không đoán ra là cố ý.
 // ============================================================
+// ------------------------------------------------------------
+// NGUỒN CỦA CON SỐ (sửa 2026-08-19)
+//
+// Trước hôm nay cả ba con số đều đếm từ localStorage, kể cả khi đã đăng nhập.
+// localStorage là dữ liệu của MÁY, nên một tài khoản mở ở máy tính và ở iPhone
+// báo hai kết quả khác nhau (5 bài / 1 bài) trong khi server giữ con số thứ ba.
+// Người dùng không có cách nào biết cái nào đúng.
+//
+// Nay: đăng nhập rồi thì SERVER là nguồn thật (`thongKeServer`, lấy qua RPC
+// `thong_ke_tai_khoan`). Khách — hoặc đã đăng nhập mà mạng hỏng — mới lùi về
+// localStorage, và khi đó nói rõ "trên máy này" để không hứa điều không đúng.
+// ------------------------------------------------------------
+let thongKeServer = null; // { soBai, soTu, canOn } hoặc null = chưa/không đọc được
+
 function veThongKe() {
   if (!accStats) return;
-  const soBai = soBaiDaHoc();
-  const soTu = readVocab().length;
-  const canOn = dueWords().length;
+  const daDangNhap = !!nguoiDungHienTai();
+  const tuServer = daDangNhap && thongKeServer;
+  const soBai = tuServer ? thongKeServer.soBai : soBaiDaHoc();
+  const soTu = tuServer ? thongKeServer.soTu : readVocab().length;
+  const canOn = tuServer ? thongKeServer.canOn : dueWords().length;
 
   if (!soBai && !soTu) {
     accStats.innerHTML = '📚 Chưa có bài nào được tính là đã học.'
@@ -1263,9 +1241,27 @@ function veThongKe() {
 
   const phan = [`📚 Đã học <b>${soBai}</b> bài`, `📒 <b>${soTu}</b> từ trong sổ`];
   if (canOn) phan.push(`🎯 <b>${canOn}</b> từ cần ôn`);
+
+  // Câu gợi ý nói rõ con số đang đếm ở đâu. Đây là chỗ duy nhất người dùng có
+  // thể tự đối chiếu hai thiết bị, nên không được nói mơ hồ.
+  const nguon = tuServer
+    ? 'Số này tính trên tài khoản, mọi thiết bị đăng nhập đều thấy giống nhau.'
+    : (daDangNhap
+        ? '⚠️ Chưa đọc được số từ tài khoản, đang hiện số <b>trên máy này</b>.'
+        : 'Số này tính <b>trên máy này</b>. Đăng nhập để gộp chung mọi thiết bị.');
+
   accStats.innerHTML = phan.join(' · ')
     + '<span class="as-hint">Một bài được tính khi bạn bấm ▶ Nghe, ở lại một phút, '
-    + 'hoặc làm câu hỏi hiểu bài.</span>';
+    + 'hoặc làm câu hỏi hiểu bài. ' + nguon + '</span>';
+}
+
+// Đọc lại số từ server rồi vẽ. Gọi sau mỗi lần đẩy dữ liệu và mỗi lần mở khung
+// Tài khoản. Không await ở nơi gọi — vẽ số cũ trước, số mới đè lên sau.
+async function capNhatThongKe() {
+  if (!nguoiDungHienTai()) { thongKeServer = null; veThongKe(); return; }
+  const t = await docThongKeTaiKhoan(homNay());
+  if (t) thongKeServer = t;   // null = mạng hỏng -> GIỮ số cũ, đừng nháy về 0
+  veThongKe();
 }
 
 // ============================================================
@@ -1279,70 +1275,111 @@ function veThongKe() {
 // người dùng đăng nhập xong thấy sổ từ trống trơn, đúng thứ việc gộp này sinh
 // ra để tránh. Test K7 canh điều đó.
 // ============================================================
-const MERGED_PREFIX = 'ep:merged:'; // + user.id, vì một máy có thể có nhiều tài khoản
+const MERGED_PREFIX = 'ep:merged:'; // (cũ) cờ "đã gộp" — chỉ còn để đọc lại mốc
+const PUSHED_PREFIX = 'ep:pushed:'; // + user.id: mốc đã đẩy tới đâu
 let dangGopDuLieu = false;          // chống chạy chồng: onAuthStateChange bắn nhiều lần
 
-function docTomTatGop(userId) {
-  if (!userId) return null;
-  const t = readJson(MERGED_PREFIX + userId, null);
-  return t && typeof t === 'object' ? t : null;
+// ⚠️ ĐÃ BỎ luật "gộp đúng một lần rồi thôi" (2026-08-19).
+//
+// Cờ `ep:merged:<uid>` nằm trong localStorage nên nó là của MÁY, không phải
+// của tài khoản. Máy nào đăng nhập lúc localStorage còn trống sẽ gộp 0 dòng,
+// đặt cờ, rồi từ đó KHÔNG BAO GIỜ đẩy gì nữa — đúng chuyện đã xảy ra trên
+// iPhone ("Đã đưa 0 lượt học và 0 từ"). Người dùng học tiếp trên máy đó bao
+// nhiêu cũng không lên tới server. Đây là mất dữ liệu, không chỉ lệch hiển thị.
+//
+// Nay chỉ nhớ MỐC THỜI GIAN đã đẩy tới đâu, để lần sau khỏi quét lại phần cũ.
+// Mất mốc thì cùng lắm là quét thừa (unique index bỏ qua bản trùng), không sai.
+function docMocDay(userId) {
+  if (!userId) return '';
+  const t = readJson(PUSHED_PREFIX + userId, null);
+  if (t && typeof t === 'object' && typeof t.moc === 'string') return t.moc;
+  // Máy đã chạy bản cũ: có cờ merged nghĩa là toàn bộ nhật ký lúc đó đã lên
+  // server, nhưng bản cũ không lưu mốc. Trả '' để quét lại từ đầu đúng một lần
+  // — chậm hơn chút, đổi lại không bỏ sót bản ghi nào.
+  return '';
 }
 
-function ghiNhoDaGop(userId, ketQua) {
-  writeJson(MERGED_PREFIX + userId, {
-    soLuot: ketQua.soLuot, soTu: ketQua.soTu, luc: new Date().toISOString()
+function ghiNhoDaDay(userId, ketQua) {
+  writeJson(PUSHED_PREFIX + userId, {
+    moc: ketQua.mocMoi || '', luc: new Date().toISOString()
   });
 }
 
+function daTungGop(userId) {
+  return !!(userId && (readJson(PUSHED_PREFIX + userId, null)
+                       || readJson(MERGED_PREFIX + userId, null)));
+}
+
 // trangThai: 'dang-chay' | 'xong' | 'hong' | null (ẩn hẳn)
-function veTrangThaiGop(trangThai, tomTat) {
+//
+// ⚠️ KHÔNG hiện lại con số của lần đẩy trước nữa. Dòng cũ ghi "✅ Đã đưa 45
+// lượt học và 2 từ" là số ĐÃ LƯU TỪ LẦN TRƯỚC, đọc ra từ localStorage — nó
+// đứng ngay dưới dòng "Đã học 5 bài" và mâu thuẫn với chính dòng đó. Ba con số
+// khác đơn vị (lượt / bài / bản ghi) cạnh nhau thì không ai hiểu được.
+// Con số duy nhất còn lại là bộ đếm ở trên, và nay nó lấy thẳng từ server.
+function veTrangThaiGop(trangThai) {
   if (!accSync) return;
   const user = nguoiDungHienTai();
   if (!user) { accSync.hidden = true; return; }
 
-  // Không truyền gì thì tự tra lại lần gộp trước — nhờ vậy mở khung Tài khoản
-  // ở những lần vào trang sau vẫn thấy kết quả, không phải khoảng trống khó hiểu.
-  const tt = trangThai || (docTomTatGop(user.id) ? 'xong' : null);
-  const tk = tomTat || docTomTatGop(user.id);
+  const tt = trangThai || (daTungGop(user.id) ? 'xong' : null);
 
   accSync.className = 'acc-sync' + (tt ? ' ' + tt : '');
   if (tt === 'dang-chay') {
     accSync.textContent = '⏳ Đang đưa dữ liệu trên máy này lên tài khoản…';
   } else if (tt === 'xong') {
-    accSync.textContent = tk
-      ? `✅ Đã đưa ${tk.soLuot} lượt học và ${tk.soTu} từ lên tài khoản.`
-      : '✅ Đã đưa dữ liệu lên tài khoản.';
+    accSync.textContent = '✅ Dữ liệu trên máy này đã được đưa lên tài khoản.';
   } else if (tt === 'hong') {
     accSync.textContent = '⚠️ Chưa đưa được dữ liệu lên tài khoản. '
-      + 'Dữ liệu trên máy vẫn còn nguyên, lần đăng nhập sau sẽ tự thử lại.';
+      + 'Dữ liệu trên máy vẫn còn nguyên, lần sau sẽ tự thử lại.';
   }
   accSync.hidden = !tt;
 }
 
-// Gọi sau mỗi lần có phiên đăng nhập. Chỉ thực sự chạy đúng MỘT lần cho mỗi
-// tài khoản trên mỗi máy — `khoiTaoAuth` bắn callback cả lúc khôi phục phiên
-// từ lần trước, không riêng lúc bấm đăng nhập.
-async function gopNeuCanThiet(user) {
+// Đẩy phần chưa đẩy lên tài khoản, rồi đọc lại số từ server.
+//
+// Gọi được nhiều lần: lúc khôi phục phiên, lúc bấm đăng nhập, và sau mỗi lần
+// học xong / lưu từ (xem `dayNgam`). `dangGopDuLieu` chỉ chống chạy chồng
+// trong cùng một khoảnh khắc, KHÔNG phải cờ "đã làm rồi thì thôi".
+async function dayLenTaiKhoan(user, imLang) {
   if (!user || dangGopDuLieu) return null;
-  if (docTomTatGop(user.id)) { veTrangThaiGop(); return null; }
 
   dangGopDuLieu = true;
-  veTrangThaiGop('dang-chay');
+  if (!imLang) veTrangThaiGop('dang-chay');
   try {
-    const kq = await gopDuLieuLenTaiKhoan(user, readLog(), readVocab());
+    const kq = await gopDuLieuLenTaiKhoan(user, readLog(), readVocab(),
+                                          docMocDay(user.id));
     if (kq && kq.ok) {
-      // Chỉ đặt cờ khi CẢ HAI bảng đã chèn xong. Hỏng giữa chừng thì không
-      // đặt, lần sau chạy lại — an toàn nhờ unique index của study_log và
-      // nhờ sổ từ được đọc trước rồi mới lọc.
-      ghiNhoDaGop(user.id, kq);
-      veTrangThaiGop('xong', kq);
+      // Chỉ dời mốc khi CẢ HAI bảng đã chèn xong. Hỏng giữa chừng thì giữ
+      // nguyên mốc cũ, lần sau đẩy lại từ đúng chỗ đó — an toàn nhờ unique
+      // index của study_log và nhờ sổ từ được đọc trước rồi mới lọc.
+      ghiNhoDaDay(user.id, kq);
+      veTrangThaiGop('xong');
     } else {
       veTrangThaiGop('hong');
     }
+    await capNhatThongKe();
     return kq;
   } finally {
     dangGopDuLieu = false;
   }
+}
+
+// Đẩy ngay sau khi vừa học xong một bài / vừa lưu một từ, thay vì đợi lần đăng
+// nhập sau. Người dùng học trên iPhone rồi mở máy tính trong cùng buổi phải
+// thấy đúng số — đợi tới lần đăng nhập kế tiếp là quá muộn.
+//
+// Hoãn một nhịp để gộp nhiều thao tác liên tiếp (lưu 5 từ liền tay = 1 lần đẩy)
+// và để không chen vào lúc giao diện đang bận vẽ.
+let hangChoDay = null;
+function dayNgam() {
+  const user = nguoiDungHienTai();
+  if (!user) return; // khách: dữ liệu vẫn nằm yên trong localStorage
+  if (hangChoDay) clearTimeout(hangChoDay);
+  hangChoDay = setTimeout(() => {
+    hangChoDay = null;
+    dayLenTaiKhoan(user, true); // im lặng: không nhấp nháy dòng trạng thái
+  }, 3000);
 }
 
 // Mở lại một bài từ lịch sử: phải chỉnh tab + trình độ cho khớp rồi mới tải,
@@ -1735,7 +1772,7 @@ function nopQuiz() {
   quizSubmitBtn.hidden = true;
   quizResetBtn.hidden = false;
 
-  if (currentItem && currentItem.id) logStudy(currentItem.id, 'quiz', kq.diem);
+  if (currentItem && currentItem.id) { logStudy(currentItem.id, 'quiz', kq.diem); dayNgam(); }
   return kq;
 }
 
@@ -2384,6 +2421,7 @@ wpSave.addEventListener('click', (e) => {
     reviewQueue = reviewQueue.filter(x => x !== currentPopupWord);
   } else {
     saveWord(currentPopupWord, cacheGet(currentPopupWord) || {}, currentItem ? currentItem.id : null);
+    dayNgam(); // từ mới lên tài khoản ngay; xoá thì removeWord() đã tự lo
   }
   syncSaveButton();
   renderVocab();
@@ -2391,7 +2429,7 @@ wpSave.addEventListener('click', (e) => {
 
 reviewBtn.addEventListener('click', batDauOnTap);
 
-openHistoryBtn.addEventListener('click', () => openModal('history'));
+openFavBtn.addEventListener('click', () => openModal('fav'));
 openVocabBtn.addEventListener('click', () => openModal('vocab'));
 openHelpBtn.addEventListener('click', () => openModal('help'));
 accBtn.addEventListener('click', () => openModal('account'));
@@ -2407,21 +2445,15 @@ signinBarClose.addEventListener('click', () => {
 });
 modalClose.addEventListener('click', closeModal);
 modalBackdrop.addEventListener('click', closeModal);
-
-resumeLine.addEventListener('click', () => {
-  if (resumeTarget) openLesson(resumeTarget.id, resumeTarget.type, resumeTarget.level);
-});
+// Đường về khung Tài khoản. Dùng openModal() chứ không tự đặt lại `hidden`:
+// khung Tài khoản còn phải đọc lại số liệu và vẽ lại nhãn hai nút.
+modalBack.addEventListener('click', () => openModal('account'));
 
 favBtn.addEventListener('click', () => {
   if (!currentItem) return;
   toggleFav(currentItem.id);
   syncFavButton();
-  renderHistory();
-});
-
-favFilterBtn.addEventListener('click', () => {
-  favFilter = !favFilter;
-  renderHistory();
+  renderFav();
 });
 
 // init
@@ -2429,13 +2461,8 @@ applyRate(loadRate(), false);
 bilingual = loadBilingual(); // nhớ lựa chọn song ngữ từ lần vào trước
 chuyenNhatKyCu();
 
-// Ảnh chụp nhật ký NGAY LÚC MỞ TRANG, trước khi loadNewItem() mở một bài ngẫu
-// nhiên mới. "Bài lần trước" luôn tính trên ảnh chụp này — nếu tính trên nhật
-// ký sống, bài gần nhất sẽ luôn là bài vừa tự mở ra và ô "Học tiếp" vô nghĩa.
-const logKhiKhoiDong = readSeen();
-resumeTarget = getHistory(1, logKhiKhoiDong)[0] || null;
 syncFavButton();
-renderHistory();
+renderFav();
 renderVocab();
 capNhatGiaoDienTaiKhoan(); // vẽ ngay ở chế độ khách, không chờ mạng
 kiemTraDaiMoi();
@@ -2451,13 +2478,12 @@ khoiTaoAuth(phien => {
   // Nối tiếp chứ không chạy song song: hai việc này cùng bắn lúc mở trang,
   // và tạo hồ sơ là việc nhẹ hơn nhiều nên để nó xong trước cho gọn.
   // Không await ở ngoài — mạng chậm thì app vẫn dùng bình thường.
-  taoHoSoNeuChua(phien.user).then(() => gopNeuCanThiet(phien.user));
+  taoHoSoNeuChua(phien.user).then(() => dayLenTaiKhoan(phien.user));
 });
 
-// Nhật ký cũ (ghi từ trước khi có cache tên bài) chỉ có id. Lấp tên ở chế độ
-// nền rồi vẽ lại — chạy sau nên không làm chậm lần tải đầu.
+// Nhật ký cũ (ghi từ trước khi có cache tên bài) chỉ có id. Bài đã đánh dấu mà
+// thiếu tên thì không vẽ ra được, nên lấp tên ở chế độ nền rồi vẽ lại — chạy
+// sau nên không làm chậm lần tải đầu.
 backfillTitles().then(coBoSung => {
-  if (!coBoSung) return;
-  if (!resumeTarget) resumeTarget = getHistory(1, logKhiKhoiDong)[0] || null;
-  renderHistory();
+  if (coBoSung) renderFav();
 });

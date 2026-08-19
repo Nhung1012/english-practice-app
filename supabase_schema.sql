@@ -153,3 +153,65 @@ create policy "own vocab" on vocab for all to authenticated
 -- Bảng sao lưu ngày 27/7: bật RLS và KHÔNG tạo policy nào = không đọc được
 -- qua API công khai, vẫn xem bình thường trong SQL Editor.
 alter table if exists content_backup_20260727 enable row level security;
+
+-- ============================================================
+-- TUẦN 17 — SERVER LÀM NGUỒN THẬT CHO BỘ ĐẾM TIẾN ĐỘ
+-- Đã chạy trên Supabase ngày 2026-08-19 (migration study_log_counted_and_stats_rpc).
+--
+-- Lỗi được sửa: khung Tài khoản đọc 100% từ localStorage, nên cùng một tài
+-- khoản đăng nhập ở hai máy cho hai con số khác nhau (5 bài trên máy tính,
+-- 1 bài trên iPhone, 38 bài dưới DB). localStorage là dữ liệu của MÁY, không
+-- phải của TÀI KHOẢN — không thể dùng nó để trả lời câu hỏi "tôi đã học bao
+-- nhiêu bài".
+-- ============================================================
+
+-- study_log.counted — phân biệt dòng "đã HỌC" với dòng "đã MỞ" của luật cũ.
+--
+-- Trước 2026-08-17 app tính "mở bài = đã học", nên nhật ký đẩy lên hồi tuần 16
+-- thực chất là danh sách bài ĐÃ MỞ. Bản 17/8 đã sửa luật ở client và cho đếm
+-- lại từ 0 (chuyenNhatKyCu()). Nếu server đếm cả các dòng cũ đó thì người dùng
+-- vừa thấy 5 bài sẽ nhảy ngược lên 38 — đúng con số sai mà bản 17/8 sinh ra để
+-- dẹp. KHÔNG xoá dòng nào (nguyên tắc mục 9): chỉ đánh dấu không tính, muốn
+-- tính lại chỉ cần update cột này.
+alter table study_log
+  add column if not exists counted boolean not null default true;
+
+update study_log
+   set counted = false
+ where created_at < timestamptz '2026-08-17 00:00:00+00'
+   and counted;
+
+create index if not exists idx_study_log_user_counted
+  on study_log (user_id, content_id) where counted;
+
+-- RPC thong_ke_tai_khoan — một lần gọi lấy đủ ba con số của khung Tài khoản.
+--
+-- Vì sao là RPC chứ không phải ba câu select: PostgREST không làm được
+-- count(distinct ...), nếu để client tự lọc thì phải kéo toàn bộ content_id về
+-- máy — vừa tốn, vừa lặp lại đúng kiểu "mỗi nơi tự đếm một kiểu" đã gây ra lỗi
+-- này ngay từ đầu. Một nguồn, một công thức.
+--
+-- p_today do client truyền vào theo NGÀY ĐỊA PHƯƠNG của máy (hàm homNay()),
+-- không dùng current_date của server: server chạy UTC nên người học ở VN mở app
+-- lúc 7 giờ sáng sẽ bị tính là hôm qua, số "cần ôn" lệch một ngày.
+--
+-- security invoker (mặc định) + RLS "own log"/"own vocab" đã bật => hàm chỉ
+-- nhìn thấy dữ liệu của chính người gọi. KHÔNG đặt security definer ở đây.
+create or replace function thong_ke_tai_khoan(p_today date default null)
+returns json
+language sql
+stable
+as $$
+  select json_build_object(
+    'so_bai',  (select count(distinct content_id) from study_log
+                 where user_id = (select auth.uid()) and counted),
+    'so_tu',   (select count(*) from vocab
+                 where user_id = (select auth.uid())),
+    'can_on',  (select count(*) from vocab
+                 where user_id = (select auth.uid())
+                   and due_date <= coalesce(p_today, current_date))
+  );
+$$;
+
+revoke all on function thong_ke_tai_khoan(date) from public, anon;
+grant execute on function thong_ke_tai_khoan(date) to authenticated;

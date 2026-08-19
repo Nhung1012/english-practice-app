@@ -80,12 +80,15 @@
     </div>
     <div class="status" id="statusText">Đang tải nội dung...</div>
 
-    <!-- Dòng "Học tiếp" gọn + 2 nút mở popup (mục 1.5 & 1.3) -->
-    <button type="button" class="resume-line" id="resumeLine" hidden></button>
-    <div class="quick-row" id="quickRow">
-      <button type="button" class="btn secondary quick-btn" id="openHistoryBtn" hidden>🕘 Học gần đây</button>
-      <button type="button" class="btn secondary quick-btn" id="openVocabBtn" hidden>📒 Sổ từ</button>
-    </div>
+    <!-- 2026-08-19: gỡ dòng "Học tiếp" và danh sách "Học gần đây". Cả hai đều
+         trả lời câu hỏi "vừa nãy tôi xem bài gì" — mà app này vốn là random chủ
+         đề mỗi ngày, quay lại bài cũ không phải việc người dùng muốn làm.
+         ⚠️ `ep:seen` VẪN được ghi: hàm random dựa vào nó để khỏi trả lại bài
+         vừa mở. Gỡ giao diện không có nghĩa là gỡ dữ liệu.
+
+         Cùng ngày: hai nút "⭐ Đã đánh dấu" và "📒 Sổ từ" chuyển hẳn vào khung
+         Tài khoản (xem #accLinks bên dưới). Màn hình chính nay chỉ còn đúng
+         việc học: chọn bài → nghe → đọc. -->
   </div>
 
 
@@ -122,22 +125,35 @@
   </footer>
 </div>
 
-<!-- Popup chung cho "Học gần đây" và "Sổ từ" (mục 1.5 & 1.3).
+<!-- Popup chung cho "Đã đánh dấu" và "Sổ từ" (mục 1.5 & 1.3).
      Trên điện thoại hộp này trượt từ dưới lên và chiếm gần hết chiều cao. -->
 <div class="modal" id="modal" hidden>
   <div class="modal-backdrop" id="modalBackdrop"></div>
   <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-head">
+      <!-- Hai khung con (Đã đánh dấu / Sổ từ) nay chỉ vào được TỪ khung Tài
+           khoản, nên phải có đường về. Không có nút này thì người dùng buộc
+           phải đóng popup rồi mở lại từ đầu. Ẩn ở khung Tài khoản và Hướng
+           dẫn — hai khung đó không đi ra từ đâu cả. -->
+      <button class="wp-btn modal-back" id="modalBack" hidden
+              title="Quay lại Tài khoản" aria-label="Quay lại Tài khoản">←</button>
       <div class="row-label" id="modalTitle">—</div>
-      <button class="btn secondary copy-btn" id="favFilterBtn" aria-pressed="false" hidden>⭐ Đã đánh dấu</button>
-      <button class="btn secondary copy-btn" id="reviewBtn" hidden>🎯 Ôn tập</button>
       <button class="wp-btn modal-close" id="modalClose" title="Đóng" aria-label="Đóng">✕</button>
     </div>
     <div class="modal-body">
-      <div id="paneHistory" hidden>
-        <div id="historyList"></div>
+      <!-- Khung này trước đây có hai chế độ (gần đây / đã đánh dấu) và một nút
+           lọc để chuyển qua lại. Nay chỉ còn một danh sách nên bỏ luôn nút lọc:
+           một khung một việc thì không cần chỗ nào để chuyển chế độ. -->
+      <div id="paneFav" hidden>
+        <div id="favList"></div>
       </div>
       <div id="paneVocab" hidden>
+        <!-- Nút Ôn tập nằm trong THÂN khung, ngay trên danh sách từ — không
+             phải ở hàng tiêu đề dùng chung nữa. Hàng tiêu đề giờ chỉ còn ba
+             thứ luôn cùng một vai trò: quay lại, tên khung, đóng. -->
+        <div class="vocab-actions" id="vocabActions" hidden>
+          <button class="btn secondary copy-btn" id="reviewBtn">🎯 Ôn tập</button>
+        </div>
         <div id="reviewPanel" hidden></div>
         <div id="vocabList"></div>
       </div>
@@ -147,11 +163,17 @@
              nhập, mà dải đó ẩn hẳn sau khi đăng nhập — nên người dùng không có
              chỗ nào nhìn thấy tiến độ của mình. -->
         <p class="acc-stats" id="accStats"></p>
+        <!-- Lối vào DUY NHẤT của hai khung con, chuyển từ màn hình chính vào
+             đây 2026-08-19. Đặt ngay dưới bộ đếm vì cùng một chủ đề: ba con số
+             tiến độ, rồi tới chỗ xem chi tiết của hai con số trong đó. -->
+        <div class="acc-links" id="accLinks">
+          <button type="button" class="btn secondary quick-btn" id="openFavBtn" hidden>⭐ Đã đánh dấu</button>
+          <button type="button" class="btn secondary quick-btn" id="openVocabBtn">📒 Sổ từ</button>
+        </div>
         <div id="accGuest">
           <p class="acc-lead">Bạn đang dùng ở <b>chế độ khách</b>. Mọi tính năng đều dùng được bình thường, không có gì bị khoá.</p>
-          <p class="acc-note">Sổ từ, lịch sử và các lựa chọn đang lưu <b>trên máy này</b>. Xoá dữ liệu trình duyệt hoặc mở bằng máy khác là không thấy nữa.</p>
+          <p class="acc-note">Sổ từ, tiến độ và các lựa chọn đang lưu <b>trên máy này</b>. Xoá dữ liệu trình duyệt hoặc mở bằng máy khác là không thấy nữa.</p>
           <button type="button" class="btn" id="accSigninBtn">Đăng nhập với Google</button>
-          <p class="acc-note acc-warn">Đăng nhập lần đầu, sổ từ và lịch sử đang có trên máy này sẽ được <b>đưa lên tài khoản</b>. Không có gì bị xoá hay ghi đè.</p>
         </div>
         <div id="accUser" hidden>
           <p class="acc-lead">Đang đăng nhập: <b id="accEmail"></b></p>
@@ -167,11 +189,12 @@
           <li><b>👁</b> ở cuối câu → hiện nghĩa tiếng Việt của cả câu. Câu chưa có bản dịch thì không có nút này.</li>
           <li><b>🇻🇳 Bản dịch</b> → bật chế độ song ngữ cho cả bài. Lựa chọn được nhớ cho các bài sau.</li>
           <li><b>⏮ ▶ ⏭ 🔁</b> → chuyển câu, phát, và lặp lại mãi một câu. Kéo <b>thanh tốc độ</b> để đọc chậm lại (0.6×–1.2×).</li>
-          <li><b>🕘 Học gần đây</b> → 10 bài gần nhất và ô "học tiếp" bài đang dở. <b>☆</b> cạnh tên chủ đề để đánh dấu bài hay.</li>
-          <li><b>📒 Sổ từ</b> → các từ đã lưu. Nút <b>🎯 Ôn tập</b> nằm <i>bên trong</i> popup này, ôn theo 5 hộp: nhớ thì giãn dần 1 → 3 → 7 → 14 → 30 ngày, quên thì về hộp 1.</li>
+          <li>Nút <b>tài khoản</b> ở góc trên bên phải → tiến độ (đã học, từ trong sổ, từ cần ôn) và lối vào <b>⭐ Đã đánh dấu</b> với <b>📒 Sổ từ</b>.</li>
+          <li><b>☆</b> cạnh tên chủ đề → đánh dấu bài hay, mở lại lúc nào cũng được từ khung <b>⭐ Đã đánh dấu</b>.</li>
+          <li><b>📒 Sổ từ</b> → các từ đã lưu. Nút <b>🎯 Ôn tập</b> nằm ngay trên danh sách, ôn theo 5 hộp: nhớ thì giãn dần 1 → 3 → 7 → 14 → 30 ngày, quên thì về hộp 1.</li>
           <li><b>📝 Câu hỏi hiểu bài</b> ở cuối bài → 4 câu trắc nghiệm, nộp xong có giải thích cho <i>mọi</i> câu. Bài chưa soạn thì khung này tự ẩn.</li>
         </ul>
-        <p class="help-note">Chưa cần tài khoản. Lịch sử, sổ từ và các lựa chọn được lưu ngay trên máy này — dùng máy khác sẽ không thấy.</p>
+        <p class="help-note">Chưa cần tài khoản. Sổ từ, tiến độ và các lựa chọn được lưu ngay trên máy này — đăng nhập để dùng chung trên mọi thiết bị.</p>
       </div>
     </div>
   </div>

@@ -5,7 +5,8 @@
 >
 > **Đang ở đâu:** xong Giai đoạn 1 (tuần 1–5), **phần code của Giai đoạn 2** (1.4 dịch câu, 2.5 quiz), **Giai đoạn 3** (tách file — mục 13) và **tuần 13–16** của Giai đoạn 4 (bảng + RLS, đăng nhập Google, gộp dữ liệu lên tài khoản).
 > ⏳ **Toàn bộ từ tuần 5 trở đi chưa lên production** — bản đang chạy trên site thật vẫn là bản tuần 4.
-> Còn nợ: quiz cho 70 bài + dịch 74 bài luyện nghe (mục 12) — **đã chủ động hoãn** để ưu tiên việc khác.
+> ✅ **Nợ quiz đã trả xong 2026-08-17** — toàn bộ **97/97 bài đã dịch nay đều có quiz**, đã chạy vào Supabase (mục 14).
+> Còn nợ: dịch 74 bài luyện nghe (mục 12) — **đã chủ động hoãn** để ưu tiên việc khác.
 > **Việc kế tiếp: tuần 17 — 2.3 đồng bộ sổ từ + tiến độ hai chiều** (3h).
 
 ---
@@ -683,10 +684,10 @@ Còn **74 bài luyện nghe** chưa dịch (id 725–788, 924–933); số câu 
 |---|---|:---:|:---:|
 | `d01` | 10 hội thoại (id 1, 3, 15, 21, 34, 40, 46, 52, 58, 64) | ✅ | ✅ |
 | `d02` | 17 hội thoại (id 86–102) | ✅ | ✅ |
-| `d03` | 13 hội thoại (id 914–923, 954–956) | ✅ | ⬜ |
-| `d04` | 17 hội thoại (id 957–973) — **hết hội thoại trung cấp** | ✅ | ⬜ |
-| `l01` | 10 luyện nghe (id 678–692) | ✅ | ⬜ |
-| `l02`–`l07` | 30 luyện nghe (id 693–724) | ✅ | ⬜ |
+| `d03` | 13 hội thoại (id 914–923, 954–956) | ✅ | ✅ |
+| `d04` | 17 hội thoại (id 957–973) — **hết hội thoại trung cấp** | ✅ | ✅ |
+| `l01` | 10 luyện nghe (id 678–692) | ✅ | ✅ |
+| `l02`–`l07` | 30 luyện nghe (id 693–724) | ✅ | ✅ |
 
 Tất cả đã chạy vào Supabase. Đã đối chiếu lại trên DB: **0 bài lệch số câu, 0 câu dịch rỗng**.
 
@@ -748,9 +749,19 @@ from (
 ) t;
 ```
 
-### Soạn quiz cho các lô đã dịch
+### Soạn quiz cho các lô đã dịch — ✅ xong 2026-08-17
 
-70 bài từ `d03` trở đi mới có bản dịch, chưa có quiz (lô `d02` đã xong ngày 2026-08-04). Thêm khoá `quiz` vào từng mục trong file lô rồi chạy lại `build_sql.py` — bài nào chưa có quiz thì frontend tự ẩn khung câu hỏi, nên không cần làm hết một lượt.
+Đã hết. **97/97 bài có bản dịch nay đều có quiz.** Cách làm: thêm khoá `quiz` vào từng mục trong file lô rồi chạy lại `build_sql.py`. Bài nào chưa có quiz thì frontend tự ẩn khung câu hỏi, nên vẫn có thể mở rộng dần theo lô nếu sau này dịch thêm.
+
+### ⚠️ Phép kiểm mới trong `build_sql.py`: "mẹo chọn phương án dài nhất"
+
+Từ 2026-08-17, `build_sql.py` in thêm một cảnh báo sau khi sinh file:
+
+```
+📏 Mẹo 'chọn phương án dài nhất' ăn được 236/388 = 60% số câu (đoán bừa: 25%).
+```
+
+**Không chặn sinh file** — đây là chuyện chất lượng câu hỏi, không phải dữ liệu hỏng. Nhưng phải in ra, vì không ai phát hiện được bằng mắt. Câu nào có đáp án đúng dài hơn mọi phương án sai từ **20 ký tự trở lên** thì được liệt kê riêng để sửa trước. Cách sửa: viết phương án sai dài và cụ thể ngang đáp án đúng.
 
 ---
 
@@ -865,15 +876,47 @@ Kiểm tra thêm: đáp án đúng sau khi `build_sql.py` đảo nằm rải đ�
 
 **Không đổi schema, không đổi code frontend.** Chỉ `update` cột `data` bằng hợp nhất JSONB. 67/67 test vẫn qua.
 
-### Còn lại
+### ✅ 70 bài còn lại — `d03`, `d04`, `l01`–`l07` · 2026-08-17 · **đã chạy vào Supabase**
 
-| Lô | Bài | Quiz |
-|---|---|:---:|
-| `d03` | 13 hội thoại (id 914–923, 954–956) | ⬜ |
-| `d04` | 17 hội thoại (id 957–973) | ⬜ |
-| `l01`–`l07` | 40 luyện nghe (id 678–724) | ⬜ |
+**280 câu hỏi mới** (70 bài × 4 câu). Hết nợ quiz: 97/97 bài có bản dịch nay đều có quiz.
 
-**70 bài** nữa là hết phần quiz cho toàn bộ nội dung đã dịch.
+| Lô | Bài | Câu hỏi |
+|---|---|---:|
+| `d03` | 13 hội thoại (id 914–923, 954–956) — ngân hàng, trả hàng lỗi, hỏi đường, nha khoa, thư viện, mất hành lý, thuê xe, khách sạn, khám bệnh, vé tàu, gói cước, hoá đơn điện, đặt bàn | 52 |
+| `d04` | 17 hội thoại (id 957–973) — bảo hiểm du lịch, bưu điện, yoga, trả phòng, mua áo, cắt tóc, lắp internet, siêu thị, khám mắt, khoá tài khoản, bảo hành, vé phim, nghỉ ốm, taxi, gym, sửa nhà, dã ngoại | 68 |
+| `l01`–`l07` | 40 bài luyện nghe (id 678–724) | 160 |
+
+**Nguồn tiếng Anh lấy thẳng từ Supabase**, không đọc lại từ file lô — file lô chỉ có bản dịch tiếng Việt, soạn câu hỏi từ bản dịch là cách chắc chắn nhất để hỏi sai chi tiết.
+
+**🐞 Phát hiện lớn nhất của đợt này: đáp án đúng luôn là phương án dài nhất.**
+
+Sau khi soạn xong, đo bằng máy thì ra: **chỉ cần luôn chọn phương án dài nhất là đúng 65% số câu**, trong khi đoán bừa chỉ 25%. Nghĩa là người học ăn được điểm khá mà **không cần nghe bài**. Nguyên nhân rất tự nhiên và vì thế rất dễ mắc: đáp án đúng phải diễn đạt đầy đủ ý trong bài, còn phương án sai thì mình bịa cho nhanh nên viết ngắn.
+
+⚠️ **Lỗi này có sẵn từ trước, không phải mới sinh ra:** lô `d01` là **82%**, `d02` là **58%** — hai lô đã được duyệt và đã chạy vào Supabase từ 2026-08-04. Ba tầng kiểm chứng ở mục trên đều không bắt được, vì cả ba chỉ kiểm *hình dạng dữ liệu* (đủ 4 câu, `correct` hợp lệ, không trùng lựa chọn), không kiểm *chất lượng câu hỏi*.
+
+**Đã xử lý hai bước:**
+
+1. **Thêm phép đo vào `build_sql.py`** (xem mục 12) để lần sau tự lộ ra, không phải nhớ.
+2. **Sửa 59 câu lộ liễu nhất** — những câu đáp án đúng dài hơn mọi phương án sai ≥ 20 ký tự, gồm cả 17 câu thuộc `d01`/`d02`. Viết lại phương án sai cho dài và cụ thể ngang đáp án đúng, giữ nguyên đáp án đúng. Kết quả: **65% → 60%**, và **0 câu còn lệch ≥ 20 ký tự**.
+
+**Vẫn còn nợ:** 60% vẫn cao hơn 25% rất nhiều. Muốn về gần mức đoán bừa thì phải viết lại phương án sai ở khoảng **236 câu** còn lại. Con số đã có sẵn trong output của `build_sql.py` nên không sợ quên.
+
+**Một chi tiết đáng ghi:** script sửa hàng loạt có **phép canh so khớp đáp án đúng cũ với mới**, chỉ cho phép viết lại đáp án đúng khi đánh dấu `!` ở đầu khoá. Nó bắt được đúng một trường hợp — câu `706#4`, chỗ tôi cố ý rút ngắn đáp án đúng (99 ký tự, dài quá đáng so với phần còn lại). Không có phép canh đó thì một lần gõ nhầm là **âm thầm đổi đáp án đúng của một câu** mà không ai biết, vì test chỉ kiểm hình dạng.
+
+**Kiểm chứng — ba tầng như lô `d02`, cộng một tầng mới:**
+
+| Tầng | Kiểm tra | Kết quả |
+|---|---|---|
+| Lúc soạn | Đúng 4 câu/bài, 4 lựa chọn, không trùng, đáp án đúng ở vị trí 0, có giải thích, câu hỏi kết thúc bằng `?` | ✅ 97 bài / 388 câu |
+| **Mới** | Tỉ lệ "chọn phương án dài nhất" và danh sách câu lệch ≥ 20 ký tự | ✅ 60%, 0 câu lệch nặng |
+| `build_sql.py` | Lệch số câu dịch, quiz khác 4 câu, `correct` ngoài mảng, thiếu đề bài | ✅ 97 bài dịch, 97 bài quiz |
+| **Trên Supabase sau khi chạy** | 97 bài có quiz, **0 bài khác 4 câu**, **0 câu hỏng**, **57 hội thoại còn đủ bản dịch từng lượt**, **40 bài luyện nghe còn khoá `vi`**, 0 bài sai trình độ | ✅ |
+
+Vị trí đáp án đúng sau khi `build_sql.py` đảo: **109 / 90 / 99 / 90** cho bốn vị trí — rải đều, không phải cứ chọn A.
+
+**Không đổi schema, không đổi code frontend.** Chỉ `update` cột `data` bằng hợp nhất JSONB. **108/108 test vẫn qua.**
+
+⚠️ **Một cái bẫy khi chạy SQL:** máy chạy script không ra được internet tới Supabase, nên phải đẩy SQL qua công cụ quản trị theo từng lô. Lô đầu đọc lệch một dòng và **bỏ sót đúng id 686** — chỉ phát hiện được vì có đếm `select count(*)` sau mỗi lô và con số không khớp kỳ vọng. **Luôn đếm lại sau mỗi lô**, đừng tin là đã dán đủ.
 
 ---
 
@@ -1131,6 +1174,33 @@ Kéo theo hai thứ nữa: kho bài bị "tiêu" dần cho tới khi app báo *"
 
 **🐞 Một lỗi trong khung test, phát hiện nhân tiện:** phiên học tạo một `setInterval` 1 giây cho mỗi bài mở, và timer thật của Node **giữ vòng lặp sự kiện sống** — `node tests/run.js` chạy xong vẫn treo, không bao giờ thoát (phải Ctrl+C). Đã `unref()` timer trong sandbox: chạy bình thường nhưng không níu tiến trình. Giờ thoát sau ~1,7 giây với mã 0.
 
+### 🐞 Đổi cách đếm xong nhưng không có chỗ nào nhìn thấy (2026-08-17)
+
+Bạn báo *"chưa thấy count thêm ở chỗ nào"* và tưởng luật đếm mới chưa chạy. Kiểm tra ra: **luật chạy đúng, nhưng con số không hiện ở đâu cả.**
+
+`soBaiDaHoc()` chỉ được vẽ ra đúng một chỗ — biến `signinCount` trong **dải mời đăng nhập**. Mà dải đó chỉ hiện khi `!nguoiDungHienTai()`. Bạn đang đăng nhập, nên dải ẩn, nên con số biến mất hoàn toàn khỏi giao diện.
+
+**Đây là thiếu sót của tôi:** đổi cách tính một con số thì phải kèm chỗ để nhìn thấy con số đó, nếu không thay đổi là vô hình và người dùng **không có cách nào kiểm chứng**.
+
+**Đã thêm bộ đếm vào khung Tài khoản** (bạn chọn chỗ này, không chiếm diện tích màn hình chính):
+
+```
+📚 Đã học 4 bài · 📒 12 từ trong sổ · 🎯 2 từ cần ôn
+Một bài được tính khi bạn bấm ▶ Nghe, ở lại một phút, hoặc làm câu hỏi hiểu bài.
+```
+
+Ba quyết định nhỏ:
+
+1. **Đặt NGOÀI `accGuest`/`accUser`** để hiện cho cả khách lẫn người đã đăng nhập. Nhét vào một trong hai là tái lập đúng lỗi vừa sửa, chỉ đổi phía.
+2. **Vẽ lại mỗi lần mở popup**, không phải chỉ lúc khởi động — vừa học xong mở ra phải thấy số mới.
+3. **Nói rõ điều kiện được tính** ngay dưới con số. Người dùng mở một bài rồi thấy số không nhúc nhích sẽ tưởng app hỏng chứ không đoán ra là cố ý.
+
+**Thêm nhóm N (8 test), tổng 108/108 qua.** Đáng chú ý là **N8**: DOM giả trong `tests/minidom.js` đăng ký phần tử theo id một cách **phẳng, không có quan hệ cha–con**, nên `accUser.hidden = true` không kéo theo phần tử con — đặt nhầm chỗ mà N1/N2 vẫn xanh. Phát hiện được đúng lúc thử phá code. N8 đọc thẳng `index.html` để kiểm vị trí lồng nhau, là cách duy nhất bắt được.
+
+**Ghi lại giới hạn của bộ test để lần sau không mất công tìm:** `minidom.js` không mô phỏng cây DOM lẫn tầng CSS. Mọi lỗi kiểu *"phần tử này có bị cha nó ẩn không"* và *"class có đè lên `hidden` không"* đều phải kiểm bằng cách **đọc file nguồn** (nhóm L và N8), không kiểm được qua sandbox.
+
+Đây là lần thứ tư cùng một chủ đề: ẩn nhầm nút "Sổ từ", ẩn nhầm nút "🎯 Ôn tập", không ẩn được dải mời, và nay không hiện được con số. Bốn lần đều là **trạng thái ẩn/hiện của giao diện**, không lần nào là lỗi logic.
+
 ### Việc của bạn — tuần 16
 
 1. Đẩy lên GitHub: `index.html`, `styles.css`, `supabase.js`, `app.js`, `tests/run.js`, `supabase_schema.sql`. **Thiếu một file JS là trang trắng.**
@@ -1140,3 +1210,110 @@ Kéo theo hai thứ nữa: kho bài bị "tiêu" dần cho tới khi app báo *"
 5. Việc còn nợ từ tuần 13: đăng nhập bằng **tài khoản thứ hai** rồi kiểm RLS thật — người A không đọc được dữ liệu người B. Giờ mới làm được vì bảng đã có dữ liệu.
 
 Xong bước này là sang **tuần 17 — 2.3 đồng bộ hai chiều** (3h).
+
+---
+
+## Tuần 17 — Server làm nguồn thật + dọn màn hình chính (2026-08-19)
+
+### 🐞 Một tài khoản, hai thiết bị, hai con số
+
+Bạn đăng nhập cùng một email trên máy tính và iPhone rồi chụp lại hai màn hình:
+
+| | Máy tính | iPhone | Dưới DB |
+|---|---|---|---|
+| Đã học | **5 bài** | **1 bài** | **38 bài** |
+| Từ trong sổ | 2 | 0 | 2 |
+| Dòng đồng bộ | "Đã đưa 45 lượt học và 2 từ" | "Đã đưa 0 lượt học và 0 từ" | 45 dòng |
+
+Ba con số, không cái nào bằng cái nào.
+
+**Nguyên nhân gốc: giao diện đọc 100% từ localStorage, chưa bao giờ đọc từ server.**
+
+```js
+function veThongKe() {
+  const soBai = soBaiDaHoc();       // new Set(readLog())  -> localStorage
+  const soTu  = readVocab().length; //                     -> localStorage
+  const canOn = dueWords().length;  //                     -> localStorage
+```
+
+Trong cả project chỉ có 3 chỗ đụng `study_log`/`vocab`, **đều là ghi lên**. Không có một câu `select` nào đọc về. localStorage là dữ liệu của **MÁY**; câu hỏi *"tôi đã học bao nhiêu bài"* là câu hỏi về **TÀI KHOẢN** — chỉ server trả lời được.
+
+### Lỗi nặng nhất không phải chuyện hiển thị
+
+`gopNeuCanThiet()` return sớm nếu có cờ `ep:merged:<uid>`. Cờ đó nằm trong localStorage nên **nó là của máy, không phải của tài khoản**. iPhone đăng nhập lúc sổ còn trống → gộp 0 dòng → **đặt cờ vĩnh viễn** → mọi bài học sau đó trên iPhone không bao giờ lên tới server. Đây là **mất dữ liệu**, không phải lệch hiển thị.
+
+Đã bỏ hẳn cờ, thay bằng mốc `ep:pushed:<uid>` (chỉ để khỏi quét lại phần cũ — mất mốc thì cùng lắm là chậm chứ không sai). Hàm đẩy vốn đã chạy lại được an toàn nhờ `uq_log_user_content_time`, nên chỉ cần **bỏ cái chặn**. Thêm `dayNgam()` hoãn 3 giây: học xong / lưu từ là đẩy luôn, không đợi lần đăng nhập sau.
+
+⚠️ **Test K6 bị đảo ngược.** Bản tuần 16 khẳng định *"gộp xong đặt cờ, lần sau bỏ qua hẳn"* — và chính điều nó bảo vệ là lỗi. Bài học: một test xanh chỉ chứng minh code làm đúng thứ **người viết test nghĩ là đúng**.
+
+### `study_log.counted` — nếu thiếu thì số nhảy ngược lên 38
+
+Server giữ 45 dòng đẩy lên hồi tuần 16, tức là danh sách bài **đã MỞ** theo luật cũ. Chuyển sang đọc server mà không xử lý thì con số nhảy từ 5 lên 38 — **đúng con số sai mà bản 17/8 vừa dẹp**.
+
+Thêm cột `counted`, đánh dấu `false` cho các dòng trước `2026-08-17`. **Không xoá dòng nào** (mục 9): 44 dòng vẫn nằm đó, muốn tính lại chỉ cần một câu `update`.
+
+### RPC `thong_ke_tai_khoan` — một nguồn, một công thức
+
+PostgREST không làm được `count(distinct ...)`. Để client tự lọc thì phải kéo toàn bộ `content_id` về máy, và lặp lại đúng kiểu *"mỗi nơi tự đếm một kiểu"* đã gây ra lỗi này ngay từ đầu.
+
+`p_today` do client truyền vào theo **ngày địa phương** (`homNay()`), không dùng `current_date`: server chạy UTC nên người học ở VN mở app lúc 7 giờ sáng sẽ bị tính là hôm qua và số "cần ôn" lệch một ngày. `security invoker` + RLS sẵn có → hàm chỉ thấy dữ liệu của chính người gọi; `anon` không gọi được.
+
+### Hai chỗ hàm gộp không với tới
+
+Hàm gộp chỉ biết **chèn** từ mới, cố ý không ghi đè bản trên server (để khỏi xoá tiến độ ôn ở máy khác). Hệ quả: xoá một từ ở máy này thì server vẫn giữ, ôn lên hộp 3 thì server vẫn để hộp 1 — và hai con số kia **lại lệch y như cũ**. Thêm `xoaTuTrenTaiKhoan()` và `capNhatOnTuTrenTaiKhoan()` gọi thẳng từ `removeWord()`/`gradeWord()`.
+
+### Bỏ dòng "✅ Đã đưa 45 lượt học và 2 từ"
+
+Con số đó đọc ra từ localStorage — nó là **kết quả của lần đẩy trước**, không phải tình trạng hiện tại. Nó đứng ngay dưới "Đã học 5 bài" và mâu thuẫn với chính dòng đó. Ba con số khác đơn vị (lượt / bài / bản ghi) cạnh nhau thì không ai hiểu được. Giờ chỉ còn *"Dữ liệu trên máy này đã được đưa lên tài khoản."*
+
+### Dọn màn hình chính: gỡ "Học tiếp" và "Học gần đây"
+
+Cả hai đều trả lời *"vừa nãy tôi xem bài gì"* — mà app random chủ đề mỗi ngày, nên **"bài vừa mở" gần như luôn là bài hệ thống tự chọn**, danh sách tự lấp đầy bằng nhiễu. Chúng chiếm ba dòng ngay dưới nút Nghe, đẩy nội dung chính xuống dưới màn hình đầu tiên trên điện thoại.
+
+Việc *"muốn quay lại bài này"* đã có ☆ làm rồi, và ☆ là người dùng **chủ động** chọn nên đúng ý hơn hẳn. Nút `🕘 Học gần đây` đổi thành `⭐ Đã đánh dấu`, bỏ luôn nút lọc `favFilterBtn` (một khung một việc thì không cần chỗ chuyển chế độ).
+
+⚠️ **`ep:seen` vẫn được ghi.** Gỡ giao diện không có nghĩa là gỡ dữ liệu — hàm random dựa vào nó để khỏi trả lại bài vừa mở. Bỏ theo thì "Đổi chủ đề" lặp bài ngay lần bấm thứ hai. Test **P7** canh đúng chỗ này. Gỡ kèm: `getHistory()`, `timeAgo()`, `.resume-line`, `.hist-meta`, `#favFilterBtn`.
+
+Nút `⭐ Đã đánh dấu` **ẩn khi chưa đánh dấu gì** — khác nút Sổ từ (luôn hiện kể cả khi trống). Ẩn được vì lối vào của tính năng là nút ☆ cạnh tên chủ đề, luôn nhìn thấy, nên không có chuyện giấu mất tính năng. Test **P4** canh việc chỉ mở bài thì nút không được hiện lên.
+
+### Chấm đỏ "N cần ôn" về khung Tài khoản
+
+Đây là con số duy nhất trong ba con số tiến độ từng đứng ngoài khung Tài khoản — mà lại đứng dưới dạng **chấm đỏ báo động thường trực** cạnh nút Sổ từ. Ba con số về tiến độ thì để chung một nơi. Test **P6** canh cả hai đầu: mất khỏi nút Sổ từ **và** có mặt ở khung Tài khoản.
+
+### Kiểm thử: 122/122 qua
+
+| Nhóm | Canh điều gì |
+|---|---|
+| K6 (viết lại) | bài học mới lên được ở lần đẩy sau, không bị cờ chặn vĩnh viễn |
+| K6b, K6c | mốc bỏ qua phần đã đẩy; `locTuMoc` giữ cả bản ghi hỏng ngày |
+| **K12** | localStorage 1 bài / tài khoản 3 bài → **phải hiện 3** |
+| K13 | dòng `counted = false` không bị đếm |
+| K14 | RPC hỏng thì **giữ số cũ**, không nháy về 0 |
+| K15 | xoá từ / chấm ôn đi tới được tài khoản |
+| P1–P8 | gỡ sạch HTML, CSS, Hướng dẫn; `ep:seen` còn sống |
+
+Supabase giả trong test **áp đúng ràng buộc thật** (khoá ngoại, unique `lower(word)`, check `mode`/`box`) và `rpc` đếm đúng công thức của hàm SQL — nếu chỉ nuốt mọi thứ rồi trả `ok` thì test xanh trong khi bản thật hỏng ngay lệnh insert đầu tiên.
+
+### Dồn hết vào popup Tài khoản (cùng ngày, theo yêu cầu của bạn)
+
+Bạn chốt: hai nút **⭐ Đã đánh dấu** và **📒 Sổ từ** chuyển hẳn vào popup Tài khoản, không còn ở màn hình chính. Màn hình chính nay chỉ còn đúng việc học: chọn bài → nghe → đọc.
+
+Ba điểm kèm theo, **bạn chọn chứ tôi không tự quyết**:
+
+1. **Hai nút mở khung riêng** (không phải danh sách hiện thẳng, không phải mục gấp mở) — đặt ngay dưới bộ đếm, vì cùng một chủ đề: ba con số tiến độ, rồi tới chỗ xem chi tiết của hai con số trong đó.
+2. **Nút 🎯 Ôn tập xuống thân khung Sổ từ**, ngay trên danh sách từ. Hàng tiêu đề popup giờ chỉ còn ba thứ luôn cùng vai trò: quay lại, tên khung, đóng. Đây cũng là cách sửa chắc hơn: trước đây nút nằm ở hàng tiêu đề **dùng chung**, quên ẩn ở một nhánh là nó rò sang khung Hướng dẫn — nay không thể rò được nữa.
+3. **Nút ← quay về khung Tài khoản.** Hai khung con nay chỉ vào được từ khung Tài khoản, không có đường về thì người dùng buộc phải đóng popup rồi mở lại từ đầu.
+
+⚠️ **Một bẫy suýt bỏ sót:** hai nút nằm trong chính khung Tài khoản, nên **không còn ai vẽ lại nhãn của chúng hộ nữa**. Thiếu `renderFav()`/`renderVocab()` trong nhánh `pane === 'account'` là người dùng đánh dấu xong, mở khung Tài khoản vẫn thấy số cũ. Test **P10** canh đúng chỗ này.
+
+Bỏ luôn đoạn *"Đăng nhập lần đầu, sổ từ và tiến độ đang có trên máy này sẽ được đưa lên tài khoản. Không có gì bị xoá hay ghi đè."* cho gọn.
+
+**Thêm 6 test (P9–P14), tổng 128/128 qua.** Đáng chú ý là P9 và I2 (viết lại) đều phải **đọc thẳng `index.html`** thay vì kiểm qua sandbox — `minidom.js` đăng ký phần tử phẳng, không có quan hệ cha–con, nên mọi câu hỏi *"phần tử này nằm trong khung nào"* đều không kiểm được qua DOM giả. Đúng giới hạn đã ghi lại ở nhóm N8.
+
+### Việc của bạn — tuần 17
+
+1. Migration `study_log_counted_and_stats_rpc` **đã chạy** trên Supabase, không phải làm gì thêm.
+2. Đẩy lên GitHub: `index.html`, `styles.css`, `app.js`, `supabase.js`, `tests/run.js`, `supabase_schema.sql`.
+3. Mở lại trên **cả hai máy**. Máy tính sẽ đẩy nốt 5 bài còn thiếu (server hiện mới có 1 dòng được tính), rồi hai máy phải hiện **cùng một con số**.
+4. Học một bài trên iPhone → chờ vài giây → mở máy tính, số phải tăng. Đây là thứ trước đây **không bao giờ xảy ra**.
+5. Vẫn nợ từ tuần 13: đăng nhập tài khoản thứ hai, kiểm RLS thật.

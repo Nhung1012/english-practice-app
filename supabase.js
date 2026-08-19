@@ -265,6 +265,37 @@ async function locIdConTonTai(ids) {
   return con;
 }
 
+// Lấy mốc thời gian lớn nhất trong nhật ký (chuỗi ISO), '' nếu rỗng.
+// Dùng làm "đã đẩy tới đây" cho lần sau — xem `locTuMoc`.
+function mocLonNhat(nhatKy) {
+  let moc = '';
+  (nhatKy || []).forEach((e) => {
+    const t = e && e.created_at;
+    if (!t) return;
+    const d = new Date(t);
+    if (isNaN(d.getTime())) return;
+    const iso = d.toISOString();
+    if (iso > moc) moc = iso;
+  });
+  return moc;
+}
+
+// Chỉ giữ các bản ghi MỚI HƠN mốc đã đẩy lần trước.
+//
+// ⚠️ Dùng `>` chứ không phải `>=`: mốc chính là bản ghi cuối cùng đã đẩy thành
+// công, đẩy lại nó chỉ tốn công (unique index sẽ bỏ qua) mà không được gì.
+// Bản ghi KHÔNG có created_at đọc được vẫn giữ lại — `chuanBiDongLog` mới là
+// nơi loại chúng, ở đây loại luôn thì con số `boQua` báo cho người dùng sẽ sai.
+function locTuMoc(nhatKy, moc) {
+  if (!moc) return (nhatKy || []).slice();
+  return (nhatKy || []).filter((e) => {
+    if (!e || !e.created_at) return true;
+    const d = new Date(e.created_at);
+    if (isNaN(d.getTime())) return true;
+    return d.toISOString() > moc;
+  });
+}
+
 // Chuyển mảng `ep:log` thành các dòng `study_log` hợp lệ.
 // Trả về { dong, boQua } — `boQua` là số bản ghi bị loại, để báo lại cho người dùng.
 function chuanBiDongLog(userId, nhatKy, conSong) {
@@ -335,19 +366,34 @@ function chuanBiDongVocab(userId, soTu, conSong, daCoTrenServer) {
   return { dong, boQua };
 }
 
-// Đẩy một lần dữ liệu khách lên tài khoản.
+// Đẩy dữ liệu trên máy lên tài khoản. Gọi được BAO NHIÊU LẦN CŨNG ĐƯỢC.
 //
-// CHẠY LẠI ĐƯỢC AN TOÀN — đây là yêu cầu bắt buộc, vì mạng có thể đứt giữa
-// chừng: nhật ký dựa vào unique index uq_log_user_content_time + ignoreDuplicates,
-// sổ từ dựa vào việc đọc trước danh sách từ đã có. Nhờ vậy lần chạy lại chỉ
-// chèn đúng phần còn thiếu.
+// ⚠️ ĐÃ BỎ cách cũ "gộp đúng một lần rồi đặt cờ ep:merged" (sửa 2026-08-19).
+// Cờ đó nằm trong localStorage nên nó là của MÁY chứ không phải của tài khoản:
+// máy nào đăng nhập lúc localStorage còn trống sẽ gộp 0 dòng, đặt cờ, rồi từ
+// đó **vĩnh viễn không đẩy gì nữa** — người dùng học cả tháng trên iPhone mà
+// server không có một dòng nào. Đó là mất dữ liệu thật, không phải lệch hiển thị.
+// Nay hàm này chạy lại sau mỗi lần học/lưu từ; `moc` chỉ để khỏi quét lại phần
+// đã đẩy, mất mốc thì cùng lắm là chậm chứ không sai.
 //
-// Trả về { ok, soLuot, soTu, boQua } hoặc { ok: false, loi }.
-async function gopDuLieuLenTaiKhoan(user, nhatKy, soTu) {
+// CHẠY LẠI ĐƯỢC AN TOÀN — nhật ký dựa vào unique index uq_log_user_content_time
+// + ignoreDuplicates, sổ từ dựa vào việc đọc trước danh sách từ đã có. Nhờ vậy
+// lần chạy lại chỉ chèn đúng phần còn thiếu.
+//
+// `moc`: chuỗi ISO của bản ghi cuối cùng đã đẩy thành công, hoặc null cho lần đầu.
+// Trả về { ok, soLuot, soTu, boQua, mocMoi } hoặc { ok: false, loi }.
+async function gopDuLieuLenTaiKhoan(user, nhatKy, soTu, moc) {
   if (!supabaseClient || !user) return { ok: false, loi: 'chua-san-sang' };
-  const log = Array.isArray(nhatKy) ? nhatKy : [];
+  const toanBoLog = Array.isArray(nhatKy) ? nhatKy : [];
   const vocab = Array.isArray(soTu) ? soTu : [];
-  if (!log.length && !vocab.length) return { ok: true, soLuot: 0, soTu: 0, boQua: 0 };
+  // Mốc mới tính trên TOÀN BỘ nhật ký, không phải phần vừa lọc: bản ghi bị
+  // `chuanBiDongLog` loại (bài đã xoá, mode lạ) sẽ không bao giờ đẩy được, để
+  // chúng ngoài mốc thì lần nào cũng thử lại và lần nào cũng hỏng như nhau.
+  const mocMoi = mocLonNhat(toanBoLog) || moc || '';
+  const log = locTuMoc(toanBoLog, moc);
+  if (!log.length && !vocab.length) {
+    return { ok: true, soLuot: 0, soTu: 0, boQua: 0, mocMoi: mocMoi };
+  }
 
   try {
     // Một lượt kiểm id dùng chung cho CẢ HAI bảng: cả content_id lẫn
@@ -385,12 +431,94 @@ async function gopDuLieuLenTaiKhoan(user, nhatKy, soTu) {
       ok: true,
       soLuot: kqLog.dong.length,
       soTu: kqVocab.dong.length,
-      boQua: kqLog.boQua + kqVocab.boQua
+      boQua: kqLog.boQua + kqVocab.boQua,
+      mocMoi: mocMoi
     };
   } catch (err) {
-    // Hỏng thì KHÔNG được coi là xong: app.js sẽ không đặt cờ, lần đăng nhập
-    // sau tự thử lại. Dữ liệu gốc vẫn nguyên trong localStorage.
+    // Hỏng thì KHÔNG được coi là xong: app.js sẽ không dời mốc, lần sau tự thử
+    // lại từ đúng chỗ cũ. Dữ liệu gốc vẫn nguyên trong localStorage.
     console.warn('Chưa đưa được dữ liệu lên tài khoản:', err.message || err);
     return { ok: false, loi: err.message || String(err) };
+  }
+}
+
+// ------------------------------------------------------------
+// XOÁ TỪ / CHẤM ÔN — hai việc mà `gopDuLieuLenTaiKhoan` KHÔNG làm được.
+//
+// Hàm gộp chỉ biết CHÈN từ mới; nó cố ý không ghi đè bản trên server (để khỏi
+// xoá tiến độ ôn ở máy khác). Hệ quả: xoá một từ ở máy này thì server vẫn giữ,
+// ôn lên hộp 3 ở máy này thì server vẫn để hộp 1 — và "số từ trong sổ" cùng
+// "số từ cần ôn" lại lệch nhau giữa hai máy y như cũ. Hai hàm dưới bịt chỗ đó.
+//
+// Hỏng thì im lặng bỏ qua: thao tác ở localStorage đã xong rồi, chặn người dùng
+// lại vì mạng chập là vô lý. Lần đẩy sau không sửa được sai lệch này, nhưng nó
+// chỉ xảy ra khi mất mạng đúng lúc — đánh đổi chấp nhận được cho tới tuần 17.
+// ------------------------------------------------------------
+async function xoaTuTrenTaiKhoan(word) {
+  const user = nguoiDungHienTai();
+  if (!supabaseClient || !user || !word) return false;
+  try {
+    // ilike với chuỗi không có ký tự đại diện = so khớp không phân biệt hoa
+    // thường, đúng bằng ràng buộc unique (user_id, lower(word)) của bảng.
+    const { error } = await supabaseClient
+      .from('vocab').delete().eq('user_id', user.id).ilike('word', word);
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.warn('Chưa xoá được từ trên tài khoản:', err.message || err);
+    return false;
+  }
+}
+
+async function capNhatOnTuTrenTaiKhoan(word, box, dueDate) {
+  const user = nguoiDungHienTai();
+  if (!supabaseClient || !user || !word) return false;
+  try {
+    const { error } = await supabaseClient
+      .from('vocab')
+      .update({ box: box, due_date: dueDate })
+      .eq('user_id', user.id).ilike('word', word);
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.warn('Chưa cập nhật được tiến độ ôn trên tài khoản:', err.message || err);
+    return false;
+  }
+}
+
+// ============================================================
+// TUẦN 17 — ĐỌC THỐNG KÊ TỪ SERVER (2026-08-19)
+//
+// Vì sao phải có: cho tới hôm nay `veThongKe()` đọc `readLog()`/`readVocab()`,
+// tức là localStorage. localStorage là dữ liệu của MÁY. Câu hỏi "tôi đã học
+// bao nhiêu bài" là câu hỏi về TÀI KHOẢN, và chỉ server trả lời được — đó là
+// lý do một tài khoản đăng nhập ở máy tính và iPhone báo hai con số khác nhau.
+//
+// Đây là hàm ĐỌC duy nhất chạm vào study_log/vocab. Mọi công thức đếm nằm
+// trong RPC `thong_ke_tai_khoan` (xem supabase_schema.sql) — cố ý không đếm
+// lại ở JS, vì "mỗi nơi đếm một kiểu" chính là gốc của lỗi này.
+// ============================================================
+
+// `ngayHomNay`: chuỗi 'YYYY-MM-DD' theo giờ ĐỊA PHƯƠNG của máy (app.js: homNay()).
+// Truyền vào chứ không để server dùng current_date: server chạy UTC, người học
+// ở VN mở app buổi sáng sẽ bị tính là hôm qua và số "cần ôn" lệch một ngày.
+//
+// Trả về { soBai, soTu, canOn } hoặc null khi chưa đăng nhập / mạng hỏng —
+// null nghĩa là "không biết", app.js sẽ lùi về số của localStorage.
+async function docThongKeTaiKhoan(ngayHomNay) {
+  if (!supabaseClient || !nguoiDungHienTai()) return null;
+  try {
+    const { data, error } = await supabaseClient
+      .rpc('thong_ke_tai_khoan', { p_today: ngayHomNay || null });
+    if (error) throw error;
+    const t = data || {};
+    return {
+      soBai: Number(t.so_bai) || 0,
+      soTu: Number(t.so_tu) || 0,
+      canOn: Number(t.can_on) || 0
+    };
+  } catch (err) {
+    console.warn('Chưa đọc được thống kê từ tài khoản:', err.message || err);
+    return null;
   }
 }

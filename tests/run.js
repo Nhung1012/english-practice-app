@@ -18,10 +18,11 @@ const ROOT = path.join(__dirname, '..');
 const HTML = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 
 const IDS = ('accAvatar accBtn accEmail accGuest accLabel accSigninBtn accSignoutBtn accSync accUser paneAccount '
-  + 'signinBar signinBarBtn signinBarClose signinCount '
-  + 'biBtn copyBtn favBtn favFilterBtn historyList loopBtn modal modalBackdrop modalClose '
-  + 'modalTitle nextBtn openHelpBtn openHistoryBtn openVocabBtn paneHelp paneHistory paneVocab playBtn prevBtn quizBox '
-  + 'quizCard quizResetBtn quizScore quizSubmitBtn randomBtn rateRange rateValue resumeLine '
+  + 'accStats signinBar signinBarBtn signinBarClose signinCount '
+  + 'biBtn copyBtn favBtn favList loopBtn modal modalBackdrop modalClose '
+  + 'modalTitle modalBack nextBtn openHelpBtn openFavBtn openVocabBtn paneHelp paneFav paneVocab playBtn prevBtn quizBox '
+  + 'vocabActions accLinks '
+  + 'quizCard quizResetBtn quizScore quizSubmitBtn randomBtn rateRange rateValue '
   + 'reviewBtn reviewPanel scriptBox scriptLabel statusText topicCaret topicCombo topicCount '
   + 'topicListbox topicPanel topicSearch topicSearchClear topicText vocabList wordPopup wpClose '
   + 'wpExample wpIpa wpPos wpSave wpSpeak wpVi wpWord').split(' ');
@@ -56,15 +57,18 @@ const HOOK = `
   kiemTraDaiMoi, capNhatGiaoDienTaiKhoan, soBaiDaHoc,
   daTuChoiMoi, ghiNhoDaTuChoiMoi, nguoiDungHienTai, tenHienThi, anhDaiDien,
   recordLesson, rememberTitle,
-  gopDuLieuLenTaiKhoan, gopNeuCanThiet, docTomTatGop, veTrangThaiGop,
+  gopDuLieuLenTaiKhoan, dayLenTaiKhoan, docMocDay, daTungGop, veTrangThaiGop,
+  locTuMoc, mocLonNhat, docThongKeTaiKhoan, capNhatThongKe,
+  get thongKeServer() { return thongKeServer; }, set thongKeServer(v) { thongKeServer = v; },
   chuanBiDongLog, chuanBiDongVocab, readLog, readVocab, homNay,
-  readSeen, markSeen, getSeenIds, getHistory, batDauPhienHoc, danhDauDaHoc,
+  readSeen, markSeen, getSeenIds, getFavorites, renderFav, toggleFav, batDauPhienHoc, danhDauDaHoc,
   dungPhienHoc, nhipPhienHoc, chuyenNhatKyCu, speakFrom, recordLesson,
+  veThongKe, openModal, closeModal,
   get phienHoc() { return phienHoc; }, NGUONG_GIAY,
   buildItem, buildSentences, renderScript, renderQuiz,
   setBilingual, toggleLineVi, loadBilingual, coBanDich,
   layQuiz, chamQuiz, nopQuiz, chonDapAn, logStudy,
-  renderVocab, saveWord, dueWords, gradeWord, ngayOnGanNhat, dinhDangNgay, congNgay
+  renderVocab, saveWord, removeWord, dueWords, gradeWord, ngayOnGanNhat, dinhDangNgay, congNgay
 };
 `;
 
@@ -688,22 +692,38 @@ const QUIZ_MAU = [
   const helpBtn = d.getElementById('openHelpBtn');
   const paneHelp = d.getElementById('paneHelp');
   const paneVocab = d.getElementById('paneVocab');
-  const paneHistory = d.getElementById('paneHistory');
+  const paneFav = d.getElementById('paneFav');
 
   t('I1 bấm ❓ mở đúng khung hướng dẫn, hai khung kia đóng', () => {
     helpBtn.dispatch('click');
     eq(c.modalPane, 'help');
-    eq([paneHelp.hidden, paneHistory.hidden, paneVocab.hidden], [false, true, true]);
+    eq([paneHelp.hidden, paneFav.hidden, paneVocab.hidden], [false, true, true]);
     eq(d.getElementById('modal').hidden, false);
   });
 
-  t('I2 mở hướng dẫn thì KHÔNG kèm nút của Sổ từ / Lịch sử', () => {
-    // Hàng tiêu đề dùng chung cho cả 3 khung; quên ẩn là hiện nút "🎯 Ôn tập"
-    // ngay trong trang hướng dẫn, bấm vào thì lạc sang phiên ôn tập.
+  t('I2 hàng tiêu đề popup chỉ còn quay-lại / tên khung / đóng', () => {
+    // Trước 2026-08-19 nút "🎯 Ôn tập" nằm ở hàng tiêu đề DÙNG CHUNG, nên quên
+    // ẩn là nó hiện ngay trong trang Hướng dẫn và bấm vào thì lạc sang phiên
+    // ôn tập. Nay nút đã nằm trong thân khung Sổ từ, không thể rò sang khung
+    // khác được nữa — đó là cách sửa chắc hơn việc nhớ ẩn ở mọi nhánh.
+    //
+    // minidom đăng ký phần tử PHẲNG, không có quan hệ cha–con, nên việc "nằm
+    // trong khung nào" chỉ kiểm được bằng cách đọc thẳng index.html (bài học
+    // của N8).
+    const head = HTML.match(/<div class="modal-head">([\s\S]*?)<\/div>\s*<div class="modal-body">/);
+    ok(head, 'không tìm thấy hàng tiêu đề popup');
+    ok(!/id="reviewBtn"/.test(head[1]), 'nút Ôn tập vẫn nằm ở hàng tiêu đề dùng chung');
+    ok(/id="modalBack"/.test(head[1]) && /id="modalClose"/.test(head[1]),
+      'hàng tiêu đề phải có nút quay lại và nút đóng');
+
+    const paneVocab = HTML.match(/<div id="paneVocab" hidden>([\s\S]*?)<div id="paneAccount"/);
+    ok(paneVocab && /id="reviewBtn"/.test(paneVocab[1]),
+      'nút Ôn tập phải nằm trong thân khung Sổ từ');
+
     helpBtn.dispatch('click');
-    eq(d.getElementById('reviewBtn').hidden, true);
-    eq(d.getElementById('favFilterBtn').hidden, true);
     eq(d.getElementById('modalTitle').textContent, 'Hướng dẫn nhanh');
+    eq(d.getElementById('modalBack').hidden, true,
+      'khung Hướng dẫn mở thẳng từ màn hình chính, không có chỗ nào để quay lại');
   });
 
   t('I3 mở Sổ từ sau đó thì khung hướng dẫn phải đóng lại', () => {
@@ -918,7 +938,8 @@ function taoSupabaseGia(opts = {}) {
     vocab: (opts.vocabTrenServer || []).map(v =>
       typeof v === 'string' ? { word: v, box: 1 } : v)
   };
-  const dem = { kiemId: 0, upsertLog: 0, docVocab: 0, insertVocab: 0 };
+  const dem = { kiemId: 0, upsertLog: 0, docVocab: 0, insertVocab: 0, rpcThongKe: 0,
+                xoaVocab: 0, capNhatVocab: 0 };
 
   const loiFK = { message: 'insert or update violates foreign key constraint' };
   const khoaLog = r => `${r.user_id}|${r.content_id}|${r.created_at}`;
@@ -976,8 +997,51 @@ function taoSupabaseGia(opts = {}) {
             db.vocab.push(r);
           }
           return Promise.resolve({ error: null });
+        },
+        // .delete().eq(...).ilike('word', w) — xoá từ trên tài khoản (tuần 17)
+        delete() {
+          dem.xoaVocab++;
+          return { eq() { return this; },
+                   ilike(col, w) {
+                     if (opts.loiXoaVocab) return Promise.resolve({ error: { message: 'loi xoa' } });
+                     const k = String(w).toLowerCase();
+                     db.vocab = db.vocab.filter(v => String(v.word).toLowerCase() !== k);
+                     return Promise.resolve({ error: null });
+                   } };
+        },
+        // .update({...}).eq(...).ilike('word', w) — đẩy tiến độ ôn (tuần 17)
+        update(patch) {
+          dem.capNhatVocab++;
+          return { eq() { return this; },
+                   ilike(col, w) {
+                     const k = String(w).toLowerCase();
+                     db.vocab.forEach(v => {
+                       if (String(v.word).toLowerCase() === k) Object.assign(v, patch);
+                     });
+                     return Promise.resolve({ error: null });
+                   } };
         }
       };
+    },
+    // RPC. `get_random_content` không dùng trong nhóm K; ở đây chỉ cần
+    // `thong_ke_tai_khoan` — và nó phải đếm ĐÚNG như hàm SQL thật, nếu không
+    // test sẽ xanh trong khi bản thật trả số khác.
+    rpc(ten, args) {
+      if (ten !== 'thong_ke_tai_khoan') return Promise.resolve({ data: null, error: null });
+      dem.rpcThongKe++;
+      if (opts.loiRpcThongKe) {
+        return Promise.resolve({ data: null, error: { message: 'loi rpc' } });
+      }
+      const homNay = (args && args.p_today) || '9999-12-31';
+      return Promise.resolve({
+        data: {
+          so_bai: new Set(db.study_log.filter(r => r.counted !== false)
+                                      .map(r => r.content_id)).size,
+          so_tu: db.vocab.length,
+          can_on: db.vocab.filter(v => !v.due_date || v.due_date <= homNay).length
+        },
+        error: null
+      });
     }
   };
   return { supabase: { createClient: () => client }, db, dem };
@@ -1013,7 +1077,7 @@ async function nhomK() {
       ]),
       'ep:vocab': '[]'
     });
-    const kq = await c.gopNeuCanThiet(U1);
+    const kq = await c.dayLenTaiKhoan(U1);
     eq(kq.ok, true, 'phải thành công chứ không hỏng vì 1 dòng chết:');
     eq(kq.soLuot, 2);
     eq(gia.db.study_log.length, 2);
@@ -1034,7 +1098,7 @@ async function nhomK() {
           source_content_id: 10, box: 1, due_date: '2026-08-20', created_at: moc(2) }
       ])
     });
-    const kq = await c.gopNeuCanThiet(U1);
+    const kq = await c.dayLenTaiKhoan(U1);
     eq(kq.ok, true);
     eq(kq.soTu, 2, 'mất ngữ cảnh thì được, mất cả từ thì không:');
     eq(gia.db.vocab.find(v => v.word === 'straight').source_content_id, null);
@@ -1063,7 +1127,7 @@ async function nhomK() {
   });
 
   // ---- K4 ----
-  await ta('K4 chèn hỏng thì KHÔNG đặt cờ, lần sau còn thử lại được', async () => {
+  await ta('K4 chèn hỏng thì KHÔNG dời mốc, lần sau còn thử lại được', async () => {
     const gia = taoSupabaseGia({ contentIds: [10], loiUpsertLog: true });
     const c = await sandboxGop(gia, {
       'ep:log': JSON.stringify([
@@ -1072,9 +1136,9 @@ async function nhomK() {
       'ep:vocab': '[]'
     });
     c.phienDangNhap = { user: U1 };
-    const kq = await c.gopNeuCanThiet(U1);
+    const kq = await c.dayLenTaiKhoan(U1);
     eq(kq.ok, false);
-    eq(c.docTomTatGop('u1'), null, 'hỏng mà vẫn đặt cờ thì dữ liệu kẹt lại vĩnh viễn:');
+    eq(c.docMocDay('u1'), '', 'hỏng mà vẫn dời mốc thì phần này không bao giờ lên được:');
     eq(c.document.getElementById('accSync').hidden, false);
     ok(c.document.getElementById('accSync').textContent.includes('Chưa đưa được'),
       'phải báo cho người dùng biết, không im lặng');
@@ -1095,7 +1159,7 @@ async function nhomK() {
         { word: 'lease', source_content_id: 10, box: 1, due_date: '2026-08-17', created_at: moc(2) }
       ])
     });
-    const kq = await c.gopNeuCanThiet(U1);
+    const kq = await c.dayLenTaiKhoan(U1);
     eq(kq.ok, true);
     eq(kq.soTu, 1, 'chỉ được chèn từ CHƯA có:');
     // so khớp không phân biệt hoa/thường, đúng như unique index lower(word)
@@ -1104,8 +1168,15 @@ async function nhomK() {
   });
 
   // ---- K6 ----
-  await ta('K6 gộp xong đặt cờ; lần vào trang sau KHÔNG gọi DB nữa', async () => {
-    const gia = taoSupabaseGia({ contentIds: [10] });
+  //
+  // ⚠️ Test này ĐẢO NGƯỢC so với bản tuần 16 (2026-08-19). Bản cũ khẳng định
+  // "gộp xong đặt cờ, lần sau bỏ qua hẳn" — và chính điều đó là lỗi: cờ nằm ở
+  // localStorage nên nó là của MÁY. Máy đăng nhập lúc sổ còn trống sẽ gộp 0
+  // dòng, đặt cờ, rồi vĩnh viễn không đẩy gì nữa (đúng chuyện đã xảy ra trên
+  // iPhone: "Đã đưa 0 lượt học và 0 từ", trong khi máy tính báo 45 lượt).
+  // Nay yêu cầu ngược lại: bài học MỚI phải lên được ở những lần sau.
+  await ta('K6 đẩy lần sau vẫn lên được phần MỚI, không bị cờ chặn vĩnh viễn', async () => {
+    const gia = taoSupabaseGia({ contentIds: [10, 20] });
     const c = await sandboxGop(gia, {
       'ep:log': JSON.stringify([
         { content_id: 10, mode: 'listen', score: null, seconds: null, created_at: moc(1) }
@@ -1113,16 +1184,45 @@ async function nhomK() {
       'ep:vocab': '[]'
     });
     c.phienDangNhap = { user: U1 };
-    await c.gopNeuCanThiet(U1);
-    const tomTat = c.docTomTatGop('u1');
-    ok(tomTat && tomTat.soLuot === 1, 'phải nhớ được tóm tắt lần gộp');
+    await c.dayLenTaiKhoan(U1);
+    eq(gia.db.study_log.length, 1);
+    ok(c.docMocDay('u1'), 'phải nhớ mốc đã đẩy tới đâu');
+
+    // Người dùng học thêm một bài rồi mở lại trang.
+    c.logStudy(20, 'read', null, 70);
+    const kq2 = await c.dayLenTaiKhoan(U1);
+    ok(kq2 && kq2.ok, 'lần hai phải chạy, không được trả null vì "đã gộp rồi"');
+    eq(gia.db.study_log.length, 2, 'bài học mới KHÔNG lên được server:');
+    eq(gia.db.study_log.map(r => r.content_id).sort(), [10, 20]);
+  });
+
+  // ---- K6b ----
+  await ta('K6b mốc giúp bỏ qua phần đã đẩy, không quét lại từ đầu', async () => {
+    const gia = taoSupabaseGia({ contentIds: [10, 20] });
+    const c = await sandboxGop(gia, {
+      'ep:log': JSON.stringify([
+        { content_id: 10, mode: 'read', score: null, seconds: null, created_at: moc(1) }
+      ]),
+      'ep:vocab': '[]'
+    });
+    await c.dayLenTaiKhoan(U1);
     const truoc = gia.dem.upsertLog;
-    eq(await c.gopNeuCanThiet(U1), null, 'lần hai phải bỏ qua hẳn:');
-    eq(gia.dem.upsertLog, truoc, 'không được gọi DB lần nữa:');
-    // vẫn hiện lại kết quả cũ chứ không để khoảng trống khó hiểu
-    c.veTrangThaiGop();
-    ok(c.document.getElementById('accSync').textContent.includes('1 lượt học'),
-      'mở khung Tài khoản lần sau vẫn phải thấy kết quả');
+    const kq = await c.dayLenTaiKhoan(U1); // không có gì mới
+    eq(kq.soLuot, 0, 'không có bài mới mà vẫn chèn:');
+    eq(gia.dem.upsertLog, truoc, 'không có gì mới thì đừng gọi upsert:');
+  });
+
+  // ---- K6c ----
+  await ta('K6c locTuMoc giữ bản ghi mới hơn mốc, giữ cả bản ghi hỏng ngày', () => {
+    const c = taoSandbox({ storage: { 'ep:migr:seen': '1' } });
+    const log = [
+      { content_id: 1, created_at: moc(1) },
+      { content_id: 2, created_at: moc(5) },
+      { content_id: 3, created_at: 'hôm qua' } // để chuanBiDongLog loại, không loại ở đây
+    ];
+    eq(c.locTuMoc(log, moc(1)).map(e => e.content_id), [2, 3]);
+    eq(c.locTuMoc(log, '').length, 3, 'chưa có mốc thì phải lấy hết');
+    eq(c.mocLonNhat(log), moc(5));
   });
 
   // ---- K7 ----
@@ -1134,7 +1234,7 @@ async function nhomK() {
       'ep:fav': '[1,2]',
       'ep:titles': '{"10":{"topic":"x","type":"dialogue","level":"intermediate"}}'
     });
-    await c.gopNeuCanThiet(U1);
+    await c.dayLenTaiKhoan(U1);
     // localStorage vẫn là NGUỒN ĐỌC DUY NHẤT cho tới hết tuần 17
     eq(c.readLog().length, 1, 'nhật ký bị xoá sau khi gộp:');
     eq(c.readVocab().length, 1, 'sổ từ bị xoá sau khi gộp:');
@@ -1164,7 +1264,7 @@ async function nhomK() {
   });
 
   // ---- K9 ----
-  await ta('K9 cờ theo TỪNG tài khoản: người thứ hai trên cùng máy vẫn được gộp', async () => {
+  await ta('K9 mốc theo TỪNG tài khoản: người thứ hai trên cùng máy vẫn được đẩy', async () => {
     const gia = taoSupabaseGia({ contentIds: [10] });
     const c = await sandboxGop(gia, {
       'ep:log': JSON.stringify([
@@ -1172,8 +1272,8 @@ async function nhomK() {
       ]),
       'ep:vocab': '[]'
     });
-    await c.gopNeuCanThiet(U1);
-    const kq2 = await c.gopNeuCanThiet(U2);
+    await c.dayLenTaiKhoan(U1);
+    const kq2 = await c.dayLenTaiKhoan(U2);
     ok(kq2 && kq2.ok, 'tài khoản thứ hai phải được gộp, không bị cờ của người kia chặn');
     eq(gia.db.study_log.length, 2);
     eq(gia.db.study_log.map(r => r.user_id).sort(), ['u1', 'u2']);
@@ -1186,12 +1286,94 @@ async function nhomK() {
     c.phienDangNhap = null;
     c.veTrangThaiGop();
     eq(c.document.getElementById('accSync').hidden, true);
-    eq(await c.gopNeuCanThiet(null), null);
+    eq(await c.dayLenTaiKhoan(null), null);
     eq(gia.dem.kiemId, 0, 'chưa đăng nhập mà đã gọi DB:');
 
     const kq = await c.gopDuLieuLenTaiKhoan(U1, [], []);
-    eq(kq, { ok: true, soLuot: 0, soTu: 0, boQua: 0 });
+    eq(kq, { ok: true, soLuot: 0, soTu: 0, boQua: 0, mocMoi: '' });
     eq(gia.dem.kiemId, 0, 'không có gì để gộp thì đừng gọi mạng:');
+  });
+
+  // ---- K12 ----
+  // Đây là bài test cho đúng triệu chứng người dùng báo: một tài khoản, hai
+  // máy, hai con số. Nếu thống kê còn đọc localStorage thì test này đỏ.
+  await ta('K12 số hiển thị lấy từ TÀI KHOẢN, không phải localStorage của máy', async () => {
+    const gia = taoSupabaseGia({ contentIds: [10, 20, 30] });
+    // "iPhone": localStorage gần như trống, mới học đúng 1 bài.
+    const c = await sandboxGop(gia, {
+      'ep:log': JSON.stringify([
+        { content_id: 30, mode: 'read', score: null, seconds: 70, created_at: moc(9) }
+      ]),
+      'ep:vocab': '[]'
+    });
+    // "máy tính" đã đẩy 2 bài + 1 từ lên tài khoản từ trước.
+    gia.db.study_log.push(
+      { user_id: 'u1', content_id: 10, mode: 'read', created_at: moc(1), counted: true },
+      { user_id: 'u1', content_id: 20, mode: 'listen', created_at: moc(2), counted: true });
+    gia.db.vocab.push({ user_id: 'u1', word: 'lease', box: 1, due_date: '2026-01-01' });
+
+    c.phienDangNhap = { user: U1 };
+    await c.dayLenTaiKhoan(U1);
+
+    const html = c.document.getElementById('accStats').innerHTML;
+    ok(/>3</.test(html), `máy này chỉ có 1 bài trong localStorage nhưng tài khoản có 3 — `
+      + `phải hiện 3, nhận: ${html.slice(0, 120)}`);
+    ok(/>1<\/b> từ trong sổ/.test(html), 'số từ cũng phải lấy từ tài khoản');
+    ok(/mọi thiết bị/.test(html), 'phải nói rõ con số này tính trên tài khoản');
+  });
+
+  // ---- K13 ----
+  await ta('K13 dòng nhật ký luật cũ (counted=false) KHÔNG bị đếm là đã học', async () => {
+    const gia = taoSupabaseGia({ contentIds: [10] });
+    const c = await sandboxGop(gia, { 'ep:log': '[]', 'ep:vocab': '[]' });
+    // 37 bài "đã MỞ" đẩy lên hồi tuần 16 theo luật cũ.
+    for (let i = 100; i < 137; i++) {
+      gia.db.study_log.push({ user_id: 'u1', content_id: i, mode: 'read',
+                              created_at: moc(1), counted: false });
+    }
+    c.phienDangNhap = { user: U1 };
+    await c.capNhatThongKe();
+    const html = c.document.getElementById('accStats').innerHTML;
+    ok(/Chưa có bài nào/.test(html),
+      `đếm cả dòng luật cũ là quay lại đúng con số sai bản 17/8 vừa dẹp, nhận: ${html.slice(0, 120)}`);
+  });
+
+  // ---- K14 ----
+  await ta('K14 mạng hỏng thì GIỮ số cũ và nói rõ, không nháy về số của máy', async () => {
+    const gia = taoSupabaseGia({ contentIds: [10], loiRpcThongKe: true });
+    const c = await sandboxGop(gia, { 'ep:log': '[]', 'ep:vocab': '[]' });
+    c.phienDangNhap = { user: U1 };
+    c.thongKeServer = { soBai: 12, soTu: 3, canOn: 0 };
+    await c.capNhatThongKe();
+    const html = c.document.getElementById('accStats').innerHTML;
+    ok(/>12</.test(html), 'RPC hỏng mà đã vứt số cũ đi, người dùng thấy tiến độ tụt về 0');
+  });
+
+  // ---- K15 ----
+  await ta('K15 xoá từ / chấm ôn phải đi tới tài khoản, không chỉ nằm ở máy', async () => {
+    const gia = taoSupabaseGia({
+      contentIds: [10],
+      vocabTrenServer: [{ word: 'lease', box: 1, due_date: '2026-01-01' },
+                        { word: 'straight', box: 1, due_date: '2026-01-01' }]
+    });
+    const c = await sandboxGop(gia, {
+      'ep:log': '[]',
+      'ep:vocab': JSON.stringify([
+        { word: 'lease', source_content_id: 10, box: 1, due_date: '2026-01-01', created_at: moc(1) },
+        { word: 'straight', source_content_id: 10, box: 1, due_date: '2026-01-01', created_at: moc(1) }
+      ])
+    });
+    c.phienDangNhap = { user: U1 };
+
+    c.gradeWord('lease', true);   // nhớ -> lên hộp 2, dời ngày ôn
+    await new Promise(r => setTimeout(r, 0));
+    eq(gia.db.vocab.find(v => v.word === 'lease').box, 2,
+      'ôn ở máy này mà server vẫn hộp 1 thì số "cần ôn" hai máy lệch nhau:');
+
+    c.removeWord('straight');
+    await new Promise(r => setTimeout(r, 0));
+    eq(gia.db.vocab.map(v => v.word), ['lease'],
+      'xoá từ ở máy này mà server vẫn giữ thì "số từ trong sổ" lệch:');
   });
 
   // ---- K11 ----
@@ -1284,17 +1466,13 @@ async function nhomK() {
     eq(c.readLog()[0].content_id, 12, 'giây của bài cũ bị cộng dồn sang bài mới:');
   });
 
-  t('M7 "Học gần đây" vẽ từ ep:seen nên bài mở rồi đóng ngay vẫn mở lại được', () => {
-    const c = taoSandbox({ storage: moKho({
-      'ep:titles': JSON.stringify({
-        11: { topic: 'Mua thuốc', type: 'dialogue', level: 'intermediate' },
-        12: { topic: 'Đặt phòng', type: 'dialogue', level: 'intermediate' }
-      })
-    }) });
+  t('M7 mở bài vẫn ghi ep:seen (random cần) nhưng KHÔNG tính là đã học', () => {
+    // "Học gần đây" đã gỡ 2026-08-19, nhưng `ep:seen` phải sống tiếp: hàm
+    // random dựa vào nó để khỏi trả lại đúng bài vừa mở.
+    const c = taoSandbox({ storage: moKho() });
     moBai(c, 11); moBai(c, 12);
-    const ls = c.getHistory(10);
-    eq(ls.map(x => x.id), [12, 11], 'mở gần nhất phải đứng trước:');
-    eq(c.soBaiDaHoc(), 0, 'hiện trong lịch sử không có nghĩa là đã học:');
+    eq([...c.getSeenIds()].sort(), [11, 12], 'mở bài phải được ghi vào ep:seen:');
+    eq(c.soBaiDaHoc(), 0, 'mở bài không có nghĩa là đã học:');
   });
 
   t('M8 chuyển nhật ký cũ: ep:log về 0, ep:seen giữ đủ, bản gốc được cất lại', () => {
@@ -1305,7 +1483,7 @@ async function nhomK() {
     ];
     const c = taoSandbox({ storage: { 'ep:log': JSON.stringify(cu) } });
     eq(c.soBaiDaHoc(), 0, 'phải đếm lại từ 0 theo lựa chọn của người dùng:');
-    eq([...c.getSeenIds()].sort(), [11, 12], 'lịch sử và việc loại trừ random không được mất:');
+    eq([...c.getSeenIds()].sort(), [11, 12], 'việc loại trừ bài trùng lúc random không được mất:');
     // KHÔNG vứt dữ liệu đi — cất nguyên bản gốc, lấy lại được
     eq(JSON.parse(c.localStorage.getItem('ep:log_truoc_2026-08-17')).length, 3);
     eq(c.localStorage.getItem('ep:migr:seen'), '1');
@@ -1334,6 +1512,299 @@ async function nhomK() {
   });
 }
 
+// ============================================================
+// N. Bộ đếm tiến độ phải NHÌN THẤY ĐƯỢC (17/8)
+//
+// Lỗi có thật: đổi luật đếm "đã học" xong nhưng con số chỉ xuất hiện trong dải
+// mời đăng nhập — dải đó ẩn hẳn sau khi đăng nhập. Người dùng đã đăng nhập
+// không có chỗ nào nhìn thấy tiến độ, nên tưởng tính năng hỏng.
+//
+// Bài học chung với nhóm L: có logic đúng mà không có chỗ hiển thị thì với
+// người dùng là chưa làm gì cả.
+// ============================================================
+{
+  const moKho = (them) => Object.assign(
+    { 'ep:migr:seen': '1', 'ep:log': '[]', 'ep:seen': '[]', 'ep:vocab': '[]' }, them || {});
+  const nBai = (n) => JSON.stringify(
+    Array.from({ length: n }, (_, i) => ({
+      content_id: i + 1, mode: 'read', score: null, seconds: 60,
+      created_at: new Date(Date.UTC(2026, 7, i + 1)).toISOString()
+    })));
+
+  t('N1 ĐÃ ĐĂNG NHẬP vẫn thấy được số bài đã học', () => {
+    // Đây chính là lỗi cũ: dải mời ẩn khi đăng nhập, và đó là chỗ DUY NHẤT
+    // hiển thị con số.
+    const c = taoSandbox({ storage: moKho({ 'ep:log': nBai(4) }) });
+    c.phienDangNhap = { user: { id: 'u1', email: 'a@b.c', user_metadata: {} } };
+    c.capNhatGiaoDienTaiKhoan();
+    const el = c.document.getElementById('accStats');
+    ok(/Đã học/.test(el.innerHTML), 'khung Tài khoản phải nói số bài đã học');
+    ok(/>4</.test(el.innerHTML), `mong thấy số 4, nhận "${el.innerHTML.slice(0, 80)}"`);
+    eq(c.document.getElementById('signinBar').hidden, true, 'dải mời vẫn phải ẩn:');
+  });
+
+  t('N2 CHƯA đăng nhập cũng thấy, không phụ thuộc trạng thái tài khoản', () => {
+    const c = taoSandbox({ storage: moKho({ 'ep:log': nBai(2) }) });
+    c.phienDangNhap = null;
+    c.capNhatGiaoDienTaiKhoan();
+    ok(/>2</.test(c.document.getElementById('accStats').innerHTML));
+  });
+
+  t('N3 chưa học gì thì nói rõ ĐIỀU KIỆN được tính, không để trống', () => {
+    // Người dùng mở bài rồi thấy số không nhúc nhích sẽ tưởng app hỏng.
+    const c = taoSandbox({ storage: moKho() });
+    c.capNhatGiaoDienTaiKhoan();
+    const html = c.document.getElementById('accStats').innerHTML;
+    ok(/Nghe/.test(html) && /phút/.test(html),
+      `phải nêu điều kiện, nhận "${html.slice(0, 100)}"`);
+  });
+
+  t('N4 mở bài KHÔNG làm số tăng, bấm Nghe thì tăng — thấy được ngay trên UI', () => {
+    const c = taoSandbox({ storage: moKho() });
+    c.currentItem = { id: 11, topic: 'Bài 11', lines: [{ s: 'A', t: 'Hello there.' }] };
+    c.currentTab = 'dialogue';
+    c.recordLesson();
+    c.veThongKe();
+    ok(/Chưa có bài nào/.test(c.document.getElementById('accStats').innerHTML),
+      'mở bài mà đã tính là học');
+
+    c.renderScript();
+    c.speakFrom(0);
+    c.veThongKe();
+    ok(/>1</.test(c.document.getElementById('accStats').innerHTML), 'bấm Nghe phải tính');
+  });
+
+  t('N5 mở khung Tài khoản là vẽ lại số liệu, không dùng số cũ từ lúc khởi động', () => {
+    const c = taoSandbox({ storage: moKho() });
+    c.capNhatGiaoDienTaiKhoan();
+    const truoc = c.document.getElementById('accStats').innerHTML;
+    c.localStorage.setItem('ep:log', nBai(7));
+    c.openModal('account');
+    const sau = c.document.getElementById('accStats').innerHTML;
+    ok(truoc !== sau && />7</.test(sau), 'vừa học xong mở ra phải thấy số mới');
+  });
+
+  t('N6 đếm bài KHÁC NHAU, không đếm số dòng nhật ký', () => {
+    const c = taoSandbox({ storage: moKho({ 'ep:log': JSON.stringify(
+      [1, 1, 1, 2].map((id, i) => ({ content_id: id, mode: 'read', score: null, seconds: 60,
+        created_at: new Date(Date.UTC(2026, 7, i + 1)).toISOString() }))) }) });
+    c.veThongKe();
+    ok(/>2</.test(c.document.getElementById('accStats').innerHTML), 'phải là 2 bài, không phải 4');
+  });
+
+  t('N8 accStats KHÔNG được nằm trong accGuest/accUser', () => {
+    // DOM giả đăng ký phần tử theo id một cách phẳng, không có quan hệ cha–con,
+    // nên `accUser.hidden = true` không kéo theo phần tử con — N1/N2 vẫn xanh
+    // dù đặt nhầm chỗ. Chỉ có cách đọc thẳng HTML mới bắt được.
+    const pane = HTML.match(/<div id="paneAccount"[^>]*>([\s\S]*?)\n      <\/div>/);
+    ok(pane, 'không tìm thấy khung paneAccount trong index.html');
+    ok(/id="accStats"/.test(pane[1]), 'accStats phải nằm trong paneAccount');
+
+    const trong = (id) => {
+      const m = HTML.match(new RegExp('<div id="' + id + '"[^>]*>([\\s\\S]*?)\\n        </div>'));
+      return m ? m[1] : '';
+    };
+    ok(!/id="accStats"/.test(trong('accGuest')),
+      'nằm trong accGuest thì người ĐÃ đăng nhập không thấy — đúng lỗi cũ');
+    ok(!/id="accStats"/.test(trong('accUser')),
+      'nằm trong accUser thì khách không thấy');
+  });
+
+  t('N7 có sổ từ và từ tới hạn thì hiện đủ ba con số', () => {
+    const c = taoSandbox({ storage: moKho({ 'ep:log': nBai(1) }) });
+    c.saveWord('lease', { vi: 'thuê' }, 1);   // lưu xong là tới hạn ôn ngay
+    c.veThongKe();
+    const html = c.document.getElementById('accStats').innerHTML;
+    ok(/từ trong sổ/.test(html), 'thiếu số từ trong sổ');
+    ok(/cần ôn/.test(html), 'thiếu số từ cần ôn');
+  });
+}
+
+// ============================================================
+// P. Gỡ "Học tiếp" / "Học gần đây", dồn "cần ôn" về khung Tài khoản
+//    (2026-08-19)
+//
+// Gỡ tính năng thì phải gỡ SẠCH: còn sót phần tử trong index.html hay lời nhắc
+// trong Hướng dẫn là người dùng đi tìm một nút không tồn tại. Nhóm này canh
+// đúng chỗ đó, cộng thêm việc con số "cần ôn" phải nằm ĐÚNG MỘT nơi.
+// ============================================================
+function nhomP() {
+  const moKho = (them) => Object.assign({ 'ep:migr:seen': '1' }, them || {});
+  const TIEU_DE = { 11: { topic: 'Mua thuốc', type: 'dialogue', level: 'intermediate' },
+                    12: { topic: 'Đặt phòng', type: 'dialogue', level: 'intermediate' } };
+
+  t('P1 index.html không còn dấu vết "Học tiếp" / "Học gần đây"', () => {
+    // Bỏ chú thích trước khi soi: chú thích GIẢI THÍCH vì sao gỡ là thứ nên
+    // giữ, chỉ có chữ người dùng nhìn thấy mới không được nhắc tính năng cũ.
+    const hienThi = HTML.replace(/<!--[\s\S]*?-->/g, '');
+    ok(!/id="resumeLine"/.test(hienThi), 'còn dòng Học tiếp trong HTML');
+    ok(!/id="openHistoryBtn"/.test(hienThi), 'còn nút Học gần đây');
+    ok(!/id="paneHistory"|id="historyList"/.test(hienThi), 'còn khung lịch sử');
+    ok(!/id="favFilterBtn"/.test(hienThi), 'còn nút lọc đã đánh dấu (nay khung chỉ có 1 chế độ)');
+    ok(!/Học gần đây|Học tiếp/.test(hienThi),
+      'Hướng dẫn vẫn nhắc tính năng đã gỡ — người dùng sẽ đi tìm nút không có');
+  });
+
+  t('P2 Hướng dẫn chỉ người dùng tới đúng chỗ còn tồn tại', () => {
+    const help = HTML.match(/<ul class="help-list">([\s\S]*?)<\/ul>/);
+    ok(help, 'không tìm thấy danh sách Hướng dẫn');
+    ok(/Đã đánh dấu/.test(help[1]), 'Hướng dẫn phải nói về nút ⭐ Đã đánh dấu');
+    // Hai khung con nay chỉ vào được từ nút tài khoản — Hướng dẫn phải nói ra,
+    // nếu không người dùng tìm chúng ở màn hình chính và không thấy đâu cả.
+    ok(/tài khoản/i.test(help[1]),
+      'Hướng dẫn phải chỉ ra lối vào mới: nút tài khoản ở góc trên bên phải');
+  });
+
+  t('P3 nút "Đã đánh dấu" ẩn khi chưa đánh dấu gì, hiện kèm số khi có', () => {
+    const c = taoSandbox({ storage: moKho({ 'ep:titles': JSON.stringify(TIEU_DE) }) });
+    c.renderFav();
+    eq(c.document.getElementById('openFavBtn').hidden, true);
+
+    c.toggleFav(11);
+    c.renderFav();
+    const nut = c.document.getElementById('openFavBtn');
+    eq(nut.hidden, false);
+    ok(/\(1\)/.test(nut.textContent), `phải kèm số lượng, nhận "${nut.textContent}"`);
+  });
+
+  t('P4 mở bài KHÔNG làm nút "Đã đánh dấu" hiện lên', () => {
+    // Đây chính là khác biệt với "Học gần đây" cũ: app tự mở một bài ngẫu nhiên
+    // ngay khi vào trang, nên khung cũ luôn có nội dung dù người dùng chưa làm gì.
+    const c = taoSandbox({ storage: moKho({ 'ep:titles': JSON.stringify(TIEU_DE) }) });
+    c.currentItem = { id: 11, topic: 'Mua thuốc', lines: [{ s: 'A', t: 'Hi.' }] };
+    c.currentTab = 'dialogue';
+    c.recordLesson();
+    eq(c.document.getElementById('openFavBtn').hidden, true,
+      'chỉ mở bài mà nút đã hiện thì lại đầy nhiễu như khung cũ:');
+  });
+
+  t('P5 khung "Đã đánh dấu" liệt kê đúng bài đã đánh dấu, mở lại được', () => {
+    const c = taoSandbox({ storage: moKho({
+      'ep:titles': JSON.stringify(TIEU_DE), 'ep:fav': '[11,12]' }) });
+    c.openModal('fav');
+    eq(c.modalPane, 'fav');
+    eq(c.document.getElementById('paneFav').hidden, false);
+    eq(c.document.getElementById('modalTitle').textContent, 'Chủ đề đã đánh dấu (2)');
+    eq(c.getFavorites().map(x => x.id), [12, 11], 'đánh dấu gần nhất đứng trước:');
+  });
+
+  t('P6 số "cần ôn" chỉ nằm ở khung Tài khoản, KHÔNG còn cạnh nút Sổ từ', () => {
+    const c = taoSandbox({ storage: moKho() });
+    c.saveWord('lease', { vi: 'thuê' }, 1); // lưu xong là tới hạn ôn ngay
+    c.renderVocab();
+    const nut = c.document.getElementById('openVocabBtn');
+    ok(!/cần ôn/.test(nut.textContent),
+      `chấm đỏ "cần ôn" phải biến khỏi nút Sổ từ, nhận "${nut.textContent}"`);
+    ok(/\(1\)/.test(nut.textContent), 'vẫn phải hiện số từ trong sổ');
+
+    c.veThongKe();
+    ok(/cần ôn/.test(c.document.getElementById('accStats').innerHTML),
+      'gỡ khỏi nút Sổ từ mà không có ở khung Tài khoản là mất hẳn con số');
+  });
+
+  t('P7 ep:seen vẫn được ghi để random khỏi trả lại bài vừa mở', () => {
+    // Gỡ giao diện KHÔNG được kéo theo dữ liệu: bỏ ep:seen thì "Đổi chủ đề"
+    // lặp bài ngay lần bấm thứ hai.
+    const c = taoSandbox({ storage: moKho({ 'ep:titles': JSON.stringify(TIEU_DE) }) });
+    c.currentItem = { id: 11, topic: 'Mua thuốc', lines: [{ s: 'A', t: 'Hi.' }] };
+    c.currentTab = 'dialogue';
+    c.recordLesson();
+    ok(c.getSeenIds().has(11), 'mở bài phải được ghi vào ep:seen');
+  });
+
+  t('P9 màn hình chính không còn hàng nút; hai nút nằm trong khung Tài khoản', () => {
+    // minidom phẳng nên "nằm trong khung nào" phải đọc thẳng index.html (N8).
+    ok(!/id="quickRow"|class="quick-row"/.test(HTML), 'còn hàng nút ở màn hình chính');
+    const pane = HTML.match(/<div id="paneAccount" hidden>([\s\S]*?)<div id="paneHelp"/);
+    ok(pane, 'không tìm thấy khung paneAccount');
+    ok(/id="openFavBtn"/.test(pane[1]), 'nút Đã đánh dấu phải nằm trong khung Tài khoản');
+    ok(/id="openVocabBtn"/.test(pane[1]), 'nút Sổ từ phải nằm trong khung Tài khoản');
+    // Nằm ngoài accGuest/accUser, nếu không thì một trong hai phía mất lối vào
+    // — đúng lỗi N8 đã bắt được với accStats.
+    const trong = (id) => {
+      const m = HTML.match(new RegExp('<div id="' + id + '"[^>]*>([\\s\\S]*?)\\n        </div>'));
+      return m ? m[1] : '';
+    };
+    ok(!/id="openVocabBtn"/.test(trong('accGuest')) && !/id="openVocabBtn"/.test(trong('accUser')),
+      'nằm trong accGuest/accUser thì một trong hai phía không thấy nút');
+  });
+
+  t('P10 mở khung Tài khoản là vẽ lại NHÃN hai nút, không dùng số cũ', () => {
+    // Hai nút nay nằm trong chính khung này, không còn ai vẽ lại chúng hộ.
+    const c = taoSandbox({ storage: moKho({ 'ep:titles': JSON.stringify(TIEU_DE) }) });
+    c.openModal('account');
+    eq(c.document.getElementById('openFavBtn').hidden, true);
+
+    c.toggleFav(11);
+    c.saveWord('lease', { vi: 'thuê' }, 11);
+    c.openModal('account');
+    const fav = c.document.getElementById('openFavBtn');
+    const so = c.document.getElementById('openVocabBtn');
+    eq(fav.hidden, false, 'đánh dấu xong mở khung Tài khoản vẫn không thấy nút:');
+    ok(/\(1\)/.test(fav.textContent), `nhãn nút Đã đánh dấu phải cập nhật, nhận "${fav.textContent}"`);
+    ok(/\(1\)/.test(so.textContent), `nhãn nút Sổ từ phải cập nhật, nhận "${so.textContent}"`);
+  });
+
+  t('P11 nút ← chỉ hiện ở hai khung con và đưa về đúng khung Tài khoản', () => {
+    const c = taoSandbox({ storage: moKho({ 'ep:titles': JSON.stringify(TIEU_DE), 'ep:fav': '[11]' }) });
+    const back = c.document.getElementById('modalBack');
+
+    c.openModal('account');
+    eq(back.hidden, true, 'khung Tài khoản không đi ra từ đâu, không cần nút quay lại:');
+
+    c.openModal('vocab');
+    eq(back.hidden, false, 'vào khung con mà không có đường về là ngõ cụt:');
+    back.dispatch('click');
+    eq(c.modalPane, 'account', 'bấm ← phải về khung Tài khoản:');
+    eq(back.hidden, true);
+
+    c.openModal('fav');
+    eq(back.hidden, false);
+    back.dispatch('click');
+    eq(c.modalPane, 'account');
+  });
+
+  t('P12 đóng popup thì nút ← không kẹt lại cho lần mở sau', () => {
+    const c = taoSandbox({ storage: moKho() });
+    c.openModal('vocab');
+    c.closeModal();
+    eq(c.document.getElementById('modalBack').hidden, true);
+  });
+
+  t('P13 sổ từ trống thì ẩn cả khung bọc nút Ôn tập, không chừa khoảng trắng', () => {
+    const c = taoSandbox({ storage: moKho() });
+    c.openModal('vocab');
+    eq(c.document.getElementById('vocabActions').hidden, true, 'sổ trống mà vẫn chừa chỗ:');
+
+    c.saveWord('lease', { vi: 'thuê' }, 1);
+    c.renderVocab();
+    eq(c.document.getElementById('vocabActions').hidden, false, 'có từ rồi mà nút Ôn tập vẫn ẩn:');
+  });
+
+  t('P14 index.html không còn đoạn "Đăng nhập lần đầu…"', () => {
+    ok(!/Đăng nhập lần đầu/.test(HTML), 'đoạn cảnh báo đã bỏ nhưng vẫn còn trong HTML');
+    ok(!/class="acc-note acc-warn"/.test(HTML), 'còn phần tử .acc-warn');
+    // Phần còn lại của khung khách không được mất theo
+    ok(/id="accSigninBtn"/.test(HTML), 'nút đăng nhập bị xoá nhầm');
+    ok(/chế độ khách/.test(HTML), 'câu giới thiệu chế độ khách bị xoá nhầm');
+  });
+
+  t('P8 CSS không còn luật của các phần tử đã gỡ', () => {
+    const css = fs.readFileSync(path.join(ROOT, 'styles.css'), 'utf8')
+      .split('\n').filter(d => !/^\s*(\/\*|\*|.*\*\/)/.test(d)).join('\n');
+    ok(!/\.resume-line\s*[,{]/.test(css), 'còn luật .resume-line');
+    ok(!/\.quick-dot\s*[,{]/.test(css), 'còn luật .quick-dot');
+    ok(!/#favFilterBtn/.test(css), 'còn luật #favFilterBtn');
+    ok(!/\.quick-row\s*[,{]/.test(css), 'còn luật .quick-row');
+    ok(!/\.acc-warn\s*[,{]/.test(css), 'còn luật .acc-warn');
+    // Luật của phần tử MỚI thì phải có, nếu không nút quay lại và hàng nút
+    // trong khung Tài khoản sẽ dính vào nhau không khoảng cách.
+    ok(/\.acc-links\s*[,{]/.test(css), 'thiếu luật .acc-links');
+    ok(/\.vocab-actions\s*[,{]/.test(css), 'thiếu luật .vocab-actions');
+    ok(/\.modal-back\s*[,{]/.test(css), 'thiếu luật .modal-back');
+  });
+}
+
 // ---------- kết quả ----------
 function inKetQua() {
   console.log(`\n${pass} qua, ${fail} hỏng (tổng ${pass + fail})`);
@@ -1345,5 +1816,7 @@ function inKetQua() {
   console.log('✅ Tất cả đều qua');
 }
 
-// Nhóm K là nhóm test bất đồng bộ đầu tiên, nên phải chờ nó xong mới in kết quả.
+nhomP();
+
+// Nhóm K là nhóm test bất đồng bộ duy nhất, nên phải chờ nó xong mới in kết quả.
 nhomK().then(inKetQua);
