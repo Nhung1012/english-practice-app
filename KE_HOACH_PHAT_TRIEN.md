@@ -1310,6 +1310,58 @@ Bỏ luôn đoạn *"Đăng nhập lần đầu, sổ từ và tiến độ đan
 
 **Thêm 6 test (P9–P14), tổng 128/128 qua.** Đáng chú ý là P9 và I2 (viết lại) đều phải **đọc thẳng `index.html`** thay vì kiểm qua sandbox — `minidom.js` đăng ký phần tử phẳng, không có quan hệ cha–con, nên mọi câu hỏi *"phần tử này nằm trong khung nào"* đều không kiểm được qua DOM giả. Đúng giới hạn đã ghi lại ở nhóm N8.
 
+### Rút gọn khung Tài khoản còn đúng một hàng (cùng ngày, lần 3)
+
+Bạn bỏ tiếp ba dòng chữ và dồn cả ba con số lên **nhãn của hàng nút**:
+
+```
+📚 Đã học (5)    ⭐ Đã đánh dấu (1)    📒 Sổ từ (12 · 3 cần ôn)
+```
+
+Ba dòng bị gỡ:
+
+| Gỡ | Vì sao |
+|---|---|
+| `accStats` — đoạn văn bộ đếm | thứ người dùng muốn biết chỉ là ba con số; đọc một hàng nhanh hơn đọc hai câu |
+| `accSync` — dòng trạng thái đồng bộ | báo thành công là nhiễu, hiện suốt ngày mà chẳng để làm gì |
+| *"Bản trên máy này vẫn được giữ nguyên…"* | nói một chuyện người dùng không hỏi |
+
+**"📚 Đã học (5)" cố ý KHÔNG phải nút** — không có khung nào để mở ra. Dùng `.acc-chip`, nền xám nhạt, không viền đậm như nút thật, để không ai bấm hụt.
+
+⚠️ **Hai đánh đổi phải ghi lại, vì chúng không hiện ra ngay:**
+
+**1. Đẩy dữ liệu hỏng thì giao diện im lặng.** Bạn chọn bỏ cả cảnh báo `⚠️ Chưa đưa được dữ liệu lên tài khoản`. Thứ duy nhất còn bảo vệ người dùng là mốc `ep:pushed:<uid>` **không được dời khi hỏng** — nên lần đẩy sau (mỗi lần học xong, mỗi lần mở trang) tự thử lại từ đúng chỗ cũ, và localStorage vẫn nguyên. Mất là mất phần *thông báo*, không mất dữ liệu. Test **P16** canh cấu trúc (`ghiNhoDaDay` phải nằm trong nhánh `kq.ok`), **K4** canh hành vi.
+
+**2. Mất câu "Số này tính trên tài khoản / trên máy này".** Đây là câu duy nhất cho phép bạn tự đối chiếu hai thiết bị — chính là công cụ đã dùng để phát hiện lỗi 5 bài / 1 bài / 38 bài sáng nay. Nếu hai máy lại lệch, giờ không có gì chỉ ra điều đó. Đã báo lại, chờ bạn quyết.
+
+Câu giải thích *"một bài được tính khi bấm ▶ Nghe…"* thì giữ, chuyển vào `title` của chip.
+
+**Một chỗ suýt tái lập lỗi cũ:** nhãn nút Sổ từ ban đầu tôi định đếm thẳng từ `readVocab().length`. Làm vậy là khi đã đăng nhập, chip "Đã học" lấy số từ **tài khoản** còn nút Sổ từ lấy số từ **máy này** — hai con số cạnh nhau, hai nguồn khác nhau, đúng loại lỗi vừa mất cả buổi sáng để sửa. Nay cả hai đều đi qua `soLieuTienDo()`, hàm DUY NHẤT trả lời câu hỏi "ba con số là bao nhiêu".
+
+**Thêm 5 test, viết lại nhóm N — tổng 132/132 qua.** Nhóm N vẫn canh đúng câu hỏi cũ (*"người dùng có nhìn thấy con số không"*), chỉ đổi chỗ đọc kết quả từ `accStats.innerHTML` sang nhãn chip và nhãn nút. N9 canh việc **không hiện "0 cần ôn"** — báo một việc không cần làm cũng là nhiễu.
+
+### Ôn tập lên hàng nút, và bỏ tự mở bài (cùng ngày, lần 4)
+
+**1. Nút 🎯 Ôn tập chuyển hẳn lên hàng nút khung Tài khoản**, đứng sau nút Sổ từ. Khung Sổ từ không còn nút nào trên danh sách.
+
+Một chỗ phải sửa kèm mà không hiện ra ngay: nút vẽ trong `renderVocab()`, mà hàm đó vốn `return` sớm khi `modalPane !== 'vocab'`. Nút nay nằm NGOÀI khung Sổ từ nên phải vẽ **trước** dòng return đó — nếu không, nhãn "🎯 Ôn tập (3)" chỉ đúng khi người dùng đang đứng trong khung Sổ từ, tức là đúng lúc họ không nhìn thấy nó. Test **P13** canh chỗ này.
+
+Bấm nút từ khung Tài khoản thì `batDauOnTap()` tự chuyển sang khung Sổ từ — phần ôn vẽ ở đó, không chuyển khung là bấm xong tưởng như không có gì xảy ra (test **P17**).
+
+Nhãn giữ nguyên dạng `🎯 Ôn tập (0)` khi chưa tới hạn: nút mờ nhưng vẫn nói rõ hôm nay có 0 từ. Đây là hành vi test G3 cố ý canh từ trước, không đổi.
+
+**2. App KHÔNG còn tự mở bài ngẫu nhiên lúc vào trang.**
+
+Trước đây `loadNewItem()` chạy ngay trong phần init. Việc đó vừa chọn hộ người dùng thứ họ chưa yêu cầu, vừa chính là gốc của lỗi *"đã học 39 bài"* hồi 17/8 — mỗi lần mở trang là một bài mới được ghi. Nay chỉ nạp danh sách chủ đề cho ô tìm kiếm; người dùng tự chọn hoặc bấm 🔀 Đổi chủ đề.
+
+Khung nội dung và khung câu hỏi **ẩn hẳn** khi chưa có bài, dòng trạng thái cũng ẩn (`setStatus('')` nay ẩn luôn phần tử thay vì để một dòng trống).
+
+⚠️ **`hidden` đặt sẵn trong `index.html`, không đợi JS.** Để JS ẩn thì khung rỗng loé lên một nhịp trước khi script chạy. Nhưng vẫn gọi `capNhatKhungNoiDung()` trong init — `minidom.js` không đọc thuộc tính từ HTML nên sandbox và trình duyệt phải khớp nhau, và trạng thái ban đầu chỉ nên do MỘT chỗ quyết định. Test **P21** canh thuộc tính trong HTML, **P18** canh hành vi lúc chạy.
+
+**Chưa đổi, để bạn quyết:** đổi tab hoặc đổi trình độ **vẫn** tự mở bài mới như cũ. Đó là thao tác chủ động của người dùng, không phải "vào trang", nên tôi không tự mở rộng phạm vi.
+
+**Thêm 6 test, tổng 137/137 qua.**
+
 ### Việc của bạn — tuần 17
 
 1. Migration `study_log_counted_and_stats_rpc` **đã chạy** trên Supabase, không phải làm gì thêm.

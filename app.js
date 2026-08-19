@@ -50,7 +50,6 @@ const paneVocab = document.getElementById('paneVocab');
 const vocabList = document.getElementById('vocabList');
 const reviewPanel = document.getElementById('reviewPanel');
 const reviewBtn = document.getElementById('reviewBtn');
-const vocabActions = document.getElementById('vocabActions');
 const modalBack = document.getElementById('modalBack');
 const favList = document.getElementById('favList');
 const openFavBtn = document.getElementById('openFavBtn');
@@ -66,8 +65,7 @@ const accUser = document.getElementById('accUser');
 const accEmail = document.getElementById('accEmail');
 const accSigninBtn = document.getElementById('accSigninBtn');
 const accSignoutBtn = document.getElementById('accSignoutBtn');
-const accSync = document.getElementById('accSync');
-const accStats = document.getElementById('accStats');
+const accLearned = document.getElementById('accLearned');
 const signinBar = document.getElementById('signinBar');
 const signinCount = document.getElementById('signinCount');
 const signinBarBtn = document.getElementById('signinBarBtn');
@@ -97,10 +95,23 @@ const topicCaret = document.getElementById('topicCaret');
 const topicPanel = document.getElementById('topicPanel');
 const topicListbox = document.getElementById('topicListbox');
 const topicCount = document.getElementById('topicCount');
+const scriptCard = document.getElementById('scriptCard');
 
+// Chuỗi rỗng = ẩn hẳn dòng trạng thái. Từ 2026-08-19 app không tự mở bài lúc
+// vào trang, nên có lúc thật sự chẳng có gì để báo — để dòng trống nằm đó chỉ
+// tạo khoảng trắng khó hiểu dưới nút Nghe.
 function setStatus(msg, isError) {
-  statusText.textContent = msg;
+  statusText.textContent = msg || '';
   statusText.classList.toggle('error', !!isError);
+  statusText.hidden = !msg;
+}
+
+// Khung nội dung và khung câu hỏi chỉ tồn tại khi đã có bài. Gọi mỗi lần
+// `currentItem` đổi — kể cả khi đổi thành null (tải hỏng).
+function capNhatKhungNoiDung() {
+  const co = !!currentItem;
+  scriptCard.hidden = !co;
+  if (!co) quizCard.hidden = true;
 }
 
 function escapeHtml(str) {
@@ -657,15 +668,14 @@ function openModal(pane) {
     // Mở khung Tài khoản là lúc người dùng thực sự nhìn con số -> đọc lại từ
     // server ngay tại đây, đừng để họ xem số cũ từ lần mở trang trước.
     //
-    // renderFav()/renderVocab() ở đây là để cập nhật NHÃN hai nút (số trong
-    // ngoặc, và việc ẩn/hiện nút Đã đánh dấu). Từ 2026-08-19 hai nút đó nằm
-    // trong chính khung này, nên không còn ai vẽ lại chúng hộ nữa — thiếu hai
-    // dòng này là người dùng đánh dấu xong mở khung Tài khoản vẫn thấy số cũ.
+    // renderFav() ở đây là để cập nhật nhãn nút "Đã đánh dấu" — nút đó nằm
+    // trong chính khung này nên không còn ai vẽ lại nó hộ nữa; thiếu dòng này
+    // là người dùng đánh dấu xong, mở khung Tài khoản vẫn thấy số cũ.
+    // Nhãn nút "Sổ từ" thì `veThongKe()` lo (nó gọi `renderVocab()`).
     if (pane === 'account') {
       veThongKe();
       capNhatThongKe();
       renderFav();
-      renderVocab();
     }
   }
   modalClose.focus();
@@ -763,31 +773,46 @@ function renderVocab() {
   // Cố ý LUÔN hiện kể cả khi sổ từ trống: nếu ẩn đi thì người dùng mới sẽ
   // không bao giờ biết app có tính năng này.
   //
-  // Cùng ngày: bỏ chấm đỏ "N cần ôn" ở đây. Con số này nay chỉ nằm trong bộ
-  // đếm ngay phía trên, cùng chỗ với "đã học" và "từ trong sổ" — ba con số về
-  // tiến độ thì để chung một nơi.
-  openVocabBtn.hidden = false;
-  openVocabBtn.textContent = '📒 Sổ từ' + (list.length ? ' (' + list.length + ')' : '');
-
-  if (modalPane !== 'vocab') return;
-
-  modalTitle.textContent = 'Sổ từ (' + list.length + ')';
-
-  // Nút ôn tập LUÔN hiện khi sổ có từ, chỉ **mờ đi** khi chưa tới hạn ôn.
-  // Trước đây nút bị ẩn hẳn lúc `due.length === 0`, nên người dùng ôn hết một
-  // lượt là tính năng biến mất và họ tưởng app không có nó — đúng lỗi đã rút ra
-  // ở nút "Sổ từ" trước đây: KHÔNG ẩn lối vào của một tính năng chỉ vì nó đang trống.
+  // Nhãn gộp cả hai con số: "📒 Sổ từ (12 · 3 cần ôn)". Trước đây chúng nằm
+  // hai nơi — số từ trên nút, số cần ôn trong đoạn văn bộ đếm — nên phải nhìn
+  // hai chỗ mới biết có cần ôn hôm nay không.
   //
-  // 2026-08-19: nút chuyển từ hàng tiêu đề dùng chung xuống thân khung, nên ẩn
-  // cả `vocabActions` bọc ngoài — ẩn mỗi nút thì cái khung rỗng vẫn chừa khoảng
-  // trắng ngay trên danh sách.
-  vocabActions.hidden = reviewQueue.length > 0 || list.length === 0;
+  // ⚠️ Lấy từ `soLieuTienDo()` chứ KHÔNG đếm lại từ `list`/`due` ở đây: đã
+  // đăng nhập thì con số phải là của TÀI KHOẢN, còn `readVocab()` chỉ là sổ
+  // trên máy này. Đếm riêng một kiểu ở đây là tái lập đúng lỗi lệch số giữa
+  // hai thiết bị vừa sửa xong.
+  const td = soLieuTienDo();
+  const phanSo = [];
+  if (td.soTu) phanSo.push(String(td.soTu));
+  if (td.canOn) phanSo.push(td.canOn + ' cần ôn');
+  openVocabBtn.hidden = false;
+  openVocabBtn.textContent = '📒 Sổ từ' + (phanSo.length ? ' (' + phanSo.join(' · ') + ')' : '');
+
+  // Nút Ôn tập đứng cạnh nút Sổ từ trong hàng nút khung Tài khoản (2026-08-19).
+  //
+  // LUÔN hiện khi sổ có từ, chỉ **mờ đi** khi chưa tới hạn ôn. Trước đây nút bị
+  // ẩn hẳn lúc `due.length === 0`, nên người dùng ôn hết một lượt là tính năng
+  // biến mất và họ tưởng app không có nó — đúng lỗi đã rút ra ở nút "Sổ từ":
+  // KHÔNG ẩn lối vào của một tính năng chỉ vì nó đang trống.
+  //
+  // ⚠️ Vẽ ở ĐÂY chứ không sau dòng `modalPane !== 'vocab'` bên dưới: nút nay
+  // nằm ngoài khung Sổ từ, nên phải cập nhật cả khi người dùng đang đứng ở
+  // khung Tài khoản — mà đó lại chính là lúc họ nhìn thấy nó.
+  //
+  // `due` dùng số của MÁY (`dueWords()`), không phải `td.canOn` của tài khoản:
+  // phiên ôn chạy trên sổ từ trong localStorage, bấm nút mà hàng đợi rỗng thì
+  // vô nghĩa. Hai con số này chỉ lệch nhau khi máy vừa đăng nhập chưa kịp đồng
+  // bộ — hiếm, và thà nút mờ đi còn hơn bấm vào không có gì.
   reviewBtn.hidden = reviewQueue.length > 0 || list.length === 0;
   reviewBtn.disabled = due.length === 0;
   reviewBtn.textContent = '🎯 Ôn tập (' + due.length + ')';
   reviewBtn.title = due.length
     ? 'Ôn ' + due.length + ' từ đến hạn hôm nay'
     : 'Hôm nay chưa có từ nào tới hạn ôn';
+
+  if (modalPane !== 'vocab') return;
+
+  modalTitle.textContent = 'Sổ từ (' + list.length + ')';
 
   if (!list.length) {
     reviewPanel.hidden = true;
@@ -883,6 +908,9 @@ function renderVocab() {
 function batDauOnTap() {
   reviewQueue = dueWords().map(v => v.word);
   reviewShow = false;
+  // Nút nằm ở khung Tài khoản nhưng phần ôn vẽ trong khung Sổ từ, nên phải
+  // chuyển khung — không thì bấm xong tưởng như không có gì xảy ra.
+  if (modalPane !== 'vocab') openModal('vocab');
   renderReview();
   renderVocab();
 }
@@ -1191,68 +1219,59 @@ function capNhatGiaoDienTaiKhoan() {
   // tiếp theo dùng máy này. Số của server sẽ do dayLenTaiKhoan() nạp lại.
   if (!user) thongKeServer = null;
   veThongKe();
-  veTrangThaiGop();
   // Đăng nhập xong thì dải mời không còn lý do tồn tại.
   kiemTraDaiMoi();
 }
 
 // ============================================================
-// BỘ ĐẾM TIẾN ĐỘ trong khung Tài khoản (2026-08-17)
+// BỘ ĐẾM TIẾN ĐỘ trong khung Tài khoản (2026-08-17, viết lại 2026-08-19)
 //
 // Vì sao cần: sau khi đổi luật đếm ("mở bài" không còn là "đã học"), con số
 // này là thứ DUY NHẤT để người dùng kiểm chứng luật mới. Mà trước đó nó chỉ
 // xuất hiện trong dải mời đăng nhập — dải ẩn hẳn sau khi đăng nhập, nên người
 // đã đăng nhập không có chỗ nào nhìn thấy tiến độ của mình.
 //
-// Bài học lặp lại lần thứ tư: đổi cách tính một con số thì phải có chỗ để
-// nhìn thấy con số đó, nếu không thay đổi là vô hình và không kiểm chứng được.
+// 2026-08-19: ba con số chuyển từ một đoạn văn (`accStats`) lên thẳng NHÃN của
+// hàng nút. Đoạn văn cũ có hai câu giải thích dài, mà thứ người dùng thực sự
+// muốn biết chỉ là ba con số — đọc một hàng nhanh hơn đọc hai câu.
 //
-// Dòng gợi ý bên dưới cố ý nói rõ ĐIỀU KIỆN được tính — người dùng mở một bài
-// rồi thấy số không nhúc nhích sẽ tưởng app hỏng chứ không đoán ra là cố ý.
-// ============================================================
+// ⚠️ Mất theo: câu "Số này tính trên tài khoản / trên máy này". Không có chỗ
+// nào khác nói nguồn của con số nữa, nên nếu hai máy lại lệch thì người dùng
+// không tự đối chiếu được. Đã báo lại, chờ bạn quyết có đưa về hay không.
 // ------------------------------------------------------------
 // NGUỒN CỦA CON SỐ (sửa 2026-08-19)
 //
 // Trước hôm nay cả ba con số đều đếm từ localStorage, kể cả khi đã đăng nhập.
 // localStorage là dữ liệu của MÁY, nên một tài khoản mở ở máy tính và ở iPhone
 // báo hai kết quả khác nhau (5 bài / 1 bài) trong khi server giữ con số thứ ba.
-// Người dùng không có cách nào biết cái nào đúng.
 //
 // Nay: đăng nhập rồi thì SERVER là nguồn thật (`thongKeServer`, lấy qua RPC
 // `thong_ke_tai_khoan`). Khách — hoặc đã đăng nhập mà mạng hỏng — mới lùi về
-// localStorage, và khi đó nói rõ "trên máy này" để không hứa điều không đúng.
+// localStorage.
 // ------------------------------------------------------------
 let thongKeServer = null; // { soBai, soTu, canOn } hoặc null = chưa/không đọc được
 
+// Ba con số hiện tại, đã chọn xong nguồn. Tách riêng vì `renderVocab()` cũng
+// cần chúng để vẽ nhãn nút Sổ từ — hai chỗ đếm hai kiểu chính là gốc của lỗi
+// lệch số giữa hai thiết bị, nên chỉ có ĐÚNG MỘT hàm trả lời câu hỏi này.
+function soLieuTienDo() {
+  const tuServer = !!nguoiDungHienTai() && thongKeServer;
+  return tuServer
+    ? { soBai: thongKeServer.soBai, soTu: thongKeServer.soTu, canOn: thongKeServer.canOn }
+    : { soBai: soBaiDaHoc(), soTu: readVocab().length, canOn: dueWords().length };
+}
+
+// Chip "📚 Đã học (n)". Cố ý KHÔNG phải nút: không có khung nào để mở ra.
+// `title` giữ lại câu giải thích điều kiện được tính — người dùng mở một bài
+// rồi thấy số không nhúc nhích sẽ tưởng app hỏng chứ không đoán ra là cố ý.
 function veThongKe() {
-  if (!accStats) return;
-  const daDangNhap = !!nguoiDungHienTai();
-  const tuServer = daDangNhap && thongKeServer;
-  const soBai = tuServer ? thongKeServer.soBai : soBaiDaHoc();
-  const soTu = tuServer ? thongKeServer.soTu : readVocab().length;
-  const canOn = tuServer ? thongKeServer.canOn : dueWords().length;
-
-  if (!soBai && !soTu) {
-    accStats.innerHTML = '📚 Chưa có bài nào được tính là đã học.'
-      + '<span class="as-hint">Bấm <b>▶ Nghe</b>, hoặc ở lại trong bài một phút, '
-      + 'hoặc làm xong phần 📝 câu hỏi — mở bài rồi thoát ngay thì không tính.</span>';
-    return;
-  }
-
-  const phan = [`📚 Đã học <b>${soBai}</b> bài`, `📒 <b>${soTu}</b> từ trong sổ`];
-  if (canOn) phan.push(`🎯 <b>${canOn}</b> từ cần ôn`);
-
-  // Câu gợi ý nói rõ con số đang đếm ở đâu. Đây là chỗ duy nhất người dùng có
-  // thể tự đối chiếu hai thiết bị, nên không được nói mơ hồ.
-  const nguon = tuServer
-    ? 'Số này tính trên tài khoản, mọi thiết bị đăng nhập đều thấy giống nhau.'
-    : (daDangNhap
-        ? '⚠️ Chưa đọc được số từ tài khoản, đang hiện số <b>trên máy này</b>.'
-        : 'Số này tính <b>trên máy này</b>. Đăng nhập để gộp chung mọi thiết bị.');
-
-  accStats.innerHTML = phan.join(' · ')
-    + '<span class="as-hint">Một bài được tính khi bạn bấm ▶ Nghe, ở lại một phút, '
-    + 'hoặc làm câu hỏi hiểu bài. ' + nguon + '</span>';
+  if (!accLearned) return;
+  const { soBai } = soLieuTienDo();
+  accLearned.textContent = '📚 Đã học' + (soBai ? ' (' + soBai + ')' : '');
+  accLearned.title = 'Một bài được tính khi bạn bấm ▶ Nghe, ở lại trong bài một '
+    + 'phút, hoặc làm câu hỏi hiểu bài. Mở bài rồi thoát ngay thì không tính.';
+  // Nhãn nút Sổ từ dùng chung `canOn`, nên vẽ lại luôn cho khỏi lệch nhau.
+  renderVocab();
 }
 
 // Đọc lại số từ server rồi vẽ. Gọi sau mỗi lần đẩy dữ liệu và mỗi lần mở khung
@@ -1310,42 +1329,29 @@ function daTungGop(userId) {
                        || readJson(MERGED_PREFIX + userId, null)));
 }
 
-// trangThai: 'dang-chay' | 'xong' | 'hong' | null (ẩn hẳn)
+// ⚠️ ĐÃ GỠ `veTrangThaiGop()` và phần tử `accSync` (2026-08-19, bạn yêu cầu).
 //
-// ⚠️ KHÔNG hiện lại con số của lần đẩy trước nữa. Dòng cũ ghi "✅ Đã đưa 45
-// lượt học và 2 từ" là số ĐÃ LƯU TỪ LẦN TRƯỚC, đọc ra từ localStorage — nó
-// đứng ngay dưới dòng "Đã học 5 bài" và mâu thuẫn với chính dòng đó. Ba con số
-// khác đơn vị (lượt / bài / bản ghi) cạnh nhau thì không ai hiểu được.
-// Con số duy nhất còn lại là bộ đếm ở trên, và nay nó lấy thẳng từ server.
-function veTrangThaiGop(trangThai) {
-  if (!accSync) return;
-  const user = nguoiDungHienTai();
-  if (!user) { accSync.hidden = true; return; }
-
-  const tt = trangThai || (daTungGop(user.id) ? 'xong' : null);
-
-  accSync.className = 'acc-sync' + (tt ? ' ' + tt : '');
-  if (tt === 'dang-chay') {
-    accSync.textContent = '⏳ Đang đưa dữ liệu trên máy này lên tài khoản…';
-  } else if (tt === 'xong') {
-    accSync.textContent = '✅ Dữ liệu trên máy này đã được đưa lên tài khoản.';
-  } else if (tt === 'hong') {
-    accSync.textContent = '⚠️ Chưa đưa được dữ liệu lên tài khoản. '
-      + 'Dữ liệu trên máy vẫn còn nguyên, lần sau sẽ tự thử lại.';
-  }
-  accSync.hidden = !tt;
-}
+// Dòng đó có ba trạng thái: đang chạy, xong, và hỏng. Nay không hiện trạng thái
+// nào cả — kể cả cảnh báo hỏng. Hệ quả phải biết: **đẩy dữ liệu thất bại thì
+// giao diện im lặng**, người dùng không biết bài vừa học chưa lên server.
+//
+// Vì sao vẫn chấp nhận được: mốc `ep:pushed:<uid>` KHÔNG được dời khi hỏng, nên
+// lần đẩy sau (mỗi lần học xong, mỗi lần mở trang) tự thử lại từ đúng chỗ cũ,
+// và dữ liệu gốc vẫn nguyên trong localStorage. Mất là mất phần *thông báo*,
+// không mất dữ liệu. `console.warn` trong supabase.js vẫn ghi lại để dò lỗi.
+//
+// `daTungGop()` giữ lại: nó còn dùng để phân biệt máy đã chạy bản cũ (có cờ
+// `ep:merged`) với máy chưa đẩy lần nào.
 
 // Đẩy phần chưa đẩy lên tài khoản, rồi đọc lại số từ server.
 //
 // Gọi được nhiều lần: lúc khôi phục phiên, lúc bấm đăng nhập, và sau mỗi lần
 // học xong / lưu từ (xem `dayNgam`). `dangGopDuLieu` chỉ chống chạy chồng
 // trong cùng một khoảnh khắc, KHÔNG phải cờ "đã làm rồi thì thôi".
-async function dayLenTaiKhoan(user, imLang) {
+async function dayLenTaiKhoan(user) {
   if (!user || dangGopDuLieu) return null;
 
   dangGopDuLieu = true;
-  if (!imLang) veTrangThaiGop('dang-chay');
   try {
     const kq = await gopDuLieuLenTaiKhoan(user, readLog(), readVocab(),
                                           docMocDay(user.id));
@@ -1354,9 +1360,6 @@ async function dayLenTaiKhoan(user, imLang) {
       // nguyên mốc cũ, lần sau đẩy lại từ đúng chỗ đó — an toàn nhờ unique
       // index của study_log và nhờ sổ từ được đọc trước rồi mới lọc.
       ghiNhoDaDay(user.id, kq);
-      veTrangThaiGop('xong');
-    } else {
-      veTrangThaiGop('hong');
     }
     await capNhatThongKe();
     return kq;
@@ -1378,7 +1381,7 @@ function dayNgam() {
   if (hangChoDay) clearTimeout(hangChoDay);
   hangChoDay = setTimeout(() => {
     hangChoDay = null;
-    dayLenTaiKhoan(user, true); // im lặng: không nhấp nháy dòng trạng thái
+    dayLenTaiKhoan(user);
   }, 3000);
 }
 
@@ -1464,6 +1467,7 @@ async function loadNewItem() {
       topicText.textContent = '—';
       scriptBox.innerHTML = '';
       currentItem = null;
+      capNhatKhungNoiDung(); // không có bài thì đừng để lại khung rỗng
       setStatus('Chưa tải được nội dung từ Supabase. Kiểm tra kết nối mạng hoặc thử lại sau.', true);
       return;
     }
@@ -1526,6 +1530,10 @@ function buildSentences() {
 }
 
 function renderScript() {
+  // Đặt ở đây vì `renderScript()` là cửa DUY NHẤT vẽ nội dung bài. Gắn vào đây
+  // thì mọi đường vào (chọn chủ đề, đổi chủ đề, mở lại bài đã đánh dấu) đều
+  // tự hiện khung, không phải nhớ gọi ở từng chỗ.
+  capNhatKhungNoiDung();
   scriptBox.innerHTML = '';
   sentences = buildSentences();
   currentIndex = 0;
@@ -2461,17 +2469,31 @@ applyRate(loadRate(), false);
 bilingual = loadBilingual(); // nhớ lựa chọn song ngữ từ lần vào trước
 chuyenNhatKyCu();
 
+// Trạng thái "chưa chọn bài". `hidden` đã đặt sẵn trong index.html để khung
+// rỗng không loé lên trước khi script chạy; gọi lại ở đây để trạng thái ban đầu
+// do ĐÚNG MỘT chỗ quyết định, không phụ thuộc việc ai đó sửa HTML sau này.
+capNhatKhungNoiDung();
+setStatus('');
+
 syncFavButton();
 renderFav();
 renderVocab();
 capNhatGiaoDienTaiKhoan(); // vẽ ngay ở chế độ khách, không chờ mạng
 kiemTraDaiMoi();
 
-loadNewItem();
+// ⚠️ KHÔNG gọi loadNewItem() ở đây nữa (2026-08-19, bạn yêu cầu).
+//
+// Trước đây app tự mở một bài ngẫu nhiên ngay khi vào trang. Việc đó vừa chọn
+// hộ người dùng thứ họ chưa yêu cầu, vừa là gốc của lỗi "đã học 39 bài" hồi
+// 17/8 — mỗi lần mở trang là một bài mới được tính. Nay người dùng tự chọn chủ
+// đề hoặc bấm 🔀 Đổi chủ đề.
+//
+// Vẫn nạp danh sách chủ đề để ô tìm kiếm dùng được ngay, chỉ không mở bài nào.
+loadTopicOptions();
 
 // Khôi phục phiên đăng nhập (nếu có) rồi cập nhật lại nút tài khoản.
-// Chạy sau loadNewItem() và KHÔNG await: mạng chậm hay Supabase lỗi thì app
-// vẫn dùng được bình thường ở chế độ khách, chỉ là nút vẫn ghi "Đăng nhập".
+// KHÔNG await: mạng chậm hay Supabase lỗi thì app vẫn dùng được bình thường ở
+// chế độ khách, chỉ là nút vẫn ghi "Đăng nhập".
 khoiTaoAuth(phien => {
   capNhatGiaoDienTaiKhoan();
   if (!phien || !phien.user) return;

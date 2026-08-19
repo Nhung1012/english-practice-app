@@ -78,7 +78,8 @@
       <input type="range" id="rateRange" min="0.6" max="1.2" step="0.05" value="1">
       <span class="speed-value" id="rateValue">1.00×</span>
     </div>
-    <div class="status" id="statusText">Đang tải nội dung...</div>
+    <!-- Trống và ẩn lúc vào trang: chưa tải gì thì không có gì để báo. -->
+    <div class="status" id="statusText" hidden></div>
 
     <!-- 2026-08-19: gỡ dòng "Học tiếp" và danh sách "Học gần đây". Cả hai đều
          trả lời câu hỏi "vừa nãy tôi xem bài gì" — mà app này vốn là random chủ
@@ -92,8 +93,12 @@
   </div>
 
 
-  <!-- SCRIPT DISPLAY -->
-  <div class="card">
+  <!-- SCRIPT DISPLAY.
+       `hidden` sẵn từ HTML: app KHÔNG còn tự mở bài ngẫu nhiên lúc vào trang
+       (2026-08-19), nên trước khi người dùng chọn chủ đề thì khung này chưa có
+       gì để hiện. Đặt hidden ngay trong HTML chứ không đợi JS: để JS ẩn thì
+       khung rỗng vẫn loé lên một nhịp trước khi script chạy. -->
+  <div class="card" id="scriptCard" hidden>
     <div class="script-header">
       <div class="row-label" id="scriptLabel">Nội dung</div>
       <!-- Tự ẩn khi bài chưa có bản dịch (mục 1.4) -->
@@ -148,27 +153,27 @@
         <div id="favList"></div>
       </div>
       <div id="paneVocab" hidden>
-        <!-- Nút Ôn tập nằm trong THÂN khung, ngay trên danh sách từ — không
-             phải ở hàng tiêu đề dùng chung nữa. Hàng tiêu đề giờ chỉ còn ba
-             thứ luôn cùng một vai trò: quay lại, tên khung, đóng. -->
-        <div class="vocab-actions" id="vocabActions" hidden>
-          <button class="btn secondary copy-btn" id="reviewBtn">🎯 Ôn tập</button>
-        </div>
+        <!-- Nút 🎯 Ôn tập đã chuyển lên hàng nút của khung Tài khoản
+             (#accLinks) ngày 2026-08-19. Khung này giờ chỉ còn danh sách từ và
+             phần ôn đang chạy. -->
         <div id="reviewPanel" hidden></div>
         <div id="vocabList"></div>
       </div>
       <div id="paneAccount" hidden>
-        <!-- Nằm NGOÀI accGuest/accUser để hiện cho cả khách lẫn người đã đăng
-             nhập. Trước đây con số "đã học" chỉ xuất hiện trong dải mời đăng
-             nhập, mà dải đó ẩn hẳn sau khi đăng nhập — nên người dùng không có
-             chỗ nào nhìn thấy tiến độ của mình. -->
-        <p class="acc-stats" id="accStats"></p>
-        <!-- Lối vào DUY NHẤT của hai khung con, chuyển từ màn hình chính vào
-             đây 2026-08-19. Đặt ngay dưới bộ đếm vì cùng một chủ đề: ba con số
-             tiến độ, rồi tới chỗ xem chi tiết của hai con số trong đó. -->
+        <!-- 2026-08-19 (lần 2): gỡ ba dòng chữ khỏi khung này —
+             `accStats` (bộ đếm ba con số), `accSync` (dòng trạng thái đồng bộ,
+             cả bản báo thành công lẫn bản cảnh báo lỗi) và câu "Bản trên máy
+             này vẫn được giữ nguyên…". Ba con số nay nằm thẳng trên nhãn của
+             hàng nút bên dưới: nhìn một hàng là đủ, không phải đọc.
+
+             ⚠️ Hàng nút nằm NGOÀI accGuest/accUser để hiện cho cả khách lẫn
+             người đã đăng nhập. Nhét vào một trong hai là một phía mất hẳn lối
+             vào Sổ từ — đúng lỗi N8 từng bắt được với bộ đếm cũ. -->
         <div class="acc-links" id="accLinks">
+          <span class="acc-chip" id="accLearned">📚 Đã học</span>
           <button type="button" class="btn secondary quick-btn" id="openFavBtn" hidden>⭐ Đã đánh dấu</button>
           <button type="button" class="btn secondary quick-btn" id="openVocabBtn">📒 Sổ từ</button>
+          <button type="button" class="btn secondary quick-btn" id="reviewBtn" hidden>🎯 Ôn tập</button>
         </div>
         <div id="accGuest">
           <p class="acc-lead">Bạn đang dùng ở <b>chế độ khách</b>. Mọi tính năng đều dùng được bình thường, không có gì bị khoá.</p>
@@ -177,21 +182,20 @@
         </div>
         <div id="accUser" hidden>
           <p class="acc-lead">Đang đăng nhập: <b id="accEmail"></b></p>
-          <p class="acc-sync" id="accSync" hidden></p>
-          <p class="acc-note">Bản trên máy này vẫn được giữ nguyên, nên đăng xuất <b>không mất gì</b>.</p>
           <button type="button" class="btn secondary" id="accSignoutBtn">Đăng xuất</button>
         </div>
       </div>
       <div id="paneHelp" hidden>
         <ul class="help-list">
+          <li><b>Chọn chủ đề</b> ở ô tìm kiếm, hoặc bấm <b>🔀 Đổi chủ đề</b> để lấy một bài ngẫu nhiên. App không tự mở bài — bạn chọn thì mới có nội dung.</li>
           <li><b>Bấm vào một từ</b> trong bài → hiện phiên âm, nghĩa và ví dụ. Bấm <b>☆</b> trong popup để lưu từ vào sổ.</li>
           <li><b>▶</b> ở đầu mỗi câu → nghe riêng câu đó. Đang đọc thì nút đổi thành <b>■</b>, bấm lại là dừng ngay tại chỗ.</li>
           <li><b>👁</b> ở cuối câu → hiện nghĩa tiếng Việt của cả câu. Câu chưa có bản dịch thì không có nút này.</li>
           <li><b>🇻🇳 Bản dịch</b> → bật chế độ song ngữ cho cả bài. Lựa chọn được nhớ cho các bài sau.</li>
           <li><b>⏮ ▶ ⏭ 🔁</b> → chuyển câu, phát, và lặp lại mãi một câu. Kéo <b>thanh tốc độ</b> để đọc chậm lại (0.6×–1.2×).</li>
-          <li>Nút <b>tài khoản</b> ở góc trên bên phải → tiến độ (đã học, từ trong sổ, từ cần ôn) và lối vào <b>⭐ Đã đánh dấu</b> với <b>📒 Sổ từ</b>.</li>
+          <li>Nút <b>tài khoản</b> ở góc trên bên phải → tiến độ (đã học, từ trong sổ, từ cần ôn) và lối vào <b>⭐ Đã đánh dấu</b>, <b>📒 Sổ từ</b>, <b>🎯 Ôn tập</b>.</li>
           <li><b>☆</b> cạnh tên chủ đề → đánh dấu bài hay, mở lại lúc nào cũng được từ khung <b>⭐ Đã đánh dấu</b>.</li>
-          <li><b>📒 Sổ từ</b> → các từ đã lưu. Nút <b>🎯 Ôn tập</b> nằm ngay trên danh sách, ôn theo 5 hộp: nhớ thì giãn dần 1 → 3 → 7 → 14 → 30 ngày, quên thì về hộp 1.</li>
+          <li><b>📒 Sổ từ</b> → các từ đã lưu. <b>🎯 Ôn tập</b> ôn theo 5 hộp: nhớ thì giãn dần 1 → 3 → 7 → 14 → 30 ngày, quên thì về hộp 1. Nút mờ đi nghĩa là hôm nay chưa có từ nào tới hạn.</li>
           <li><b>📝 Câu hỏi hiểu bài</b> ở cuối bài → 4 câu trắc nghiệm, nộp xong có giải thích cho <i>mọi</i> câu. Bài chưa soạn thì khung này tự ẩn.</li>
         </ul>
         <p class="help-note">Chưa cần tài khoản. Sổ từ, tiến độ và các lựa chọn được lưu ngay trên máy này — đăng nhập để dùng chung trên mọi thiết bị.</p>
