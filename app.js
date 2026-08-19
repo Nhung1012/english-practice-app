@@ -46,14 +46,13 @@ const modalBackdrop = document.getElementById('modalBackdrop');
 const modalTitle = document.getElementById('modalTitle');
 const modalClose = document.getElementById('modalClose');
 const paneFav = document.getElementById('paneFav');
-const paneVocab = document.getElementById('paneVocab');
-const vocabList = document.getElementById('vocabList');
+const paneReview = document.getElementById('paneReview');
+const reviewEmpty = document.getElementById('reviewEmpty');
 const reviewPanel = document.getElementById('reviewPanel');
 const reviewBtn = document.getElementById('reviewBtn');
 const modalBack = document.getElementById('modalBack');
 const favList = document.getElementById('favList');
 const openFavBtn = document.getElementById('openFavBtn');
-const openVocabBtn = document.getElementById('openVocabBtn');
 const openHelpBtn = document.getElementById('openHelpBtn');
 const paneHelp = document.getElementById('paneHelp');
 const accBtn = document.getElementById('accBtn');
@@ -641,12 +640,12 @@ function gradeWord(word, remembered) {
 // hệ thống tự chọn chứ không phải bài người dùng muốn quay lại — danh sách đó
 // tự lấp đầy bằng nhiễu. Việc "muốn quay lại bài này" đã có ☆ làm rồi, và ☆ là
 // người dùng CHỦ ĐỘNG chọn nên nó đúng ý hơn hẳn.
-let modalPane = null; // 'fav' | 'vocab' | 'help' | 'account' | null
+let modalPane = null; // 'fav' | 'review' | 'help' | 'account' | null
 
 function openModal(pane) {
   modalPane = pane;
   paneFav.hidden = pane !== 'fav';
-  paneVocab.hidden = pane !== 'vocab';
+  paneReview.hidden = pane !== 'review';
   paneHelp.hidden = pane !== 'help';
   paneAccount.hidden = pane !== 'account';
   modal.hidden = false;
@@ -655,10 +654,10 @@ function openModal(pane) {
   // Hai khung con chỉ vào được TỪ khung Tài khoản (2026-08-19), nên chúng —
   // và chỉ chúng — có đường về. Khung Tài khoản và Hướng dẫn mở thẳng từ
   // màn hình chính, không đi ra từ đâu cả.
-  modalBack.hidden = !(pane === 'fav' || pane === 'vocab');
+  modalBack.hidden = !(pane === 'fav' || pane === 'review');
 
   if (pane === 'fav') renderFav();
-  else if (pane === 'vocab') renderVocab();
+  else if (pane === 'review') renderVocab();
   else {
     // Hai khung này là HTML tĩnh viết sẵn trong index.html, không sinh từ
     // dữ liệu, nên ở đây chỉ cần đặt tiêu đề.
@@ -761,156 +760,89 @@ function renderFav() {
   }
 }
 
-// ====== VẼ SỔ TỪ & PHIÊN ÔN TẬP ======
+// ====== PHIÊN ÔN TẬP ======
+//
+// 2026-08-19: gỡ hẳn khung "📒 Sổ từ" — danh sách toàn bộ từ đã lưu, kèm hộp
+// Leitner, ngày ôn kế tiếp, nút 🔊 và nút 🗑 của từng dòng.
+//
+// Từ vẫn được LƯU y như cũ (nút ☆ trong popup tra từ) và vẫn chạy hộp Leitner
+// y như cũ. Chỉ khác: không còn nơi nào liệt kê cả sổ, người dùng gặp lại từ
+// của mình trong lúc ôn. Nút 🗑 chuyển vào chính màn ôn (xem `renderReview`) —
+// đó là chỗ duy nhất còn lại để bỏ một từ lưu nhầm, nên KHÔNG được gỡ nó.
 let reviewQueue = [];   // hàng đợi từ cần ôn trong phiên hiện tại
 let reviewShow = false; // đã lật đáp án chưa
 
+// Giữ tên `renderVocab` dù không còn danh sách nào để vẽ: hàm này được gọi từ
+// hơn mười chỗ (lưu từ, xoá từ, chấm từ, mở khung Tài khoản, đăng nhập...).
+// Nay nó chỉ còn một việc — vẽ nhãn nút 🎯 Ôn tập.
 function renderVocab() {
   const list = readVocab();
   const due = dueWords();
 
-  // Nút nằm trong khung Tài khoản (2026-08-19), không còn ở màn hình chính.
-  // Cố ý LUÔN hiện kể cả khi sổ từ trống: nếu ẩn đi thì người dùng mới sẽ
-  // không bao giờ biết app có tính năng này.
-  //
-  // Nhãn gộp cả hai con số: "📒 Sổ từ (12 · 3 cần ôn)". Trước đây chúng nằm
-  // hai nơi — số từ trên nút, số cần ôn trong đoạn văn bộ đếm — nên phải nhìn
-  // hai chỗ mới biết có cần ôn hôm nay không.
-  //
-  // ⚠️ Lấy từ `soLieuTienDo()` chứ KHÔNG đếm lại từ `list`/`due` ở đây: đã
-  // đăng nhập thì con số phải là của TÀI KHOẢN, còn `readVocab()` chỉ là sổ
-  // trên máy này. Đếm riêng một kiểu ở đây là tái lập đúng lỗi lệch số giữa
-  // hai thiết bị vừa sửa xong.
-  const td = soLieuTienDo();
-  const phanSo = [];
-  if (td.soTu) phanSo.push(String(td.soTu));
-  if (td.canOn) phanSo.push(td.canOn + ' cần ôn');
-  openVocabBtn.hidden = false;
-  openVocabBtn.textContent = '📒 Sổ từ' + (phanSo.length ? ' (' + phanSo.join(' · ') + ')' : '');
-
-  // Nút Ôn tập đứng cạnh nút Sổ từ trong hàng nút khung Tài khoản (2026-08-19).
+  // Nút nằm trong hàng nút của khung Tài khoản.
   //
   // LUÔN hiện khi sổ có từ, chỉ **mờ đi** khi chưa tới hạn ôn. Trước đây nút bị
   // ẩn hẳn lúc `due.length === 0`, nên người dùng ôn hết một lượt là tính năng
-  // biến mất và họ tưởng app không có nó — đúng lỗi đã rút ra ở nút "Sổ từ":
-  // KHÔNG ẩn lối vào của một tính năng chỉ vì nó đang trống.
+  // biến mất và họ tưởng app không có nó: KHÔNG ẩn lối vào của một tính năng
+  // chỉ vì nó đang trống.
   //
-  // ⚠️ Vẽ ở ĐÂY chứ không sau dòng `modalPane !== 'vocab'` bên dưới: nút nay
-  // nằm ngoài khung Sổ từ, nên phải cập nhật cả khi người dùng đang đứng ở
-  // khung Tài khoản — mà đó lại chính là lúc họ nhìn thấy nó.
-  //
-  // `due` dùng số của MÁY (`dueWords()`), không phải `td.canOn` của tài khoản:
+  // `due` dùng số của MÁY (`dueWords()`), không phải `canOn` của tài khoản:
   // phiên ôn chạy trên sổ từ trong localStorage, bấm nút mà hàng đợi rỗng thì
-  // vô nghĩa. Hai con số này chỉ lệch nhau khi máy vừa đăng nhập chưa kịp đồng
-  // bộ — hiếm, và thà nút mờ đi còn hơn bấm vào không có gì.
-  reviewBtn.hidden = reviewQueue.length > 0 || list.length === 0;
-  reviewBtn.disabled = due.length === 0;
-  reviewBtn.textContent = '🎯 Ôn tập (' + due.length + ')';
-  reviewBtn.title = due.length
-    ? 'Ôn ' + due.length + ' từ đến hạn hôm nay'
-    : 'Hôm nay chưa có từ nào tới hạn ôn';
+  // vô nghĩa. Hai con số chỉ lệch khi máy vừa đăng nhập chưa kịp đồng bộ —
+  // hiếm, và thà nút mờ đi còn hơn bấm vào không có gì.
+  //
+  // 🐞 Điều kiện `hidden` ở đây từng gây lỗi (xem nhật ký 2026-08-19): luật
+  // "đang ôn dở thì ẩn nút" chỉ đúng khi người dùng ĐANG ĐỨNG trong khung ôn —
+  // lúc đó bảng ôn đã chiếm chỗ. Đứng ở khung Tài khoản mà ẩn là cắt đường
+  // quay lại phiên đang dở.
+  const dangOn = reviewQueue.length > 0;
+  reviewBtn.hidden = list.length === 0 || (dangOn && modalPane === 'review');
+  // Đang ôn dở thì nút luôn bấm được, kể cả khi `due` đã về 0 vì vừa chấm xong
+  // vài từ — hàng đợi mới là thứ quyết định còn gì để ôn hay không.
+  reviewBtn.disabled = !dangOn && due.length === 0;
+  reviewBtn.textContent = dangOn
+    ? '🎯 Ôn tiếp (' + reviewQueue.length + ')'
+    : '🎯 Ôn tập (' + due.length + ')';
+  reviewBtn.title = dangOn
+    ? 'Quay lại phiên ôn đang dở, còn ' + reviewQueue.length + ' từ'
+    : (due.length
+        ? 'Ôn ' + due.length + ' từ đến hạn hôm nay'
+        : 'Hôm nay chưa có từ nào tới hạn ôn');
 
-  if (modalPane !== 'vocab') return;
+  if (modalPane !== 'review') return;
 
-  modalTitle.textContent = 'Sổ từ (' + list.length + ')';
+  modalTitle.textContent = 'Ôn tập' + (dangOn ? ' (' + reviewQueue.length + ')' : '');
 
+  // Khung ôn khi KHÔNG có gì để ôn. Trước đây chỗ này là danh sách cả sổ, nên
+  // mở ra lúc nào cũng có nội dung; nay phải tự nói ra vì sao trống, nếu không
+  // người dùng bấm vào một khung rỗng và tưởng app hỏng.
+  if (dangOn) { reviewEmpty.hidden = true; return; }
+
+  reviewPanel.hidden = true;
+  reviewEmpty.hidden = false;
+  reviewEmpty.className = 'hist-empty';
   if (!list.length) {
-    reviewPanel.hidden = true;
-    vocabList.innerHTML = '';
-    const p = document.createElement('div');
-    p.className = 'hist-empty';
-    p.textContent = 'Sổ từ đang trống. Bấm vào một từ tiếng Anh trong bài, '
-      + 'rồi bấm ☆ ở góc popup để lưu từ đó vào đây học dần.';
-    vocabList.appendChild(p);
-    return;
-  }
-
-  vocabList.innerHTML = '';
-
-  // Sổ có từ nhưng chưa tới hạn ôn: nói rõ ngày quay lại, thay vì để người dùng
-  // nhìn nút mờ mà không hiểu vì sao bấm không được.
-  if (!due.length) {
-    const note = document.createElement('div');
-    note.className = 'hist-empty';
+    reviewEmpty.textContent = 'Chưa lưu từ nào. Bấm vào một từ tiếng Anh trong bài, '
+      + 'rồi bấm ☆ ở góc popup để lưu từ đó lại học dần.';
+  } else {
     const ngay = ngayOnGanNhat();
-    note.textContent = ngay
+    reviewEmpty.textContent = ngay
       ? 'Hôm nay không có từ nào tới hạn ôn. Lượt ôn kế tiếp: ' + dinhDangNgay(ngay) + '.'
       : 'Hôm nay không có từ nào tới hạn ôn.';
-    vocabList.appendChild(note);
   }
-
-  // Từ đến hạn lên đầu, còn lại theo thứ tự lưu gần nhất.
-  const t = homNay();
-  const sorted = list.slice().sort((a, b) => {
-    const da = (!a.due_date || a.due_date <= t) ? 0 : 1;
-    const db = (!b.due_date || b.due_date <= t) ? 0 : 1;
-    if (da !== db) return da - db;
-    return String(b.created_at).localeCompare(String(a.created_at));
-  });
-
-  sorted.forEach(v => {
-    const denHan = !v.due_date || v.due_date <= t;
-    const row = document.createElement('div');
-    row.className = 'vocab-item';
-
-    const main = document.createElement('div');
-    main.className = 'vocab-main';
-    const top = document.createElement('div');
-    const w = document.createElement('span');
-    w.className = 'vocab-word';
-    w.textContent = v.word;
-    top.appendChild(w);
-    if (v.ipa) {
-      const ipa = document.createElement('span');
-      ipa.className = 'vocab-ipa';
-      ipa.textContent = v.ipa;
-      top.appendChild(ipa);
-    }
-    const vi = document.createElement('div');
-    vi.className = 'vocab-vi';
-    vi.textContent = v.meaning_vi || '(chưa có nghĩa)';
-    main.appendChild(top);
-    main.appendChild(vi);
-
-    const box = document.createElement('span');
-    box.className = 'vocab-box' + (denHan ? ' due' : '');
-    box.textContent = denHan ? 'Cần ôn' : 'Hộp ' + (v.box || 1);
-    box.title = denHan ? 'Đến hạn ôn' : 'Ôn lại ngày ' + v.due_date;
-
-    const speak = document.createElement('button');
-    speak.type = 'button';
-    speak.className = 'vocab-del';
-    speak.textContent = '🔊';
-    speak.title = 'Nghe phát âm';
-    speak.addEventListener('click', () => speakWord(v.word));
-
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'vocab-del';
-    del.textContent = '🗑';
-    del.title = 'Xoá khỏi sổ từ';
-    del.addEventListener('click', () => {
-      removeWord(v.word);
-      reviewQueue = reviewQueue.filter(x => x !== v.word);
-      if (currentPopupWord === v.word) syncSaveButton();
-      if (reviewQueue.length) renderReview(); else { reviewPanel.hidden = true; }
-      renderVocab();
-    });
-
-    row.appendChild(main);
-    row.appendChild(box);
-    row.appendChild(speak);
-    row.appendChild(del);
-    vocabList.appendChild(row);
-  });
 }
 
 function batDauOnTap() {
-  reviewQueue = dueWords().map(v => v.word);
-  reviewShow = false;
-  // Nút nằm ở khung Tài khoản nhưng phần ôn vẽ trong khung Sổ từ, nên phải
-  // chuyển khung — không thì bấm xong tưởng như không có gì xảy ra.
-  if (modalPane !== 'vocab') openModal('vocab');
+  // Đang có phiên dở (người dùng bấm ← ra khung Tài khoản rồi bấm "Ôn tiếp")
+  // thì GIỮ NGUYÊN hàng đợi. Dựng lại từ `dueWords()` là quay về từ đầu, xoá
+  // sạch tiến độ họ vừa làm — mà nút lại đang ghi "Ôn tiếp", tức là hứa ngược lại.
+  if (!reviewQueue.length) {
+    reviewQueue = dueWords().map(v => v.word);
+    reviewShow = false;
+  }
+  // Nút nằm ở khung Tài khoản nhưng bảng ôn vẽ ở khung riêng, nên phải chuyển
+  // khung — không thì bấm xong tưởng như không có gì xảy ra.
+  if (modalPane !== 'review') openModal('review');
   renderReview();
   renderVocab();
 }
@@ -999,6 +931,21 @@ function renderReview() {
     actions.appendChild(nho);
   }
 
+  // 🗑 Xoá hẳn từ này khỏi sổ. Sau khi gỡ khung "📒 Sổ từ" (2026-08-19) thì
+  // ĐÂY LÀ CHỖ DUY NHẤT còn xoá được một từ đã lưu từ bài cũ — bỏ nó đi là
+  // người dùng lưu nhầm một từ rồi phải ôn nó mãi mãi.
+  //
+  // Đặt cạnh Nhớ/Quên chứ không giấu sau lớp xác nhận: một từ lưu nhầm không
+  // đáng để hỏi lại, và lỡ tay thì lưu lại chỉ mất một cú bấm ☆.
+  const xoa = document.createElement('button');
+  xoa.type = 'button';
+  xoa.className = 'btn secondary ctrl-btn';
+  xoa.textContent = '🗑';
+  xoa.title = 'Bỏ hẳn từ này khỏi sổ';
+  xoa.setAttribute('aria-label', 'Bỏ hẳn từ này khỏi sổ');
+  xoa.addEventListener('click', () => xoaTuDangOn(item.word));
+  actions.appendChild(xoa);
+
   const thoat = document.createElement('button');
   thoat.type = 'button';
   thoat.className = 'btn secondary ctrl-btn';
@@ -1013,6 +960,26 @@ function renderReview() {
 
   box.appendChild(actions);
   reviewPanel.appendChild(box);
+}
+
+// Xoá từ đang hiện trên màn ôn, rồi đi tiếp.
+//
+// ⚠️ Gỡ khỏi hàng đợi bằng `filter` chứ KHÔNG `shift()`. Nút 🗑 hôm nay luôn
+// xoá đúng từ đang đứng đầu hàng, nên hai cách cho kết quả như nhau — nhưng
+// `shift()` đúng vì *tình cờ*, không vì đúng logic: nó xoá "từ đầu hàng" trong
+// khi việc cần làm là xoá "từ có tên này". Thêm một đường gọi khác (xoá từ chỗ
+// khác, hoặc đổi thứ tự hàng đợi) là nó lặng lẽ xoá nhầm từ. Test P38 canh.
+function xoaTuDangOn(word) {
+  removeWord(word);
+  reviewQueue = reviewQueue.filter(x => x !== word);
+  reviewShow = false;
+  if (currentPopupWord === word) syncSaveButton();
+  if (reviewQueue.length) {
+    renderReview();
+  } else {
+    reviewPanel.hidden = true;
+  }
+  renderVocab();
 }
 
 function chamTu(nho) {
@@ -1387,6 +1354,30 @@ function dayNgam() {
 
 // Mở lại một bài từ lịch sử: phải chỉnh tab + trình độ cho khớp rồi mới tải,
 // nếu không nội dung sẽ được dựng sai hình dạng (lines với text khác nhau).
+// Xoá bài đang mở, đưa màn hình về trạng thái "chưa chọn bài".
+//
+// Dùng khi người dùng đổi tab hoặc đổi trình độ (2026-08-19): bài đang mở thuộc
+// tab/trình độ CŨ, giữ lại là nói dối — nhãn trình độ đã đổi mà nội dung thì
+// chưa. Trước đây chỗ này tự tải một bài mới; nay app không chọn bài hộ người
+// dùng ở bất kỳ đâu nữa.
+//
+// ⚠️ Phải dừng cả phiên học đang đếm giờ. Không dừng thì đồng hồ của bài cũ
+// chạy tiếp và tới giây thứ 60 sẽ ghi "đã học" cho một bài không còn trên màn
+// hình — đúng loại lỗi M6 canh.
+function xoaBaiDangMo() {
+  stopSpeaking();
+  dungPhienHoc();
+  currentItem = null;
+  sentences = [];
+  currentIndex = 0;
+  scriptBox.innerHTML = '';
+  topicText.textContent = '—';
+  quizCard.hidden = true;
+  capNhatKhungNoiDung();
+  setStatus('');
+  syncFavButton();
+}
+
 function setTabAndLevel(tab, level) {
   if (tab && tab !== currentTab) {
     currentTab = tab;
@@ -2203,22 +2194,35 @@ window.addEventListener('resize', hideWordPopup);
 window.addEventListener('scroll', hideWordPopup, true);
 
 // ====== EVENTS ======
+// Đổi tab / đổi trình độ. Tách thành hàm có tên (thay vì viết thẳng trong
+// addEventListener) để test gọi được: DOM giả trong tests/minidom.js chỉ đăng
+// ký phần tử theo id, không có các nút .tab-btn/.level-btn để mà bấm.
+//
+// 2026-08-19: hai hàm này KHÔNG tự mở bài mới nữa. Chúng xoá bài đang mở —
+// bài đó thuộc tab/trình độ cũ, giữ lại là nhãn một đằng nội dung một nẻo —
+// rồi chỉ nạp lại danh sách chủ đề cho ô tìm kiếm.
+function doiTab(tab) {
+  if (!tab) return;
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  xoaBaiDangMo();
+  loadTopicOptions();
+}
+
+function doiTrinhDo(level) {
+  if (!level) return;
+  currentLevel = level;
+  document.querySelectorAll('.level-btn').forEach(b => b.classList.toggle('active', b.dataset.level === level));
+  xoaBaiDangMo();
+  loadTopicOptions();
+}
+
 document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentTab = btn.dataset.tab;
-    loadNewItem();
-  });
+  btn.addEventListener('click', () => doiTab(btn.dataset.tab));
 });
 
 document.querySelectorAll('.level-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentLevel = btn.dataset.level;
-    loadNewItem();
-  });
+  btn.addEventListener('click', () => doiTrinhDo(btn.dataset.level));
 });
 
 function getPlainTextContent() {
@@ -2438,7 +2442,6 @@ wpSave.addEventListener('click', (e) => {
 reviewBtn.addEventListener('click', batDauOnTap);
 
 openFavBtn.addEventListener('click', () => openModal('fav'));
-openVocabBtn.addEventListener('click', () => openModal('vocab'));
 openHelpBtn.addEventListener('click', () => openModal('help'));
 accBtn.addEventListener('click', () => openModal('account'));
 accSigninBtn.addEventListener('click', dangNhapGoogle);

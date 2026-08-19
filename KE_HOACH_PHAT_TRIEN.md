@@ -1397,6 +1397,50 @@ Bấm ✕ đóng popup vẫn dừng hẳn phiên như cũ (test **P29** giữ h�
 
 **Thêm 4 test (P26–P29), tổng 145/145 qua.** Đã kiểm ngược: khôi phục dòng lỗi cũ thì **P26 đỏ** — test không rỗng.
 
+### Bạn báo "bấm trình độ vẫn tự chọn chủ đề" — mã nguồn thì đã đúng
+
+Rà lại `app.js`: `doiTrinhDo()` chỉ gọi `xoaBaiDangMo()` + `loadTopicOptions()`, không có `loadNewItem()` nào. Cả file chỉ còn **hai** chỗ nhắc `loadNewItem`: dòng khai báo hàm và dòng gắn vào nút 🔀 Đổi chủ đề.
+
+**Nhưng chỗ này tôi có lỗi thật: bộ test không hề đi qua đường bấm nút.**
+
+DOM giả trong `tests/minidom.js` chỉ đăng ký phần tử **theo id**. Nút chọn tab và trình độ không có id — app tìm chúng bằng `querySelectorAll('.tab-btn' / '.level-btn')`, mà trong sandbox hai câu đó trả về **mảng rỗng**. Nghĩa là phần gắn sự kiện chưa bao giờ chạy trong test; P22–P24 gọi thẳng `doiTrinhDo()` nên xanh mà không chứng minh được nút thật có nối đúng vào hàm đó hay không.
+
+Đã dựng các nút đó trong DOM giả (`dungNutChon()`), đọc `data-tab` / `data-level` **thẳng từ index.html** chứ không viết cứng — đổi tên một mức trong HTML mà quên sửa app thì test phải đỏ, không xanh giả. Thêm **P30–P32** bấm thật vào nút.
+
+Kiểm ngược bằng cách khôi phục hành vi cũ (`doiTrinhDo` gọi `loadNewItem()`): **4 bài đỏ**, trong đó P30 báo đúng câu bạn mô tả. Trước khi có `dungNutChon()` thì cùng phép thử đó chỉ đỏ 3 bài, và không bài nào đi qua nút thật.
+
+**Tổng 148/148 qua.**
+
+⚠️ **Nếu trên site thật vẫn còn hiện tượng đó**, nó không nằm ở mã nguồn hiện tại — nhiều khả năng là `app.js` cũ còn trong cache trình duyệt hoặc Vercel chưa deploy bản mới. Thử tải lại bằng Ctrl+Shift+R, hoặc mở DevTools → Network xem `app.js` trả về 200 hay 304 (from cache).
+
+### Gỡ tính năng "📒 Sổ từ" (cùng ngày, lần 5)
+
+Bạn bỏ hẳn khung **📒 Sổ từ**. Từ vẫn được lưu và vẫn chạy hộp Leitner y như cũ — chỉ khác: **không còn nơi nào liệt kê cả sổ**, người dùng gặp lại từ của mình trong lúc ôn.
+
+**Rà trước khi sửa, khung đó đang gánh 3 việc:**
+
+| Việc | Sau khi gỡ |
+|---|---|
+| Liệt kê toàn bộ từ đã lưu (hộp Leitner, ngày ôn) | bỏ |
+| **Nút 🗑 xoá từ** — chỉ có ở đây | **chuyển vào màn ôn**, bạn chọn |
+| Chứa bảng ôn tập (`#reviewPanel`) | chuyển sang khung riêng `#paneReview` |
+
+Nếu không rà bước này mà gỡ thẳng, người dùng lưu nhầm một từ sẽ phải **ôn nó mãi mãi** — không còn đường nào bỏ đi. Test **P40** đọc thân `renderReview()` để chắc nút 🗑 còn đó.
+
+**Phạm vi ôn giữ nguyên: chỉ từ đến hạn.** Hộp Leitner không đổi.
+
+Hàng nút khung Tài khoản còn: `📚 Đã học (9)` · `⭐ Đã đánh dấu (1)` · `🎯 Ôn tập (1)`.
+
+**Khung Ôn tập phải tự nói vì sao trống.** Trước đây mở khung Sổ từ lúc nào cũng có nội dung (cả danh sách). Nay mở khung Ôn tập mà chưa tới hạn thì trắng trơn — nên thêm `#reviewEmpty`: chưa lưu từ nào thì chỉ cách lưu, đã lưu mà chưa tới hạn thì nói ngày ôn kế tiếp (P34, P35).
+
+**Giữ tên hàm `renderVocab()`** dù không còn danh sách nào để vẽ — nó được gọi từ hơn mười chỗ (lưu từ, xoá từ, chấm từ, mở khung Tài khoản, đăng nhập…). Nay nó chỉ còn một việc: vẽ nhãn nút 🎯 Ôn tập.
+
+⚠️ **Số từ của TÀI KHOẢN nay không hiện ở đâu nữa.** Trước đây nó nằm trên nhãn `📒 Sổ từ (12 · 3 cần ôn)`. Nút Ôn tập cố ý đếm theo **máy** (`dueWords()`), không theo tài khoản: phiên ôn chạy trên sổ trong localStorage, mời ôn 1 từ mà bấm vào hàng đợi rỗng thì tệ hơn là nút mờ. Công thức server (`soLieuTienDo`) vẫn còn và vẫn đúng, chỉ là không ai vẽ ra. Đã báo lại, chờ bạn quyết.
+
+**🐞 Một chỗ đúng vì tình cờ, không vì logic.** `xoaTuDangOn()` gỡ từ khỏi hàng đợi bằng `filter`. Viết `shift()` cũng cho kết quả y hệt — vì nút 🗑 hôm nay luôn xoá từ đang đứng đầu hàng. Nhưng `shift()` xoá *"từ đầu hàng"* trong khi việc cần làm là xoá *"từ có tên này"*; thêm một đường gọi khác là nó lặng lẽ xoá nhầm. Bản test đầu tiên của tôi **không bắt được** khác biệt đó (tiền đề sai: tôi tưởng hàng đợi có thể chứa từ trùng, thực ra không). Đã viết lại **P38** gọi với một từ ở giữa hàng — thay `filter` bằng `shift` là đỏ ngay.
+
+**Tổng 157/157 qua.** Kiểm ngược 3 kiểu phá code: bỏ nút 🗑 (P40 đỏ), đổi `filter` thành `shift` (P38 đỏ), và giữ nguyên bản sửa (xanh).
+
 ### Việc của bạn — tuần 17
 
 1. Migration `study_log_counted_and_stats_rpc` **đã chạy** trên Supabase, không phải làm gì thêm.

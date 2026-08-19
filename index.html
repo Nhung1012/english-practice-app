@@ -23,7 +23,7 @@
   <!-- Dải mời đăng nhập: hiện MỘT LẦN sau bài thứ 3, đóng là không hiện lại.
        Không chặn thao tác nào, không phải hộp thoại phủ màn hình. -->
   <div class="signin-bar" id="signinBar" hidden>
-    <span class="signin-text">Đã học <b id="signinCount">3</b> bài rồi 👏 Đăng nhập để sổ từ và tiến độ theo bạn sang điện thoại, máy khác.</span>
+    <span class="signin-text">Đã học <b id="signinCount">3</b> bài rồi 👏 Đăng nhập để từ đã lưu và tiến độ theo bạn sang điện thoại, máy khác.</span>
     <button type="button" class="btn" id="signinBarBtn">Đăng nhập với Google</button>
     <button type="button" class="wp-btn signin-close" id="signinBarClose" aria-label="Để sau">✕</button>
   </div>
@@ -130,13 +130,13 @@
   </footer>
 </div>
 
-<!-- Popup chung cho "Đã đánh dấu" và "Sổ từ" (mục 1.5 & 1.3).
+<!-- Popup chung cho "Đã đánh dấu" và "Ôn tập" (mục 1.5 & 1.3).
      Trên điện thoại hộp này trượt từ dưới lên và chiếm gần hết chiều cao. -->
 <div class="modal" id="modal" hidden>
   <div class="modal-backdrop" id="modalBackdrop"></div>
   <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-head">
-      <!-- Hai khung con (Đã đánh dấu / Sổ từ) nay chỉ vào được TỪ khung Tài
+      <!-- Hai khung con (Đã đánh dấu / Ôn tập) nay chỉ vào được TỪ khung Tài
            khoản, nên phải có đường về. Không có nút này thì người dùng buộc
            phải đóng popup rồi mở lại từ đầu. Ẩn ở khung Tài khoản và Hướng
            dẫn — hai khung đó không đi ra từ đâu cả. -->
@@ -152,12 +152,13 @@
       <div id="paneFav" hidden>
         <div id="favList"></div>
       </div>
-      <div id="paneVocab" hidden>
-        <!-- Nút 🎯 Ôn tập đã chuyển lên hàng nút của khung Tài khoản
-             (#accLinks) ngày 2026-08-19. Khung này giờ chỉ còn danh sách từ và
-             phần ôn đang chạy. -->
+      <!-- 2026-08-19: gỡ hẳn khung "📒 Sổ từ" (danh sách toàn bộ từ đã lưu).
+           Khung này thay bằng khung Ôn tập: từ vẫn được lưu như cũ, nhưng chỉ
+           gặp lại chúng trong lúc ôn, không có nơi nào liệt kê cả sổ nữa.
+           Nút 🗑 xoá từ chuyển vào chính màn ôn (xem `renderReview`). -->
+      <div id="paneReview" hidden>
         <div id="reviewPanel" hidden></div>
-        <div id="vocabList"></div>
+        <div id="reviewEmpty" hidden></div>
       </div>
       <div id="paneAccount" hidden>
         <!-- 2026-08-19 (lần 2): gỡ ba dòng chữ khỏi khung này —
@@ -168,16 +169,15 @@
 
              ⚠️ Hàng nút nằm NGOÀI accGuest/accUser để hiện cho cả khách lẫn
              người đã đăng nhập. Nhét vào một trong hai là một phía mất hẳn lối
-             vào Sổ từ — đúng lỗi N8 từng bắt được với bộ đếm cũ. -->
+             vào Ôn tập — đúng lỗi N8 từng bắt được với bộ đếm cũ. -->
         <div class="acc-links" id="accLinks">
           <span class="acc-chip" id="accLearned">📚 Đã học</span>
           <button type="button" class="btn secondary quick-btn" id="openFavBtn" hidden>⭐ Đã đánh dấu</button>
-          <button type="button" class="btn secondary quick-btn" id="openVocabBtn">📒 Sổ từ</button>
-          <button type="button" class="btn secondary quick-btn" id="reviewBtn" hidden>🎯 Ôn tập</button>
+          <button type="button" class="btn secondary quick-btn" id="reviewBtn">🎯 Ôn tập</button>
         </div>
         <div id="accGuest">
           <p class="acc-lead">Bạn đang dùng ở <b>chế độ khách</b>. Mọi tính năng đều dùng được bình thường, không có gì bị khoá.</p>
-          <p class="acc-note">Sổ từ, tiến độ và các lựa chọn đang lưu <b>trên máy này</b>. Xoá dữ liệu trình duyệt hoặc mở bằng máy khác là không thấy nữa.</p>
+          <p class="acc-note">Từ đã lưu, tiến độ và các lựa chọn đang ở <b>trên máy này</b>. Xoá dữ liệu trình duyệt hoặc mở bằng máy khác là không thấy nữa.</p>
           <button type="button" class="btn" id="accSigninBtn">Đăng nhập với Google</button>
         </div>
         <div id="accUser" hidden>
@@ -188,17 +188,17 @@
       <div id="paneHelp" hidden>
         <ul class="help-list">
           <li><b>Chọn chủ đề</b> ở ô tìm kiếm, hoặc bấm <b>🔀 Đổi chủ đề</b> để lấy một bài ngẫu nhiên. App không tự mở bài — lúc vào trang cũng như khi bạn đổi tab hay đổi trình độ, màn hình để trống chờ bạn chọn.</li>
-          <li><b>Bấm vào một từ</b> trong bài → hiện phiên âm, nghĩa và ví dụ. Bấm <b>☆</b> trong popup để lưu từ vào sổ.</li>
+          <li><b>Bấm vào một từ</b> trong bài → hiện phiên âm, nghĩa và ví dụ. Bấm <b>☆</b> trong popup để lưu từ lại học dần.</li>
           <li><b>▶</b> ở đầu mỗi câu → nghe riêng câu đó. Đang đọc thì nút đổi thành <b>■</b>, bấm lại là dừng ngay tại chỗ.</li>
           <li><b>👁</b> ở cuối câu → hiện nghĩa tiếng Việt của cả câu. Câu chưa có bản dịch thì không có nút này.</li>
           <li><b>🇻🇳 Bản dịch</b> → bật chế độ song ngữ cho cả bài. Lựa chọn được nhớ cho các bài sau.</li>
           <li><b>⏮ ▶ ⏭ 🔁</b> → chuyển câu, phát, và lặp lại mãi một câu. Kéo <b>thanh tốc độ</b> để đọc chậm lại (0.6×–1.2×).</li>
-          <li>Nút <b>tài khoản</b> ở góc trên bên phải → tiến độ (đã học, từ trong sổ, từ cần ôn) và lối vào <b>⭐ Đã đánh dấu</b>, <b>📒 Sổ từ</b>, <b>🎯 Ôn tập</b>.</li>
+          <li>Nút <b>tài khoản</b> ở góc trên bên phải → tiến độ (đã học, số từ đã lưu) và lối vào <b>⭐ Đã đánh dấu</b> với <b>🎯 Ôn tập</b>.</li>
           <li><b>☆</b> cạnh tên chủ đề → đánh dấu bài hay, mở lại lúc nào cũng được từ khung <b>⭐ Đã đánh dấu</b>.</li>
-          <li><b>📒 Sổ từ</b> → các từ đã lưu. <b>🎯 Ôn tập</b> ôn theo 5 hộp: nhớ thì giãn dần 1 → 3 → 7 → 14 → 30 ngày, quên thì về hộp 1. Nút mờ đi nghĩa là hôm nay chưa có từ nào tới hạn.</li>
+          <li><b>🎯 Ôn tập</b> → ôn các từ đã lưu theo 5 hộp: nhớ thì giãn dần 1 → 3 → 7 → 14 → 30 ngày, quên thì về hộp 1 và gặp lại ngay trong phiên. Nút mờ đi nghĩa là hôm nay chưa có từ nào tới hạn. Đang ôn mà gặp từ lưu nhầm thì bấm <b>🗑</b> để bỏ hẳn.</li>
           <li><b>📝 Câu hỏi hiểu bài</b> ở cuối bài → 4 câu trắc nghiệm, nộp xong có giải thích cho <i>mọi</i> câu. Bài chưa soạn thì khung này tự ẩn.</li>
         </ul>
-        <p class="help-note">Chưa cần tài khoản. Sổ từ, tiến độ và các lựa chọn được lưu ngay trên máy này — đăng nhập để dùng chung trên mọi thiết bị.</p>
+        <p class="help-note">Chưa cần tài khoản. Từ đã lưu, tiến độ và các lựa chọn được giữ ngay trên máy này — đăng nhập để dùng chung trên mọi thiết bị.</p>
       </div>
     </div>
   </div>
@@ -209,7 +209,7 @@
   <div class="wp-head">
     <span class="wp-word" id="wpWord"></span>
     <div class="wp-actions">
-      <button class="wp-btn" id="wpSave" title="Lưu vào sổ từ" aria-label="Lưu vào sổ từ">☆</button>
+      <button class="wp-btn" id="wpSave" title="Lưu từ này để ôn" aria-label="Lưu từ này để ôn">☆</button>
       <button class="wp-btn" id="wpSpeak" title="Nghe phát âm">🔊</button>
       <button class="wp-btn" id="wpClose" title="Đóng">✕</button>
     </div>

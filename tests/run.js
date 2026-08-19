@@ -20,11 +20,11 @@ const HTML = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const IDS = ('accAvatar accBtn accEmail accGuest accLabel accSigninBtn accSignoutBtn accUser paneAccount '
   + 'accLearned signinBar signinBarBtn signinBarClose signinCount '
   + 'biBtn copyBtn favBtn favList loopBtn modal modalBackdrop modalClose '
-  + 'modalTitle modalBack nextBtn openHelpBtn openFavBtn openVocabBtn paneHelp paneFav paneVocab playBtn prevBtn quizBox '
+  + 'modalTitle modalBack nextBtn openHelpBtn openFavBtn paneHelp paneFav paneReview reviewEmpty playBtn prevBtn quizBox '
   + 'accLinks scriptCard '
   + 'quizCard quizResetBtn quizScore quizSubmitBtn randomBtn rateRange rateValue '
   + 'reviewBtn reviewPanel scriptBox scriptLabel statusText topicCaret topicCombo topicCount '
-  + 'topicListbox topicPanel topicSearch topicSearchClear topicText vocabList wordPopup wpClose '
+  + 'topicListbox topicPanel topicSearch topicSearchClear topicText wordPopup wpClose '
   + 'wpExample wpIpa wpPos wpSave wpSpeak wpVi wpWord').split(' ');
 
 // Nguồn của app = các file JS cục bộ, nạp ĐÚNG thứ tự index.html khai báo.
@@ -48,6 +48,7 @@ const HOOK = `
 ;globalThis.__h = {
   get currentItem() { return currentItem; },  set currentItem(v) { currentItem = v; },
   get currentTab()  { return currentTab; },   set currentTab(v)  { currentTab = v; },
+  get currentLevel(){ return currentLevel; }, set currentLevel(v){ currentLevel = v; },
   get isPlaying()   { return isPlaying; },    set isPlaying(v)   { isPlaying = v; },
   get sentences()   { return sentences; },
   get quizAnswers() { return quizAnswers; },
@@ -68,13 +69,38 @@ const HOOK = `
   buildItem, buildSentences, renderScript, renderQuiz, setStatus, doiTab, doiTrinhDo, xoaBaiDangMo,
   setBilingual, toggleLineVi, loadBilingual, coBanDich,
   layQuiz, chamQuiz, nopQuiz, chonDapAn, logStudy,
-  renderVocab, saveWord, removeWord, dueWords, gradeWord, ngayOnGanNhat, dinhDangNgay, congNgay
+  renderVocab, saveWord, removeWord, dueWords, gradeWord, ngayOnGanNhat, dinhDangNgay, congNgay,
+  renderReview, xoaTuDangOn,
+  batDauOnTap, chamTu, get reviewQueue() { return reviewQueue; }
 };
 `;
+
+// Các nút chọn tab và trình độ KHÔNG có id — app tìm chúng bằng
+// `document.querySelectorAll('.tab-btn' / '.level-btn')`. Trước 2026-08-19 DOM
+// giả không có chúng, nên `querySelectorAll` trả về mảng rỗng và **không test
+// nào đi qua được đường bấm thật**: mọi khẳng định về việc đổi tab / đổi trình
+// độ đều phải gọi thẳng hàm, tức là bỏ sót đúng phần gắn sự kiện.
+// Dựng chúng ở đây để bấm được như người dùng bấm.
+//
+// Đọc `data-tab` / `data-level` thẳng từ index.html chứ không viết cứng: đổi
+// tên một mức trong HTML mà quên sửa app là test phải đỏ, không phải xanh giả.
+function dungNutChon(document) {
+  const lay = (attr) => [...HTML.matchAll(new RegExp('data-' + attr + '="([^"]+)"', 'g'))]
+    .map(m => m[1]);
+  [['tab', 'tab-btn'], ['level', 'level-btn']].forEach(([attr, cls]) => {
+    lay(attr).forEach((giaTri, i) => {
+      const b = new El('button');
+      b.className = cls + (i === 0 ? ' active' : '');
+      b.setAttribute('data-' + attr, giaTri);
+      document.body.appendChild(b);
+    });
+  });
+}
 
 function taoSandbox(opts = {}) {
   const document = createDocument();
   IDS.forEach(id => document.reg(id, /Btn|Line|Close|Save|Speak/.test(id) ? 'button' : 'div'));
+  dungNutChon(document);
   document.getElementById('rateRange').value = '1';
 
   const localStorage = createLocalStorage(opts.blockStorage);
@@ -584,11 +610,13 @@ const QUIZ_MAU = [
 {
   const c = taoSandbox();
   const btn = c.document.getElementById('reviewBtn');
-  const list = c.document.getElementById('vocabList');
+  // 2026-08-19: khung "📒 Sổ từ" (#vocabList) đã gỡ. Chỗ nói vì sao chưa ôn
+  // được nay là #reviewEmpty trong khung Ôn tập.
+  const list = c.document.getElementById('reviewEmpty');
 
-  const moSoTu = () => { c.modalPane = 'vocab'; c.renderVocab(); };
+  const moSoTu = () => { c.modalPane = 'review'; c.renderVocab(); };
 
-  t('G1 sổ từ trống: ẩn nút, và hiện hướng dẫn cách lưu từ', () => {
+  t('G1 chưa lưu từ nào: ẩn nút, và hiện hướng dẫn cách lưu từ', () => {
     c.localStorage.setItem('ep:vocab', '[]');
     moSoTu();
     eq(btn.hidden, true);
@@ -614,7 +642,7 @@ const QUIZ_MAU = [
     ok(/\(0\)/.test(btn.textContent), `nhận "${btn.textContent}"`);
   });
 
-  t('G4 chưa tới hạn: nói rõ ngày ôn kế tiếp thay vì để nút mờ không lý do', () => {
+  t('G4 chưa tới hạn: nói rõ ngày ôn kế tiếp thay vì để khung ôn trống trơn', () => {
     c.localStorage.setItem('ep:vocab', '[]');
     c.saveWord('straight', {}, 1);
     c.gradeWord('straight', true);
@@ -691,13 +719,13 @@ const QUIZ_MAU = [
   const d = c.document;
   const helpBtn = d.getElementById('openHelpBtn');
   const paneHelp = d.getElementById('paneHelp');
-  const paneVocab = d.getElementById('paneVocab');
+  const paneReview = d.getElementById('paneReview');
   const paneFav = d.getElementById('paneFav');
 
   t('I1 bấm ❓ mở đúng khung hướng dẫn, hai khung kia đóng', () => {
     helpBtn.dispatch('click');
     eq(c.modalPane, 'help');
-    eq([paneHelp.hidden, paneFav.hidden, paneVocab.hidden], [false, true, true]);
+    eq([paneHelp.hidden, paneFav.hidden, paneReview.hidden], [false, true, true]);
     eq(d.getElementById('modal').hidden, false);
   });
 
@@ -719,6 +747,8 @@ const QUIZ_MAU = [
     const accLinks = HTML.match(/<div class="acc-links"[^>]*>([\s\S]*?)<\/div>/);
     ok(accLinks && /id="reviewBtn"/.test(accLinks[1]),
       'nút Ôn tập phải nằm trong hàng nút của khung Tài khoản');
+    ok(!/id="openVocabBtn"|id="paneVocab"|id="vocabList"/.test(HTML),
+      'khung Sổ từ đã gỡ nhưng vẫn còn phần tử trong HTML');
 
     helpBtn.dispatch('click');
     eq(d.getElementById('modalTitle').textContent, 'Hướng dẫn nhanh');
@@ -726,10 +756,12 @@ const QUIZ_MAU = [
       'khung Hướng dẫn mở thẳng từ màn hình chính, không có chỗ nào để quay lại');
   });
 
-  t('I3 mở Sổ từ sau đó thì khung hướng dẫn phải đóng lại', () => {
+  t('I3 mở Ôn tập sau đó thì khung hướng dẫn phải đóng lại', () => {
     helpBtn.dispatch('click');
-    d.getElementById('openVocabBtn').dispatch('click');
-    eq(c.modalPane, 'vocab');
+    c.saveWord('lease', { vi: 'thuê' }, 1); // có từ thì nút mới bấm được
+    c.renderVocab();
+    d.getElementById('reviewBtn').dispatch('click');
+    eq(c.modalPane, 'review');
     eq(paneHelp.hidden, true);
   });
 
@@ -1313,11 +1345,17 @@ async function nhomK() {
     await c.dayLenTaiKhoan(U1);
 
     const chip = c.document.getElementById('accLearned').textContent;
-    const nutSo = c.document.getElementById('openVocabBtn').textContent;
     ok(/\(3\)/.test(chip), `máy này chỉ có 1 bài trong localStorage nhưng tài khoản có 3 — `
       + `phải hiện 3, nhận: "${chip}"`);
-    ok(/\(1/.test(nutSo), `số từ cũng phải lấy từ tài khoản, nhận: "${nutSo}"`);
-    eq(c.soLieuTienDo(), { soBai: 3, soTu: 1, canOn: 1 });
+    eq(c.soLieuTienDo(), { soBai: 3, soTu: 1, canOn: 1 },
+      'ba con số của TÀI KHOẢN phải đọc được từ server:');
+
+    // ⚠️ Nút Ôn tập cố ý đếm theo MÁY (`dueWords()`), không theo tài khoản:
+    // phiên ôn chạy trên sổ từ trong localStorage, nút mời ôn 1 từ mà bấm vào
+    // hàng đợi rỗng thì tệ hơn là nút mờ. Máy này chưa đồng bộ từ về nên đúng
+    // là 0 — và nút phải ẨN vì sổ trên máy trống.
+    eq(c.document.getElementById('reviewBtn').hidden, true,
+      'sổ trên máy trống mà vẫn mời ôn tập:');
   });
 
   // ---- K13 ----
@@ -1534,7 +1572,7 @@ async function nhomK() {
   // Câu hỏi nhóm này canh vẫn y nguyên — "người dùng có NHÌN THẤY con số
   // không" — chỉ đổi chỗ đọc kết quả.
   const chip = (c) => c.document.getElementById('accLearned').textContent;
-  const nutSo = (c) => c.document.getElementById('openVocabBtn').textContent;
+  const nutOn = (c) => c.document.getElementById('reviewBtn').textContent;
 
   t('N1 ĐÃ ĐĂNG NHẬP vẫn thấy được số bài đã học', () => {
     // Đây chính là lỗi cũ: dải mời ẩn khi đăng nhập, và đó là chỗ DUY NHẤT
@@ -1608,7 +1646,7 @@ async function nhomK() {
       const m = HTML.match(new RegExp('<div id="' + id + '"[^>]*>([\\s\\S]*?)\\n        </div>'));
       return m ? m[1] : '';
     };
-    ['accLearned', 'openVocabBtn', 'openFavBtn'].forEach((id) => {
+    ['accLearned', 'reviewBtn', 'openFavBtn'].forEach((id) => {
       ok(!new RegExp('id="' + id + '"').test(trong('accGuest')),
         id + ' nằm trong accGuest thì người ĐÃ đăng nhập không thấy — đúng lỗi cũ');
       ok(!new RegExp('id="' + id + '"').test(trong('accUser')),
@@ -1616,28 +1654,29 @@ async function nhomK() {
     });
   });
 
-  t('N7 số từ và số cần ôn gộp trên nhãn nút Sổ từ', () => {
+  t('N7 số từ tới hạn hiện trên nhãn nút Ôn tập', () => {
     const c = taoSandbox({ storage: moKho({ 'ep:log': nBai(1) }) });
     c.saveWord('lease', { vi: 'thuê' }, 1);   // lưu xong là tới hạn ôn ngay
     c.veThongKe();
-    ok(/\(1 · 1 cần ôn\)/.test(nutSo(c)),
-      `nhãn phải gộp cả hai con số, nhận "${nutSo(c)}"`);
+    ok(/🎯 Ôn tập \(1\)/.test(nutOn(c)), `nhận "${nutOn(c)}"`);
   });
 
-  t('N9 sổ có từ nhưng chưa tới hạn thì KHÔNG hiện "cần ôn"', () => {
-    // Hiện "0 cần ôn" là nhiễu: không có việc gì phải làm mà vẫn báo.
+  t('N9 có từ nhưng chưa tới hạn: nút vẫn hiện, ghi (0) và mờ đi', () => {
+    // KHÔNG ẩn — ẩn lối vào của một tính năng chỉ vì nó đang trống là lỗi cũ.
     const c = taoSandbox({ storage: moKho() });
     c.saveWord('lease', { vi: 'thuê' }, 1);
-    c.gradeWord('lease', true);   // nhớ -> lên hộp 2, dời ngày ôn sang mai
+    c.gradeWord('lease', true);   // nhớ -> lên hộp 2, dời ngày ôn
     c.veThongKe();
-    ok(/\(1\)/.test(nutSo(c)) && !/cần ôn/.test(nutSo(c)),
-      `chưa tới hạn mà vẫn báo cần ôn, nhận "${nutSo(c)}"`);
+    const btn = c.document.getElementById('reviewBtn');
+    eq(btn.hidden, false);
+    eq(btn.disabled, true);
+    ok(/\(0\)/.test(nutOn(c)), `nhận "${nutOn(c)}"`);
   });
 
-  t('N10 sổ trống thì nhãn nút không có ngoặc rỗng', () => {
+  t('N10 chưa lưu từ nào thì ẩn nút Ôn tập, chip không có ngoặc rỗng', () => {
     const c = taoSandbox({ storage: moKho() });
     c.veThongKe();
-    eq(nutSo(c), '📒 Sổ từ');
+    eq(c.document.getElementById('reviewBtn').hidden, true);
     eq(chip(c), '📚 Đã học');
   });
 }
@@ -1723,9 +1762,9 @@ function nhomP() {
     c.saveWord('lease', { vi: 'thuê' }, 1); // lưu xong là tới hạn ôn ngay
     c.veThongKe();
     const chip = c.document.getElementById('accLearned').textContent;
-    const nut = c.document.getElementById('openVocabBtn').textContent;
+    const nut = c.document.getElementById('reviewBtn').textContent;
     ok(/\(3\)/.test(chip), `số bài đã học phải có trên chip, nhận "${chip}"`);
-    ok(/\(1 · 1 cần ôn\)/.test(nut), `số từ và số cần ôn phải gộp trên nút, nhận "${nut}"`);
+    ok(/🎯 Ôn tập \(1\)/.test(nut), `số từ tới hạn phải ở trên nút Ôn tập, nhận "${nut}"`);
     // Không còn chỗ thứ hai nào hiện lại mấy con số này
     ok(!/id="accStats"|class="acc-stats"/.test(HTML), 'đoạn văn bộ đếm vẫn còn trong HTML');
   });
@@ -1746,14 +1785,14 @@ function nhomP() {
     const pane = HTML.match(/<div id="paneAccount" hidden>([\s\S]*?)<div id="paneHelp"/);
     ok(pane, 'không tìm thấy khung paneAccount');
     ok(/id="openFavBtn"/.test(pane[1]), 'nút Đã đánh dấu phải nằm trong khung Tài khoản');
-    ok(/id="openVocabBtn"/.test(pane[1]), 'nút Sổ từ phải nằm trong khung Tài khoản');
+    ok(/id="reviewBtn"/.test(pane[1]), 'nút Ôn tập phải nằm trong khung Tài khoản');
     // Nằm ngoài accGuest/accUser, nếu không thì một trong hai phía mất lối vào
     // — đúng lỗi N8 đã bắt được với accStats.
     const trong = (id) => {
       const m = HTML.match(new RegExp('<div id="' + id + '"[^>]*>([\\s\\S]*?)\\n        </div>'));
       return m ? m[1] : '';
     };
-    ok(!/id="openVocabBtn"/.test(trong('accGuest')) && !/id="openVocabBtn"/.test(trong('accUser')),
+    ok(!/id="reviewBtn"/.test(trong('accGuest')) && !/id="reviewBtn"/.test(trong('accUser')),
       'nằm trong accGuest/accUser thì một trong hai phía không thấy nút');
   });
 
@@ -1767,11 +1806,11 @@ function nhomP() {
     c.saveWord('lease', { vi: 'thuê' }, 11);
     c.openModal('account');
     const fav = c.document.getElementById('openFavBtn');
-    const so = c.document.getElementById('openVocabBtn');
+    const so = c.document.getElementById('reviewBtn');
     eq(fav.hidden, false, 'đánh dấu xong mở khung Tài khoản vẫn không thấy nút:');
     ok(/\(1\)/.test(fav.textContent), `nhãn nút Đã đánh dấu phải cập nhật, nhận "${fav.textContent}"`);
-    ok(/\(1 · 1 cần ôn\)/.test(so.textContent),
-      `nhãn nút Sổ từ phải cập nhật, nhận "${so.textContent}"`);
+    ok(/🎯 Ôn tập \(1\)/.test(so.textContent),
+      `nhãn nút Ôn tập phải cập nhật, nhận "${so.textContent}"`);
   });
 
   t('P11 nút ← chỉ hiện ở hai khung con và đưa về đúng khung Tài khoản', () => {
@@ -1781,7 +1820,7 @@ function nhomP() {
     c.openModal('account');
     eq(back.hidden, true, 'khung Tài khoản không đi ra từ đâu, không cần nút quay lại:');
 
-    c.openModal('vocab');
+    c.openModal('review');
     eq(back.hidden, false, 'vào khung con mà không có đường về là ngõ cụt:');
     back.dispatch('click');
     eq(c.modalPane, 'account', 'bấm ← phải về khung Tài khoản:');
@@ -1795,7 +1834,7 @@ function nhomP() {
 
   t('P12 đóng popup thì nút ← không kẹt lại cho lần mở sau', () => {
     const c = taoSandbox({ storage: moKho() });
-    c.openModal('vocab');
+    c.openModal('review');
     c.closeModal();
     eq(c.document.getElementById('modalBack').hidden, true);
   });
@@ -1814,14 +1853,14 @@ function nhomP() {
     ok(/\(1\)/.test(btn.textContent), `nhận "${btn.textContent}"`);
   });
 
-  t('P17 bấm Ôn tập từ khung Tài khoản thì nhảy sang khung Sổ từ', () => {
+  t('P17 bấm Ôn tập từ khung Tài khoản thì nhảy sang khung Ôn tập', () => {
     // Nút ở một khung, phần ôn vẽ ở khung khác. Không chuyển khung là bấm xong
     // tưởng như không có gì xảy ra.
     const c = taoSandbox({ storage: moKho() });
     c.saveWord('lease', { vi: 'thuê' }, 1);
     c.openModal('account');
     c.document.getElementById('reviewBtn').dispatch('click');
-    eq(c.modalPane, 'vocab', 'bấm Ôn tập mà vẫn đứng ở khung Tài khoản:');
+    eq(c.modalPane, 'review', 'bấm Ôn tập mà vẫn đứng ở khung Tài khoản:');
     eq(c.document.getElementById('reviewPanel').hidden, false, 'phần ôn phải hiện ra:');
   });
 
@@ -1902,6 +1941,15 @@ function nhomP() {
     c.renderScript();
   };
 
+  // BẤM THẬT vào nút, không gọi thẳng hàm — phần gắn sự kiện cũng phải được
+  // kiểm. Trả về nút để test khẳng định thêm nếu cần.
+  const bamNut = (c, cls, i) => {
+    const nut = c.document.querySelectorAll('.' + cls)[i];
+    ok(nut, `không tìm thấy nút .${cls} thứ ${i} trong DOM giả`);
+    nut.dispatch('click');
+    return nut;
+  };
+
   t('P22 đổi TRÌNH ĐỘ thì để trống, không tự chọn bài hộ', () => {
     const c = taoSandbox({ storage: moKho() });
     moBaiP(c, 11);
@@ -1935,6 +1983,39 @@ function nhomP() {
     eq(c.readLog().length, 0, 'ghi "đã học" cho bài đã bị xoá khỏi màn hình:');
   });
 
+  // P26–P29 dưới đây gọi thẳng hàm; ba bài này BẤM THẬT vào nút, để kiểm luôn
+  // phần gắn sự kiện — chỗ mà trước 2026-08-19 không test nào chạm tới.
+  t('P30 BẤM nút trình độ: đổi mức, xoá bài cũ, KHÔNG tự chọn bài mới', () => {
+    const c = taoSandbox({ storage: moKho() });
+    moBaiP(c, 11);
+    const nut = bamNut(c, 'level-btn', 1); // 🟡 Trung cấp
+
+    eq(c.currentLevel, 'intermediate', 'bấm nút mà trình độ không đổi — sự kiện chưa gắn?');
+    ok(nut.classList.contains('active'), 'nút vừa bấm phải sáng lên:');
+    ok(!c.document.querySelectorAll('.level-btn')[0].classList.contains('active'),
+      'nút cũ phải tắt:');
+    eq(c.currentItem, null, 'ĐÂY LÀ ĐIỀU BẠN BÁO — bấm trình độ mà vẫn tự chọn chủ đề:');
+    eq(c.document.getElementById('scriptCard').hidden, true);
+    eq(c.document.getElementById('topicText').textContent, '—');
+  });
+
+  t('P31 BẤM nút tab: y hệt, không tự chọn bài mới', () => {
+    const c = taoSandbox({ storage: moKho() });
+    moBaiP(c, 11);
+    bamNut(c, 'tab-btn', 1); // 🎙️ Luyện nghe
+    eq(c.currentTab, 'listening', 'bấm nút mà tab không đổi — sự kiện chưa gắn?');
+    eq(c.currentItem, null, 'bấm tab mà vẫn tự chọn chủ đề:');
+    eq(c.document.getElementById('scriptCard').hidden, true);
+  });
+
+  t('P32 bấm đi bấm lại nhiều mức vẫn không sinh ra bài nào', () => {
+    const c = taoSandbox({ storage: moKho() });
+    [0, 1, 2, 1, 0].forEach(i => bamNut(c, 'level-btn', i));
+    eq(c.currentItem, null);
+    eq(c.readSeen().length, 0, 'mỗi lần đổi mức lại ghi thêm một bài vào ep:seen:');
+    eq(c.soBaiDaHoc(), 0);
+  });
+
   t('P25 nguồn không còn chỗ nào tự gọi loadNewItem ngoài nút Đổi chủ đề', () => {
     const nguon = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8')
       .split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
@@ -1943,6 +2024,181 @@ function nhomP() {
     eq(goi.length, 2, 'còn chỗ nào đó tự gọi loadNewItem — app lại chọn bài hộ người dùng');
     ok(/randomBtn\.addEventListener\('click', loadNewItem\)/.test(nguon),
       'nút 🔀 Đổi chủ đề phải còn gọi loadNewItem');
+  });
+
+  // 🐞 P26–P29: lỗi bạn báo — Tài khoản → 🎯 Ôn tập → ← → nút biến mất.
+  //
+  // Nguyên nhân: `renderVocab()` có luật "đang ôn dở thì ẩn nút". Luật đó đúng
+  // hồi nút còn nằm TRONG khung Sổ từ (bảng ôn thế chỗ nút), nhưng khi nút dời
+  // ra khung Tài khoản thì thành lỗi — bấm ← không dừng phiên, hàng đợi vẫn
+  // còn nên nút bị ẩn, và phiên ôn treo lơ lửng không có đường vào lại.
+  const soTuP = (c, n) => {
+    for (let i = 0; i < n; i++) c.saveWord('word' + i, { vi: 'nghĩa ' + i }, 1);
+  };
+
+  t('P26 Tài khoản → Ôn tập → ← : nút VẪN còn, đổi thành "Ôn tiếp"', () => {
+    const c = taoSandbox({ storage: moKho() });
+    soTuP(c, 3);
+    const btn = c.document.getElementById('reviewBtn');
+
+    c.openModal('account');
+    ok(/Ôn tập \(3\)/.test(btn.textContent), `nhận "${btn.textContent}"`);
+
+    btn.dispatch('click');
+    eq(c.modalPane, 'review');
+    eq(btn.hidden, true, 'đang trong khung Sổ từ thì bảng ôn thế chỗ nút:');
+
+    c.document.getElementById('modalBack').dispatch('click');
+    eq(c.modalPane, 'account');
+    eq(btn.hidden, false, 'ĐÂY LÀ LỖI CŨ — quay lại thì nút biến mất:');
+    ok(/Ôn tiếp \(3\)/.test(btn.textContent),
+      `phải mời quay lại phiên đang dở, nhận "${btn.textContent}"`);
+    eq(btn.disabled, false, 'nút mời "Ôn tiếp" mà bấm không được:');
+  });
+
+  t('P27 bấm "Ôn tiếp" quay lại ĐÚNG chỗ đang dở, không ôn lại từ đầu', () => {
+    const c = taoSandbox({ storage: moKho() });
+    soTuP(c, 3);
+    const btn = c.document.getElementById('reviewBtn');
+
+    c.openModal('account');
+    btn.dispatch('click');
+    c.chamTu(true);              // chấm xong 1 từ -> còn 2
+    c.document.getElementById('modalBack').dispatch('click');
+    ok(/Ôn tiếp \(2\)/.test(btn.textContent), `nhận "${btn.textContent}"`);
+
+    btn.dispatch('click');
+    eq(c.modalPane, 'review');
+    eq(c.reviewQueue.length, 2, 'dựng lại hàng đợi từ đầu là xoá tiến độ vừa làm:');
+    eq(c.document.getElementById('reviewPanel').hidden, false, 'bảng ôn phải hiện lại:');
+  });
+
+  t('P28 ôn xong hết thì nút trở lại "Ôn tập (0)" và mờ đi', () => {
+    const c = taoSandbox({ storage: moKho() });
+    soTuP(c, 2);
+    const btn = c.document.getElementById('reviewBtn');
+    c.openModal('account');
+    btn.dispatch('click');
+    c.chamTu(true);
+    c.chamTu(true);
+    c.document.getElementById('modalBack').dispatch('click');
+    eq(c.reviewQueue.length, 0);
+    ok(/Ôn tập \(0\)/.test(btn.textContent), `nhận "${btn.textContent}"`);
+    eq(btn.disabled, true, 'hết từ tới hạn thì phải mờ đi:');
+    eq(btn.hidden, false, 'nhưng KHÔNG được ẩn — ẩn lối vào tính năng là lỗi cũ:');
+  });
+
+  t('P29 bấm ✕ đóng popup thì vẫn dừng hẳn phiên ôn (hành vi cũ giữ nguyên)', () => {
+    const c = taoSandbox({ storage: moKho() });
+    soTuP(c, 3);
+    c.openModal('account');
+    c.document.getElementById('reviewBtn').dispatch('click');
+    c.closeModal();
+    eq(c.reviewQueue.length, 0, 'đóng hẳn popup mà phiên ôn vẫn sống:');
+    c.openModal('account');
+    ok(/Ôn tập \(3\)/.test(c.document.getElementById('reviewBtn').textContent));
+  });
+
+  // ===== Gỡ khung "📒 Sổ từ" (2026-08-19) =====
+  t('P33 khung Sổ từ đã gỡ sạch khỏi HTML, CSS và JS', () => {
+    ok(!/id="openVocabBtn"/.test(HTML), 'còn nút Sổ từ');
+    ok(!/id="paneVocab"|id="vocabList"/.test(HTML), 'còn khung/danh sách Sổ từ');
+    const css = fs.readFileSync(path.join(ROOT, 'styles.css'), 'utf8')
+      .split('\n').filter(d => !/^\s*(\/\*|\*|.*\*\/)/.test(d)).join('\n');
+    ok(!/\.vocab-\w+\s*[,{]/.test(css), 'còn luật .vocab-*');
+    const js = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8')
+      .split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+    ok(!/vocabList|openVocabBtn|paneVocab/.test(js), 'app.js còn tham chiếu phần tử đã gỡ');
+  });
+
+  t('P34 khung Ôn tập khi chưa lưu từ nào: nói cách lưu, không để trống trơn', () => {
+    const c = taoSandbox({ storage: moKho() });
+    c.openModal('review');
+    const trong = c.document.getElementById('reviewEmpty');
+    eq(trong.hidden, false, 'mở ra một khung rỗng thì người dùng tưởng app hỏng:');
+    ok(/bấm ☆/.test(trong.textContent), `nhận "${trong.textContent.slice(0, 70)}"`);
+    eq(c.document.getElementById('reviewPanel').hidden, true);
+  });
+
+  t('P35 khung Ôn tập khi chưa tới hạn: nói rõ ngày ôn kế tiếp', () => {
+    const c = taoSandbox({ storage: moKho() });
+    c.saveWord('lease', { vi: 'thuê' }, 1);
+    c.gradeWord('lease', true);   // nhớ -> hộp 2, 3 ngày sau
+    c.openModal('review');
+    const trong = c.document.getElementById('reviewEmpty');
+    eq(trong.hidden, false);
+    ok(trong.textContent.includes(c.dinhDangNgay(c.congNgay(3))),
+      `nhận "${trong.textContent.slice(0, 90)}"`);
+  });
+
+  t('P36 đang ôn thì ẩn dòng "không có gì để ôn", hiện bảng ôn', () => {
+    const c = taoSandbox({ storage: moKho() });
+    c.saveWord('lease', { vi: 'thuê' }, 1);
+    c.openModal('account');
+    c.document.getElementById('reviewBtn').dispatch('click');
+    eq(c.document.getElementById('reviewEmpty').hidden, true,
+      'vừa mời ôn vừa bảo không có gì để ôn:');
+    eq(c.document.getElementById('reviewPanel').hidden, false);
+  });
+
+  // ===== Nút 🗑 trong màn ôn — chỗ DUY NHẤT còn xoá được một từ đã lưu =====
+  t('P37 xoá từ đang ôn: bỏ khỏi sổ, khỏi hàng đợi, và đi tiếp', () => {
+    const c = taoSandbox({ storage: moKho() });
+    ['alpha', 'beta'].forEach(w => c.saveWord(w, { vi: 'nghĩa' }, 1));
+    c.openModal('account');
+    c.document.getElementById('reviewBtn').dispatch('click');
+    eq(c.reviewQueue.length, 2);
+
+    c.xoaTuDangOn('alpha');
+    eq(c.readVocab().map(v => v.word), ['beta'], 'từ chưa bị bỏ khỏi sổ:');
+    eq(c.reviewQueue, ['beta'], 'từ đã xoá vẫn còn trong hàng đợi:');
+    eq(c.document.getElementById('reviewPanel').hidden, false, 'phải ôn tiếp từ còn lại:');
+  });
+
+  t('P38 xoá đúng TỪ CÓ TÊN ĐÓ, không phải từ đang đứng đầu hàng', () => {
+    // Nút 🗑 hôm nay luôn xoá từ đầu hàng nên `shift()` cũng "đúng" — đúng vì
+    // tình cờ, không vì logic. Gọi với một từ ở giữa hàng là lộ ngay: shift()
+    // xoá nhầm từ đầu và giữ lại từ lẽ ra phải biến mất.
+    const c = taoSandbox({ storage: moKho() });
+    ['alpha', 'beta', 'gamma'].forEach(w => c.saveWord(w, { vi: 'nghĩa' }, 1));
+    c.openModal('account');
+    c.document.getElementById('reviewBtn').dispatch('click');
+    eq(c.reviewQueue, ['alpha', 'beta', 'gamma']);
+
+    c.xoaTuDangOn('beta');
+    eq(c.reviewQueue, ['alpha', 'gamma'], 'xoá nhầm từ trong hàng đợi:');
+    eq(c.readVocab().map(v => v.word).sort(), ['alpha', 'gamma'], 'xoá nhầm từ trong sổ:');
+  });
+
+  t('P39b xoá từ cuối cùng khi đang ôn thì đóng bảng ôn lại', () => {
+    const c = taoSandbox({ storage: moKho() });
+    c.saveWord('alpha', { vi: 'nghĩa' }, 1);
+    c.openModal('account');
+    c.document.getElementById('reviewBtn').dispatch('click');
+    c.xoaTuDangOn('alpha');
+    eq(c.reviewQueue.length, 0);
+    eq(c.readVocab().length, 0);
+    eq(c.document.getElementById('reviewPanel').hidden, true, 'bảng ôn còn treo lại:');
+  });
+
+  t('P39 xoá hết từ khi đang ôn thì nút Ôn tập ẩn lại, không kẹt "Ôn tiếp"', () => {
+    const c = taoSandbox({ storage: moKho() });
+    c.saveWord('alpha', { vi: 'nghĩa' }, 1);
+    const btn = c.document.getElementById('reviewBtn');
+    c.openModal('account');
+    btn.dispatch('click');
+    c.xoaTuDangOn('alpha');
+    c.openModal('account');
+    eq(btn.hidden, true, 'sổ trống rồi mà vẫn mời ôn tập:');
+  });
+
+  t('P40 nút 🗑 có mặt trong màn ôn — mất nó là không xoá được từ nữa', () => {
+    const nguon = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+    const than = nguon.slice(nguon.indexOf('function renderReview'));
+    const thanh = than.slice(0, than.indexOf('\nfunction '));
+    ok(/xoaTuDangOn/.test(thanh),
+      'màn ôn phải có nút gọi xoaTuDangOn — đây là chỗ duy nhất còn xoá được từ');
+    ok(/🗑/.test(thanh), 'thiếu biểu tượng 🗑');
   });
 
   t('P8 CSS không còn luật của các phần tử đã gỡ', () => {
