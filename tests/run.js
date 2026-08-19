@@ -65,7 +65,7 @@ const HOOK = `
   dungPhienHoc, nhipPhienHoc, chuyenNhatKyCu, speakFrom, recordLesson,
   veThongKe, openModal, closeModal,
   get phienHoc() { return phienHoc; }, NGUONG_GIAY,
-  buildItem, buildSentences, renderScript, renderQuiz, setStatus,
+  buildItem, buildSentences, renderScript, renderQuiz, setStatus, doiTab, doiTrinhDo, xoaBaiDangMo,
   setBilingual, toggleLineVi, loadBilingual, coBanDich,
   layQuiz, chamQuiz, nopQuiz, chonDapAn, logStudy,
   renderVocab, saveWord, removeWord, dueWords, gradeWord, ngayOnGanNhat, dinhDangNgay, congNgay
@@ -1892,6 +1892,57 @@ function nhomP() {
       'scriptCard phải có sẵn thuộc tính hidden trong index.html');
     ok(/<div class="status" id="statusText" hidden>/.test(HTML),
       'statusText phải có sẵn thuộc tính hidden trong index.html');
+  });
+
+  // Mở một bài giả, không đi qua mạng.
+  const moBaiP = (c, id) => {
+    c.currentItem = { id: id, topic: 'Bài ' + id, lines: [{ s: 'A', t: 'Hello there.' }] };
+    c.currentTab = 'dialogue';
+    c.recordLesson();
+    c.renderScript();
+  };
+
+  t('P22 đổi TRÌNH ĐỘ thì để trống, không tự chọn bài hộ', () => {
+    const c = taoSandbox({ storage: moKho() });
+    moBaiP(c, 11);
+    eq(c.document.getElementById('scriptCard').hidden, false, 'dựng bài giả hỏng:');
+
+    c.doiTrinhDo('intermediate');
+    eq(c.currentItem, null, 'đổi trình độ mà bài cũ vẫn còn:');
+    eq(c.document.getElementById('scriptCard').hidden, true, 'khung nội dung vẫn hiện:');
+    eq(c.document.getElementById('topicText').textContent, '—', 'tên chủ đề cũ còn treo lại:');
+    eq(c.document.getElementById('statusText').hidden, true);
+  });
+
+  t('P23 đổi TAB cũng để trống, y như đổi trình độ', () => {
+    const c = taoSandbox({ storage: moKho() });
+    moBaiP(c, 11);
+    c.doiTab('listening');
+    eq(c.currentItem, null, 'đổi tab mà bài cũ vẫn còn:');
+    eq(c.document.getElementById('scriptCard').hidden, true);
+    eq(c.document.getElementById('quizCard').hidden, true, 'quiz của bài cũ còn sót lại:');
+  });
+
+  t('P24 đổi trình độ phải DỪNG đồng hồ phiên học của bài cũ', () => {
+    // Không dừng thì tới giây thứ 60 nó ghi "đã học" cho một bài không còn
+    // trên màn hình — đúng loại lỗi M6 canh, chỉ khác đường vào.
+    const c = taoSandbox({ storage: moKho() });
+    moBaiP(c, 11);
+    for (let i = 0; i < 30; i++) c.nhipPhienHoc();
+    c.doiTrinhDo('advanced');
+    eq(c.phienHoc, null, 'phiên học của bài cũ vẫn đang chạy:');
+    for (let i = 0; i < 60; i++) c.nhipPhienHoc();
+    eq(c.readLog().length, 0, 'ghi "đã học" cho bài đã bị xoá khỏi màn hình:');
+  });
+
+  t('P25 nguồn không còn chỗ nào tự gọi loadNewItem ngoài nút Đổi chủ đề', () => {
+    const nguon = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8')
+      .split('\n').filter(d => !/^\s*\/\//.test(d)).join('\n');
+    const goi = nguon.match(/loadNewItem/g) || [];
+    // Còn đúng 2: dòng khai báo hàm, và dòng gắn vào randomBtn.
+    eq(goi.length, 2, 'còn chỗ nào đó tự gọi loadNewItem — app lại chọn bài hộ người dùng');
+    ok(/randomBtn\.addEventListener\('click', loadNewItem\)/.test(nguon),
+      'nút 🔀 Đổi chủ đề phải còn gọi loadNewItem');
   });
 
   t('P8 CSS không còn luật của các phần tử đã gỡ', () => {
