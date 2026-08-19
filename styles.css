@@ -566,13 +566,8 @@
   #wpSave.on { color: #f59e0b; }
 
   /* ===== Sổ từ vựng + ôn tập (mục 1.3) ===== */
-  /* Nút 🎯 Ôn tập chuyển từ hàng tiêu đề popup xuống đây 2026-08-19, ngay
-     trên danh sách từ. */
-  .vocab-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 10px;
-  }
+  /* `.vocab-actions` đã gỡ: nút 🎯 Ôn tập chuyển tiếp lên hàng nút của khung
+     Tài khoản (`.acc-links`), đứng cạnh nút Sổ từ. */
   .vocab-item {
     display: flex;
     align-items: center;
@@ -867,38 +862,23 @@
     margin: 0 0 14px;
   }
 
-  /* Bộ đếm tiến độ trong khung Tài khoản (2026-08-17). */
-  .acc-stats {
-    margin: 0 0 14px;
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: #f1f5f9;
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--text);
-  }
-  .acc-stats b { color: var(--primary); }
-  .acc-stats .as-hint {
-    display: block;
-    margin-top: 4px;
-    font-size: 12.5px;
-    color: var(--muted);
-  }
+  /* 2026-08-19: gỡ `.acc-stats` (đoạn văn bộ đếm) và `.acc-sync` (dòng trạng
+     thái đồng bộ). Ba con số nay nằm thẳng trên nhãn hàng nút `.acc-links`. */
 
-  /* Dòng trạng thái gộp dữ liệu (tuần 16). Cố ý nhẹ nhàng, không phải hộp
-     thoại chặn màn hình: việc gộp chạy nền và không cản thao tác nào. */
-  .acc-sync {
-    font-size: 13px;
-    line-height: 1.55;
-    margin: 0 0 12px;
-    padding: 8px 10px;
+  /* "📚 Đã học (5)" — trông cùng cỡ với hai nút bên cạnh nhưng KHÔNG bấm được:
+     không có khung nào để mở ra. Cố ý không dùng viền đậm như nút thật, để
+     người dùng không bấm hụt. */
+  .acc-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 12px;
     border-radius: 8px;
-    background: rgba(37, 99, 235, 0.08);
-    color: var(--muted);
+    background: #f1f5f9;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: default;
   }
-  .acc-sync.dang-chay { color: var(--muted); }
-  .acc-sync.xong { background: rgba(22, 163, 74, 0.1); color: #15803d; }
-  .acc-sync.hong { background: rgba(220, 38, 38, 0.08); color: #b91c1c; }
 
   /* Trên điện thoại nút tài khoản dễ đè lên tiêu đề dài, nên cho tiêu đề
      chừa chỗ và rút nút lại còn phần chữ ngắn. */
