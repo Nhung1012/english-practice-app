@@ -1358,9 +1358,44 @@ Khung nội dung và khung câu hỏi **ẩn hẳn** khi chưa có bài, dòng t
 
 ⚠️ **`hidden` đặt sẵn trong `index.html`, không đợi JS.** Để JS ẩn thì khung rỗng loé lên một nhịp trước khi script chạy. Nhưng vẫn gọi `capNhatKhungNoiDung()` trong init — `minidom.js` không đọc thuộc tính từ HTML nên sandbox và trình duyệt phải khớp nhau, và trạng thái ban đầu chỉ nên do MỘT chỗ quyết định. Test **P21** canh thuộc tính trong HTML, **P18** canh hành vi lúc chạy.
 
-**Chưa đổi, để bạn quyết:** đổi tab hoặc đổi trình độ **vẫn** tự mở bài mới như cũ. Đó là thao tác chủ động của người dùng, không phải "vào trang", nên tôi không tự mở rộng phạm vi.
-
 **Thêm 6 test, tổng 137/137 qua.**
+
+**3. Đổi tab và đổi trình độ cũng để trống** (bạn chốt ngay sau đó). Nay app không chọn bài hộ người dùng ở **bất kỳ đâu** — chỉ còn nút 🔀 Đổi chủ đề là gọi `loadNewItem()`, và đó là lúc người dùng chủ động xin một bài ngẫu nhiên. Test **P25** đếm số lần `loadNewItem` xuất hiện trong nguồn (đúng 2: khai báo hàm + gắn vào `randomBtn`), nên thêm chỗ tự gọi ở đâu là test đỏ ngay.
+
+`xoaBaiDangMo()` **phải dừng cả phiên học đang đếm giờ** — không dừng thì đồng hồ của bài cũ chạy tiếp và tới giây thứ 60 ghi "đã học" cho một bài không còn trên màn hình. Đúng loại lỗi M6 canh, chỉ khác đường vào. Test **P24**.
+
+Tách `doiTab()` / `doiTrinhDo()` thành hàm có tên thay vì viết thẳng trong `addEventListener`: `minidom.js` chỉ đăng ký phần tử theo id, không có nút `.tab-btn`/`.level-btn` để mà bấm, nên viết inline là không test được đường này.
+
+**Tổng 141/141 qua.**
+
+### 🐞 Dời một nút sang khung khác, quên soát điều kiện ẩn/hiện (cùng ngày)
+
+Bạn báo: **Tài khoản → 🎯 Ôn tập → ← → nút Ôn tập biến mất.**
+
+Nguyên nhân nằm đúng một dòng:
+
+```js
+reviewBtn.hidden = reviewQueue.length > 0 || list.length === 0;
+```
+
+Luật *"đang ôn dở thì ẩn nút"* **đúng** hồi nút còn nằm TRONG khung Sổ từ — bảng ôn thế chỗ nút, để cả hai cùng lúc là thừa. Nhưng sáng nay nút chuyển ra khung Tài khoản, mà điều kiện thì giữ nguyên. Bấm ← không dừng phiên ôn, nên `reviewQueue` vẫn còn và nút bị ẩn ở cả khung Tài khoản. Phiên ôn treo lơ lửng: **bảng thì khuất, hàng đợi thì vẫn sống, không có đường nào vào lại.**
+
+**Bài học:** dời một phần tử sang khung khác thì phải soát lại MỌI điều kiện ẩn/hiện của nó. Điều kiện được viết cho ngữ cảnh cũ, nó không tự đúng ở chỗ mới. Đây là lần thứ năm cùng chủ đề *trạng thái ẩn/hiện của giao diện* — và lần này bộ test 141 bài vẫn xanh, vì không bài nào đi qua đúng đường Tài khoản → ôn → quay lại.
+
+**Bạn chọn giữ phiên** (không dừng như khi bấm ✕):
+
+| Chỗ đứng | Nhãn nút |
+|---|---|
+| Khung Tài khoản, chưa ôn | `🎯 Ôn tập (3)` |
+| Trong khung Sổ từ, đang ôn | *ẩn* — bảng ôn thế chỗ |
+| Khung Tài khoản, đang ôn dở | `🎯 Ôn tiếp (2)` |
+| Ôn xong hết | `🎯 Ôn tập (0)`, mờ đi nhưng **không ẩn** |
+
+Sửa kèm `batDauOnTap()`: đang có phiên dở thì **giữ nguyên hàng đợi**. Dựng lại từ `dueWords()` là quay về từ đầu, xoá sạch tiến độ vừa làm — trong khi nút đang ghi "Ôn tiếp", tức hứa ngược lại. Và `reviewBtn.disabled` nay theo hàng đợi chứ không theo `due`: chấm xong vài từ thì `due` về 0 nhưng phiên vẫn còn từ để ôn.
+
+Bấm ✕ đóng popup vẫn dừng hẳn phiên như cũ (test **P29** giữ hành vi đó).
+
+**Thêm 4 test (P26–P29), tổng 145/145 qua.** Đã kiểm ngược: khôi phục dòng lỗi cũ thì **P26 đỏ** — test không rỗng.
 
 ### Việc của bạn — tuần 17
 
