@@ -28,7 +28,7 @@ const IDS = ('accAvatar accBtn accEmail accGuest accLabel accSigninBtn accSignou
   + 'wpExample wpIpa wpPos wpSave wpSpeak wpVi wpWord '
   // 📥 Chủ đề của tôi (2026-10-14)
   + 'openMineBtn paneMine mineListView mineNote mineMsg mineList mineAddBtn mineImport mineFile '
-  + 'mineText mineSampleBtn mineParseBtn mineError minePreview mineTopic mineType mineLevel '
+  + 'mineText mineParseBtn mineError minePreview mineTopic mineType mineLevel '
   + 'mineSummary mineWarn mineLines mineSaveBtn mineCancelBtn').split(' ');
 
 // Nguồn của app = các file JS cục bộ, nạp ĐÚNG thứ tự index.html khai báo.
@@ -2624,6 +2624,20 @@ async function nhomR() {
     eq(gia.db.user_content[0].user_id, 'u1');
     eq(c.docKhoCuaToi()[0].synced, true);
     c.dungPhienHoc();
+  });
+
+  await ta('R14 bấm ➕ Import là có sẵn bài mẫu và phần xem trước, không còn nút Xem mẫu', async () => {
+    const c = taoSandbox();
+    c.openModal('mine');
+    c.document.getElementById('mineAddBtn').dispatch('click');
+    eq(c.document.getElementById('mineText').value, c.MAU_NHAP_TXT);
+    eq(c.document.getElementById('minePreview').hidden, false, 'phần xem trước phải hiện ngay:');
+    eq(c.document.getElementById('mineTopic').value, 'Ordering coffee');
+    eq(c.document.getElementById('mineLevel').value, 'beginner');
+    ok(!/mineSampleBtn/.test(HTML), 'nút Xem mẫu vẫn còn trong index.html');
+    // Mẫu điền sẵn phải khớp file mau_import.txt người dùng tải về từ site.
+    const tep = fs.readFileSync(path.join(ROOT, 'mau_import.txt'), 'utf8');
+    eq(c.phanTichChuDe(tep).bai.data.lines.length, 4);
   });
 
   await ta('R13 không có Supabase: bài tự nhập vẫn hiện trong danh sách và mở được', async () => {

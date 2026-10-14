@@ -577,7 +577,7 @@ function suaBaiCuaToiKho(id, patch) {
   return b;
 }
 
-// Nội dung mẫu cho nút "📄 Xem mẫu" và file mau_import.txt.
+// Bài mẫu điền sẵn khi mở màn nhập (moManNhap) — giữ khớp với file mau_import.txt.
 const MAU_NHAP_TXT = [
   'Chủ đề: Ordering coffee',
   'Loại: hội thoại',
