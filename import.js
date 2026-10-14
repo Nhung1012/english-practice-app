@@ -124,10 +124,10 @@ const RE_NGOAC = /^\s*[(\[（](.+)[)\]）]\s*$/;
 // `doan`    : những gì đã TỰ ĐOÁN (để màn xem trước nói ra), vd { type: true }.
 //
 // `tuyChon.loai` / `tuyChon.trinhDo` / `tuyChon.ten`: người dùng đã chọn ở màn
-// xem trước. Trình độ và loại bài CHỈ lấy từ ô chọn (2026-10-14, bạn chọn
-// "Chỉ ô chọn"): dòng "Trình độ:" / "Loại:" trong file vẫn được nhận ra là
-// dòng tiêu đề (không lẫn vào bài) nhưng bị bỏ qua. Không chọn loại thì app
-// tự đoán theo nội dung.
+// xem trước. Tên, trình độ và loại bài CHỈ lấy từ các ô bên dưới (2026-10-14,
+// bạn chọn): dòng "Chủ đề:" / "Trình độ:" / "Loại:" trong file vẫn được nhận
+// ra là dòng tiêu đề (không lẫn vào bài) nhưng bị bỏ qua. Ô tên trống thì lấy
+// theo tên file; không chọn loại thì app tự đoán theo nội dung.
 // ------------------------------------------------------------
 function phanTichChuDe(noiDung, tuyChon) {
   const o = tuyChon || {};
@@ -282,14 +282,14 @@ function hoanThien(kq, o) {
   const thieu = [];
 
   // Tên bài: người dùng gõ > trong file > tên file.
-  let topic = (o.ten !== undefined ? String(o.ten) : (kq.dau.topic ? kq.dau.topic.v : '')).trim();
+  let topic = String(o.ten || '').trim();
   if (!topic && o.tenFile) {
     topic = String(o.tenFile).replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim();
     if (topic) doan.topic = true;
   }
   if (topic.length > GIOI_HAN_NHAP.kyTuTenBai) {
     topic = topic.slice(0, GIOI_HAN_NHAP.kyTuTenBai).trim();
-    canhBao.push({ dong: kq.dau.topic ? kq.dau.topic.dong : 0, lyDo: 'Tên chủ đề dài quá, đã cắt còn ' + GIOI_HAN_NHAP.kyTuTenBai + ' ký tự.' });
+    canhBao.push({ dong: 0, lyDo: 'Tên chủ đề dài quá, đã cắt còn ' + GIOI_HAN_NHAP.kyTuTenBai + ' ký tự.' });
   }
   if (!topic) thieu.push('topic');
 
@@ -560,9 +560,8 @@ function suaBaiCuaToiKho(id, patch) {
 }
 
 // Bài mẫu điền sẵn khi mở màn nhập (moManNhap) — giữ khớp với file mau_import.txt.
+const MAU_NHAP_TEN = 'Ordering coffee';
 const MAU_NHAP_TXT = [
-  'Chủ đề: Ordering coffee',
-  '---',
   'A: Hi, can I get a latte, please?',
   'VI: Chào bạn, cho tôi một ly latte nhé?',
   'B: Sure. What size would you like?',

@@ -78,9 +78,9 @@ const HOOK = `
   batDauOnTap, chamTu, get reviewQueue() { return reviewQueue; },
   // 📥 Chủ đề của tôi
   phanTichChuDe, tachCauNhap, laBaiCuaToi, docKhoCuaToi, baiCuaToi, themBaiCuaToi,
-  xemTruocNhap, doiLoaiXemTruoc, luuNhap, xoaBaiCuaToi, dongBoBaiCuaToi, renderMine,
+  xemTruocNhap, xemTruocTuOChu, CHO_XEM_TRUOC_MS, doiLoaiXemTruoc, luuNhap, xoaBaiCuaToi, dongBoBaiCuaToi, renderMine,
   dungDanhSachChuDe, loadTopicOptions, loadSelectedTopic, renderTopicList, openCombo,
-  locIdConTonTai, MAU_NHAP_TXT, GIOI_HAN_NHAP,
+  locIdConTonTai, MAU_NHAP_TXT, MAU_NHAP_TEN, GIOI_HAN_NHAP,
   get topicOptions() { return topicOptions; }
 };
 `;
@@ -2239,9 +2239,10 @@ function nhomQ() {
   const c = taoSandbox();
   const doc = (txt, o) => c.phanTichChuDe(txt, o);
 
-  t('Q1 file mẫu đọc ra đúng hội thoại và bản dịch; trình độ lấy từ ô chọn', () => {
-    ok(!/Trình độ|Loại/.test(c.MAU_NHAP_TXT), 'bài mẫu không còn dòng Trình độ / Loại');
-    const kq = doc(c.MAU_NHAP_TXT, { trinhDo: 'beginner' });
+  t('Q1 file mẫu đọc ra đúng hội thoại và bản dịch; tên + trình độ lấy từ ô bên dưới', () => {
+    ok(!/Chủ đề|Trình độ|Loại|---/.test(c.MAU_NHAP_TXT), 'bài mẫu chỉ còn lời thoại');
+    eq(doc(c.MAU_NHAP_TXT).bai.topic, '', 'tên không lấy từ nội dung:');
+    const kq = doc(c.MAU_NHAP_TXT, { ten: c.MAU_NHAP_TEN, trinhDo: 'beginner' });
     eq(kq.ok, true, kq.loi);
     eq(kq.bai.topic, 'Ordering coffee');
     eq(kq.bai.type, 'dialogue');
@@ -2252,12 +2253,12 @@ function nhomQ() {
     eq(kq.canhBao.length, 0, 'file mẫu mà còn cảnh báo:');
   });
 
-  t('Q2 phần đầu viết lệch (không dấu, chữ hoa, BOM + CRLF, không có ---); dòng Trình độ/Loại bị bỏ qua, không lẫn vào bài', () => {
+  t('Q2 phần đầu viết lệch (không dấu, chữ hoa, BOM + CRLF, không có ---); dòng Chủ đề/Trình độ/Loại bị bỏ qua, không lẫn vào bài', () => {
     const kq = doc('﻿LEVEL :  b2\r\n  chu de: At the bank \r\nLoai bai: nghe\r\n\r\nA: I want to open an account.\r\nB: Sure.\r\n');
     eq(kq.ok, true, kq.loi);
-    eq(kq.bai.topic, 'At the bank');
+    eq(kq.bai.topic, '', 'tên chỉ lấy từ ô Tên chủ đề:');
     eq(kq.bai.level, null, 'trình độ chỉ lấy từ ô chọn:');
-    eq(kq.thieu, ['level']);
+    eq(kq.thieu, ['topic', 'level']);
     eq(kq.bai.type, 'dialogue', 'loại tự đoán theo nội dung, không theo dòng "Loai bai":');
     eq(kq.doan.type, true);
     eq(kq.bai.data.lines.length, 2, 'dòng tiêu đề bị lẫn vào lời thoại:');
@@ -2363,9 +2364,9 @@ function nhomQ() {
     eq(kq.canhBao.length, 2);
   });
 
-  t('Q12 nhãn đặt cuối file vẫn nhận; hai dòng chủ đề thì giữ dòng đầu và báo', () => {
-    const kq = doc('Topic: First\nA: Hi.\nB: Hello.\nTopic: Second\nTrình độ: nâng cao');
-    eq(kq.bai.topic, 'First');
+  t('Q12 nhãn đặt cuối file vẫn nhận ra (không lẫn vào bài); hai dòng chủ đề thì báo', () => {
+    const kq = doc('Topic: First\nA: Hi.\nB: Hello.\nTopic: Second\nTrình độ: nâng cao', { ten: 'Tên ở ô' });
+    eq(kq.bai.topic, 'Tên ở ô', 'ô tên thắng dòng Topic:');
     eq(kq.bai.data.lines.length, 2, 'dòng "Trình độ" cuối file bị lẫn vào lời thoại:');
     ok(kq.canhBao.some(w => w.dong === 4), 'phải chỉ ra dòng 4');
   });
@@ -2475,7 +2476,8 @@ const ngu = () => new Promise(r => setTimeout(r, 0));
 // Mở màn nhập, dán nội dung, xem trước, chọn trình độ, lưu.
 async function nhapBai(c, txt, level) {
   c.document.getElementById('mineAddBtn').dispatch('click');
-  c.xemTruocNhap(txt, '');
+  // Dán rồi bấm Lưu luôn, không bấm Xem trước — luuNhap phải tự đọc ô chữ.
+  c.document.getElementById('mineText').value = txt;
   if (level !== undefined) c.document.getElementById('mineLevel').value = level;
   const moi = await c.luuNhap();
   await ngu();
@@ -2483,7 +2485,7 @@ async function nhapBai(c, txt, level) {
 }
 
 async function nhomR() {
-  const BAI = 'Chủ đề: Ordering coffee\nTom: Hi, a latte please.\nAnna: Sure.';
+  const BAI = 'Tom: Hi, a latte please.\nAnna: Sure.';   // tên bài lấy từ ô Tên chủ đề
 
   await ta('R1 khách nhập bài: lưu trên máy, hiện đầu danh sách với nhãn 📥, mở học ngay', async () => {
     const c = taoSandbox();
@@ -2554,7 +2556,8 @@ async function nhomR() {
     const c = taoSandbox();
     c.openModal('mine');
     c.document.getElementById('mineAddBtn').dispatch('click');
-    c.xemTruocNhap('Hello there.\nHi!', '');
+    c.document.getElementById('mineText').value = 'Hello there.\nHi!';
+    c.xemTruocTuOChu();
     eq(c.document.getElementById('mineType').value, 'listening');
     c.document.getElementById('mineTopic').value = 'Tên tôi gõ';
     c.document.getElementById('mineType').value = 'dialogue';
@@ -2662,13 +2665,38 @@ async function nhomR() {
     eq(moi.level, 'advanced');
   });
 
+  await ta('R18 dán bài rồi bấm Lưu ngay (chưa Xem trước) thì lưu bài vừa dán, không lưu nhầm bài mẫu', async () => {
+    const c = taoSandbox();
+    c.openModal('mine');
+    c.document.getElementById('mineAddBtn').dispatch('click');
+    c.document.getElementById('mineText').value = 'A: Where is the station?\nB: Turn left.';
+    c.document.getElementById('mineTopic').value = 'Hỏi đường';
+    const moi = await c.luuNhap();
+    eq(moi.topic, 'Hỏi đường');
+    eq(moi.data.lines.map(l => l.t), ['Where is the station?', 'Turn left.']);
+  });
+
+  await ta('R19 gõ / dán vào ô chữ là phần xem trước tự cập nhật, giữ tên đã gõ ở ô dưới', async () => {
+    const c = taoSandbox();
+    c.openModal('mine');
+    c.document.getElementById('mineAddBtn').dispatch('click');
+    c.document.getElementById('mineTopic').value = 'Tên tôi gõ';
+    const o = c.document.getElementById('mineText');
+    o.value = 'Hello there.\nHi! How are you?';
+    o.dispatch('input');
+    await new Promise(r => setTimeout(r, c.CHO_XEM_TRUOC_MS + 50));
+    ok(/Luyện nghe · 3 câu/.test(c.document.getElementById('mineSummary').textContent),
+      c.document.getElementById('mineSummary').textContent);
+    eq(c.document.getElementById('mineTopic').value, 'Tên tôi gõ');
+  });
+
   await ta('R14 bấm ➕ Import là có sẵn bài mẫu và phần xem trước, không còn nút Xem mẫu', async () => {
     const c = taoSandbox();
     c.openModal('mine');
     c.document.getElementById('mineAddBtn').dispatch('click');
     eq(c.document.getElementById('mineText').value, c.MAU_NHAP_TXT);
     eq(c.document.getElementById('minePreview').hidden, false, 'phần xem trước phải hiện ngay:');
-    eq(c.document.getElementById('mineTopic').value, 'Ordering coffee');
+    eq(c.document.getElementById('mineTopic').value, c.MAU_NHAP_TEN);
     eq(c.document.getElementById('mineLevel').value, 'beginner');
     ok(!/mineSampleBtn/.test(HTML), 'nút Xem mẫu vẫn còn trong index.html');
     // Mẫu điền sẵn phải khớp file mau_import.txt người dùng tải về từ site.

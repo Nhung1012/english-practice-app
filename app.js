@@ -992,6 +992,7 @@ function moManNhap() {
   if (mineFile) mineFile.value = '';
   mineText.value = MAU_NHAP_TXT;
   loaiDaChon = false;
+  mineTopic.value = MAU_NHAP_TEN;
   mineLevel.value = currentLevel;
   xemTruocNhap(MAU_NHAP_TXT, '');
 }
@@ -999,6 +1000,7 @@ function moManNhap() {
 function dongManNhap() {
   mineImport.hidden = true;
   mineListView.hidden = false;
+  clearTimeout(henXemTruoc);
   mineText.value = '';
   if (mineFile) mineFile.value = '';
   nhapDangXem = null;
@@ -1010,17 +1012,30 @@ function baoLoiNhap(msg) {
   mineError.hidden = !msg;
 }
 
-// Trình độ và loại bài chỉ lấy từ ô chọn ở màn xem trước (2026-10-14, bạn
-// chọn "Chỉ ô chọn"; trước đây dòng "Trình độ:" trong ô chữ và ô chọn giẫm lên
-// nhau). Trình độ mặc định theo trình độ đang học. Loại bài app tự đoán cho
-// tới khi người dùng tự đổi ô chọn (`loaiDaChon`).
+// Tên, trình độ và loại bài chỉ lấy từ các ô ở màn xem trước (2026-10-14, bạn
+// chọn; trước đây dòng "Trình độ:" / "Chủ đề:" trong ô chữ và ô bên dưới giẫm
+// lên nhau). Trình độ mặc định theo trình độ đang học. Loại bài app tự đoán
+// cho tới khi người dùng tự đổi ô chọn (`loaiDaChon`).
 let loaiDaChon = false;
 function tuyChonTuOChon() {
-  return { trinhDo: mineLevel.value || undefined, loai: loaiDaChon ? mineType.value : undefined };
+  return {
+    ten: mineTopic.value,
+    trinhDo: mineLevel.value || undefined,
+    loai: loaiDaChon ? mineType.value : undefined
+  };
 }
 
-// Đọc nội dung và hiện màn xem trước. Trình độ + loại bài lấy theo ô chọn
-// đang có; `tuyChon` thêm/ghi đè (vd tên vừa gõ khi đổi loại bài).
+// Phần xem trước tự cập nhật khi người dùng gõ / dán vào ô chữ (đợi ngừng gõ
+// một chút), khỏi phải nhớ bấm 🔍 Xem trước.
+let henXemTruoc = null;
+const CHO_XEM_TRUOC_MS = 400;
+function xemTruocTuOChu() {
+  clearTimeout(henXemTruoc);
+  return xemTruocNhap(mineText.value || '', nhapDangXem ? nhapDangXem.tenFile : '');
+}
+
+// Đọc nội dung và hiện màn xem trước. Tên, trình độ, loại bài lấy theo các ô
+// đang có; `tuyChon` thêm/ghi đè.
 function xemTruocNhap(noiDung, tenFile, tuyChon) {
   const kq = phanTichChuDe(noiDung, Object.assign({ tenFile: tenFile }, tuyChonTuOChon(), tuyChon || {}));
   nhapDangXem = { noiDung: noiDung, tenFile: tenFile, kq: kq };
@@ -1090,13 +1105,14 @@ function veXemTruoc(kq) {
 // người dùng vừa gõ.
 function doiLoaiXemTruoc() {
   loaiDaChon = true;
-  if (!nhapDangXem) return;
-  xemTruocNhap(nhapDangXem.noiDung, nhapDangXem.tenFile, { ten: mineTopic.value });
+  xemTruocTuOChu();
 }
 
-// Lưu bài đang xem trước. Trả về bài đã lưu, hoặc null (đã báo lỗi).
+// Lưu bài. Luôn đọc lại ô chữ trước khi lưu: người dùng dán bài rồi bấm Lưu
+// ngay (chưa kịp xem trước) thì vẫn lưu đúng bài đó, không lưu nhầm bài mẫu.
+// Trả về bài đã lưu, hoặc null (đã báo lỗi).
 async function luuNhap() {
-  if (!nhapDangXem || !nhapDangXem.kq.ok) return null;
+  if (!xemTruocTuOChu().ok) return null;
   const topic = String(mineTopic.value || '').trim();
   const level = mineLevel.value || '';
   if (!topic) { baoLoiNhap('Hãy đặt tên cho chủ đề.'); return null; }
@@ -1142,7 +1158,12 @@ function docFileNhap(file) {
   });
   doc('UTF-8')
     .then(t => t.indexOf('�') !== -1 ? doc('windows-1258') : t)
-    .then(t => { mineText.value = t; loaiDaChon = false; xemTruocNhap(t, file.name); })
+    .then(t => {
+      mineText.value = t;
+      loaiDaChon = false;
+      mineTopic.value = '';   // ô tên lấy theo tên file, người dùng sửa lại được
+      xemTruocNhap(t, file.name);
+    })
     .catch(() => baoLoiNhap('Không đọc được file này. Hãy thử mở file, chép nội dung rồi dán vào ô bên dưới.'));
 }
 
@@ -2833,7 +2854,11 @@ openFavBtn.addEventListener('click', () => openModal('fav'));
 openMineBtn.addEventListener('click', () => openModal('mine'));
 mineAddBtn.addEventListener('click', moManNhap);
 mineCancelBtn.addEventListener('click', dongManNhap);
-mineParseBtn.addEventListener('click', () => xemTruocNhap(mineText.value || '', ''));
+mineParseBtn.addEventListener('click', xemTruocTuOChu);
+mineText.addEventListener('input', () => {
+  clearTimeout(henXemTruoc);
+  henXemTruoc = setTimeout(xemTruocTuOChu, CHO_XEM_TRUOC_MS);
+});
 mineFile.addEventListener('change', () => docFileNhap(mineFile.files && mineFile.files[0]));
 mineType.addEventListener('change', doiLoaiXemTruoc);
 mineSaveBtn.addEventListener('click', luuNhap);
