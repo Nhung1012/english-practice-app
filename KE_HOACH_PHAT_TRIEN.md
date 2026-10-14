@@ -1515,3 +1515,12 @@ Lỗi: dòng "Trình độ:" trong ô chữ và ô chọn bên dưới giẫm l�
 - Ô **Loại bài**: app tự đoán theo nội dung (có tên người nói → hội thoại) cho tới khi bạn tự đổi ô chọn; từ đó giữ theo ô chọn. Mở lại màn Import hoặc chọn file mới thì quay về tự đoán.
 
 Sửa test Q1, Q2, Q11, Q12; thêm **Q12b** (JSON bỏ qua `type`) và **R17** (đổi ô chọn rồi Xem trước lại không bị đè, lưu đúng trình độ). **189/189 qua.**
+
+### Sửa lỗi Lưu nhầm bài mẫu + bỏ tên chủ đề khỏi nội dung (cùng ngày, bạn đồng ý)
+Lỗi: dán bài vào ô chữ rồi bấm 💾 Lưu (chưa bấm 🔍 Xem trước) thì app lưu **bài mẫu**, vì nút Lưu dùng kết quả của lần xem trước gần nhất.
+
+- **Lưu luôn đọc lại ô chữ** trước khi lưu, nên không thể lưu nhầm nữa.
+- **Xem trước tự cập nhật** khi gõ hoặc dán (đợi ngừng gõ 0,4 giây). Nút 🔍 Xem trước vẫn giữ.
+- **Tên chủ đề chỉ lấy từ ô "Tên chủ đề"** (giống trình độ, loại bài). Bài mẫu chỉ còn lời thoại; ô tên điền sẵn "Ordering coffee". Chọn file thì ô tên lấy theo tên file. Dòng "Chủ đề:" / `topic` trong file cũ vẫn nhận ra là tiêu đề (không lẫn vào bài) nhưng bị bỏ qua. `mau_import.txt` / `mau_import.json` bỏ dòng tên.
+
+Sửa test Q1, Q2, Q12, R1 (dán rồi Lưu luôn, không Xem trước), R6; thêm **R18** (dán rồi Lưu ngay → lưu đúng bài vừa dán) và **R19** (gõ là xem trước tự cập nhật, giữ tên đã gõ). Kiểm ngược: để nút Lưu dùng kết quả xem trước cũ thì **R18 đỏ**. **191/191 qua.**
