@@ -2239,8 +2239,9 @@ function nhomQ() {
   const c = taoSandbox();
   const doc = (txt, o) => c.phanTichChuDe(txt, o);
 
-  t('Q1 file mẫu đọc ra đúng hội thoại, trình độ và bản dịch', () => {
-    const kq = doc(c.MAU_NHAP_TXT);
+  t('Q1 file mẫu đọc ra đúng hội thoại và bản dịch; trình độ lấy từ ô chọn', () => {
+    ok(!/Trình độ|Loại/.test(c.MAU_NHAP_TXT), 'bài mẫu không còn dòng Trình độ / Loại');
+    const kq = doc(c.MAU_NHAP_TXT, { trinhDo: 'beginner' });
     eq(kq.ok, true, kq.loi);
     eq(kq.bai.topic, 'Ordering coffee');
     eq(kq.bai.type, 'dialogue');
@@ -2251,14 +2252,16 @@ function nhomQ() {
     eq(kq.canhBao.length, 0, 'file mẫu mà còn cảnh báo:');
   });
 
-  t('Q2 phần đầu viết lệch: không dấu, chữ hoa, tiếng Anh, đảo thứ tự, BOM + CRLF, không có ---', () => {
-    const kq = doc('﻿LEVEL :  b2\r\n  chu de: At the bank \r\nLoai bai: Hoi thoai\r\n\r\nA: I want to open an account.\r\nB: Sure.\r\n');
+  t('Q2 phần đầu viết lệch (không dấu, chữ hoa, BOM + CRLF, không có ---); dòng Trình độ/Loại bị bỏ qua, không lẫn vào bài', () => {
+    const kq = doc('﻿LEVEL :  b2\r\n  chu de: At the bank \r\nLoai bai: nghe\r\n\r\nA: I want to open an account.\r\nB: Sure.\r\n');
     eq(kq.ok, true, kq.loi);
     eq(kq.bai.topic, 'At the bank');
-    eq(kq.bai.level, 'intermediate');
-    eq(kq.bai.type, 'dialogue');
-    eq(kq.bai.data.lines.length, 2);
-    eq(kq.doan.type, undefined, 'loại đã ghi trong file thì không phải "đoán":');
+    eq(kq.bai.level, null, 'trình độ chỉ lấy từ ô chọn:');
+    eq(kq.thieu, ['level']);
+    eq(kq.bai.type, 'dialogue', 'loại tự đoán theo nội dung, không theo dòng "Loai bai":');
+    eq(kq.doan.type, true);
+    eq(kq.bai.data.lines.length, 2, 'dòng tiêu đề bị lẫn vào lời thoại:');
+    eq(doc('Level: b2\nA: Hi.\nB: Yo.', { trinhDo: 'advanced' }).bai.level, 'advanced', 'ô chọn thắng dòng trong file:');
   });
 
   t('Q3 tên người thật: chia giọng A/B theo thứ tự, giữ tên để hiển thị', () => {
@@ -2353,7 +2356,7 @@ function nhomQ() {
       }
     }));
     eq(kq.ok, true, kq.loi);
-    eq(kq.bai.level, 'advanced');
+    eq(kq.bai.level, null, '"level" trong JSON bị bỏ qua:');
     eq(kq.bai.type, 'listening');
     eq(kq.bai.data.quiz.length, 1);
     eq(kq.bai.data.vi, undefined);
@@ -2363,8 +2366,16 @@ function nhomQ() {
   t('Q12 nhãn đặt cuối file vẫn nhận; hai dòng chủ đề thì giữ dòng đầu và báo', () => {
     const kq = doc('Topic: First\nA: Hi.\nB: Hello.\nTopic: Second\nTrình độ: nâng cao');
     eq(kq.bai.topic, 'First');
-    eq(kq.bai.level, 'advanced');
+    eq(kq.bai.data.lines.length, 2, 'dòng "Trình độ" cuối file bị lẫn vào lời thoại:');
     ok(kq.canhBao.some(w => w.dong === 4), 'phải chỉ ra dòng 4');
+  });
+
+  t('Q12b JSON: "type" ghi trong file bị bỏ qua, loại theo hình dạng (lines/text) hoặc ô chọn', () => {
+    const nghe = JSON.stringify({ topic: 'T', type: 'dialogue', data: { text: 'Hi. Bye.' } });
+    eq(doc(nghe).bai.type, 'listening');
+    const thoai = JSON.stringify({ topic: 'T', type: 'listening', data: { lines: [{ s: 'A', t: 'Hi.' }, { s: 'B', t: 'Yo.' }] } });
+    eq(doc(thoai).bai.type, 'dialogue');
+    eq(doc(thoai, { loai: 'listening' }).bai.type, 'listening');
   });
 
   t('Q13 câu tiếng Anh có chữ Pháp (café, résumé) không bị coi là bản dịch', () => {
@@ -2634,6 +2645,21 @@ async function nhomR() {
     eq(gia.db.user_content[0].user_id, 'u1');
     eq(c.docKhoCuaToi()[0].synced, true);
     c.dungPhienHoc();
+  });
+
+  await ta('R17 trình độ chỉ theo ô chọn: mặc định trình độ đang học, bấm Xem trước lại không bị dòng chữ đè', async () => {
+    const c = taoSandbox();
+    c.currentLevel = 'intermediate';
+    c.openModal('mine');
+    c.document.getElementById('mineAddBtn').dispatch('click');
+    const lv = c.document.getElementById('mineLevel');
+    eq(lv.value, 'intermediate', 'mặc định theo trình độ đang học:');
+    lv.value = 'advanced';
+    c.document.getElementById('mineText').value = 'Trình độ: cơ bản\n' + c.MAU_NHAP_TXT;
+    c.document.getElementById('mineParseBtn').dispatch('click');
+    eq(lv.value, 'advanced', 'bấm Xem trước lại mà ô chọn bị đổi theo dòng chữ:');
+    const moi = await c.luuNhap();
+    eq(moi.level, 'advanced');
   });
 
   await ta('R14 bấm ➕ Import là có sẵn bài mẫu và phần xem trước, không còn nút Xem mẫu', async () => {
