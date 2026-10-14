@@ -76,23 +76,7 @@ function nhanLaGi(khoa) {
   return Object.keys(NHAN_NHAP).find(ten => NHAN_NHAP[ten].indexOf(k) !== -1) || null;
 }
 
-// 'hội thoại', 'dialogue', 'hoi thoai 2 nguoi'... -> 'dialogue'. Không hiểu -> null.
-function docLoaiBai(v) {
-  const s = boDauNhap(v);
-  if (!s) return null;
-  if (/hoi thoai|doi thoai|dialog|conversation|chat/.test(s)) return 'dialogue';
-  if (/nghe|listen|script|doc|doan van|bai van|reading|passage|text/.test(s)) return 'listening';
-  return null;
-}
-
-function docTrinhDo(v) {
-  const s = boDauNhap(v);
-  if (!s) return null;
-  if (/\b(c1|c2)\b|nang cao|advanced|kho|cao cap/.test(s)) return 'advanced';
-  if (/\b(b1|b2)\b|trung|intermediate|vua/.test(s)) return 'intermediate';
-  if (/\b(a1|a2|de)\b|co ban|beginner|so cap|elementary|basic/.test(s)) return 'beginner';
-  return null;
-}
+const LEVEL_NHAP = ['beginner', 'intermediate', 'advanced'];
 
 // Câu tiếng Việt? Chữ "mạnh" (ạ, ơ, ư, đ...) không có trong tiếng Anh hay
 // tiếng Pháp nên một chữ là đủ. Chữ "yếu" (é, à...) có cả trong "café",
@@ -140,7 +124,10 @@ const RE_NGOAC = /^\s*[(\[（](.+)[)\]）]\s*$/;
 // `doan`    : những gì đã TỰ ĐOÁN (để màn xem trước nói ra), vd { type: true }.
 //
 // `tuyChon.loai` / `tuyChon.trinhDo` / `tuyChon.ten`: người dùng đã chọn ở màn
-// xem trước -> ghi đè thứ đọc được trong file.
+// xem trước. Trình độ và loại bài CHỈ lấy từ ô chọn (2026-10-14, bạn chọn
+// "Chỉ ô chọn"): dòng "Trình độ:" / "Loại:" trong file vẫn được nhận ra là
+// dòng tiêu đề (không lẫn vào bài) nhưng bị bỏ qua. Không chọn loại thì app
+// tự đoán theo nội dung.
 // ------------------------------------------------------------
 function phanTichChuDe(noiDung, tuyChon) {
   const o = tuyChon || {};
@@ -244,11 +231,7 @@ function phanTichJson(text) {
   const lay = (...ks) => { for (const k of ks) if (obj[k] !== undefined && obj[k] !== null) return obj[k]; return undefined; };
   const dau = {};
   const topic = lay('topic', 'title', 'chu_de', 'name');
-  const type = lay('type', 'loai');
-  const level = lay('level', 'trinh_do');
   if (topic !== undefined) dau.topic = { v: String(topic), dong: 0 };
-  if (type !== undefined) dau.type = { v: String(type), dong: 0 };
-  if (level !== undefined) dau.level = { v: String(level), dong: 0 };
 
   const canhBao = [];
   const cac = [];
@@ -269,7 +252,6 @@ function phanTichJson(text) {
       cac.push({ dong: 0, ten: ten ? String(ten) : null, text: t.trim() });
       if (typeof l.vi === 'string' && l.vi.trim()) cac.push({ dong: 0, vi: l.vi.trim() });
     });
-    if (!dau.type) dau.type = { v: 'dialogue', dong: 0 };
   } else if (typeof d.text === 'string' || Array.isArray(d.text)) {
     const doan = Array.isArray(d.text) ? d.text.map(String) : [d.text];
     const vi = Array.isArray(d.vi) ? d.vi : null;
@@ -277,7 +259,8 @@ function phanTichJson(text) {
     return {
       ok: true,
       nguon: 'json',
-      dau: Object.assign({ type: dau.type || { v: 'listening', dong: 0 } }, dau),
+      dau: dau,
+      cauTruc: 'listening',
       text: doan.join(' ').trim(),
       vi: vi,
       quiz: d.quiz,
@@ -289,7 +272,7 @@ function phanTichJson(text) {
   }
 
   if (!cac.some(x => x.text !== undefined)) return thatBai('Không tìm thấy câu tiếng Anh nào trong file JSON.');
-  return { ok: true, nguon: 'json', dau: dau, cac: cac, quiz: d.quiz, canhBao: canhBao };
+  return { ok: true, nguon: 'json', dau: dau, cauTruc: 'dialogue', cac: cac, quiz: d.quiz, canhBao: canhBao };
 }
 
 // ---------------- dựng bài từ kết quả đọc ----------------
@@ -310,20 +293,12 @@ function hoanThien(kq, o) {
   }
   if (!topic) thieu.push('topic');
 
-  // Trình độ.
-  let level = o.trinhDo || null;
-  if (!level && kq.dau.level) {
-    level = docTrinhDo(kq.dau.level.v);
-    if (!level) canhBao.push({ dong: kq.dau.level.dong, lyDo: 'Không hiểu trình độ "' + kq.dau.level.v + '". Hãy chọn ở bên trên.' });
-  }
+  // Trình độ: chỉ lấy từ ô chọn.
+  const level = LEVEL_NHAP.indexOf(o.trinhDo) !== -1 ? o.trinhDo : null;
   if (!level) thieu.push('level');
 
-  // Loại bài: người dùng chọn > ghi trong file > tự đoán.
-  let type = o.loai || null;
-  if (!type && kq.dau.type) {
-    type = docLoaiBai(kq.dau.type.v);
-    if (!type) canhBao.push({ dong: kq.dau.type.dong, lyDo: 'Không hiểu loại bài "' + kq.dau.type.v + '", đã tự đoán.' });
-  }
+  // Loại bài: ô chọn > hình dạng file JSON (lines / text) > tự đoán.
+  let type = o.loai === 'dialogue' || o.loai === 'listening' ? o.loai : (kq.cauTruc || null);
   const tiengAnh = kq.cac.filter(x => x.text !== undefined);
   if (!type) {
     const coTen = tiengAnh.filter(x => x.ten).length;
@@ -587,8 +562,6 @@ function suaBaiCuaToiKho(id, patch) {
 // Bài mẫu điền sẵn khi mở màn nhập (moManNhap) — giữ khớp với file mau_import.txt.
 const MAU_NHAP_TXT = [
   'Chủ đề: Ordering coffee',
-  'Loại: hội thoại',
-  'Trình độ: cơ bản',
   '---',
   'A: Hi, can I get a latte, please?',
   'VI: Chào bạn, cho tôi một ly latte nhé?',

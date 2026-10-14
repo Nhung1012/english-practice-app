@@ -1505,3 +1505,13 @@ Bạn chốt: bài tự tạo **luôn công khai**, không có ô chọn riêng 
 - ⚠️ **Kiểm duyệt**: ai đăng nhập cũng đăng bài cho mọi người xem được. Hiện xoá bài xấu bằng tay trong Supabase dashboard (Table Editor → `user_content`).
 
 Thêm test **R15** (bài người khác hiện đúng tab/trình độ, có nhãn, mở được, không ghi nhật ký) và **R16** (bài của mình không hiện hai lần). Kiểm ngược: bỏ bộ lọc `owner` thì **R16 đỏ**. **187/187 qua.**
+
+### Trình độ và loại bài chỉ chọn ở ô chọn (cùng ngày, theo yêu cầu của bạn)
+Lỗi: dòng "Trình độ:" trong ô chữ và ô chọn bên dưới giẫm lên nhau (đổi ô chọn rồi bấm 🔍 Xem trước lại thì bị dòng chữ đè). Bạn chọn **"Chỉ ô chọn"**:
+
+- Bài mẫu, `mau_import.txt`, `mau_import.json` bỏ dòng Trình độ / Loại.
+- File cũ có dòng "Trình độ:" / "Loại:" (hoặc `level` / `type` trong JSON) vẫn nhập được: app nhận ra là dòng tiêu đề, không lẫn vào bài, nhưng **bỏ qua** giá trị.
+- Ô **Trình độ** mặc định theo trình độ đang học; bấm Xem trước bao nhiêu lần cũng giữ nguyên.
+- Ô **Loại bài**: app tự đoán theo nội dung (có tên người nói → hội thoại) cho tới khi bạn tự đổi ô chọn; từ đó giữ theo ô chọn. Mở lại màn Import hoặc chọn file mới thì quay về tự đoán.
+
+Sửa test Q1, Q2, Q11, Q12; thêm **Q12b** (JSON bỏ qua `type`) và **R17** (đổi ô chọn rồi Xem trước lại không bị đè, lưu đúng trình độ). **189/189 qua.**

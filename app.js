@@ -991,6 +991,8 @@ function moManNhap() {
   modalTitle.textContent = 'Import chủ đề';
   if (mineFile) mineFile.value = '';
   mineText.value = MAU_NHAP_TXT;
+  loaiDaChon = false;
+  mineLevel.value = currentLevel;
   xemTruocNhap(MAU_NHAP_TXT, '');
 }
 
@@ -1008,10 +1010,19 @@ function baoLoiNhap(msg) {
   mineError.hidden = !msg;
 }
 
-// Đọc nội dung và hiện màn xem trước. `tuyChon` = lựa chọn của người dùng ở
-// màn xem trước (đổi loại bài thì phải đọc lại vì hình dạng bài đổi theo).
+// Trình độ và loại bài chỉ lấy từ ô chọn ở màn xem trước (2026-10-14, bạn
+// chọn "Chỉ ô chọn"; trước đây dòng "Trình độ:" trong ô chữ và ô chọn giẫm lên
+// nhau). Trình độ mặc định theo trình độ đang học. Loại bài app tự đoán cho
+// tới khi người dùng tự đổi ô chọn (`loaiDaChon`).
+let loaiDaChon = false;
+function tuyChonTuOChon() {
+  return { trinhDo: mineLevel.value || undefined, loai: loaiDaChon ? mineType.value : undefined };
+}
+
+// Đọc nội dung và hiện màn xem trước. Trình độ + loại bài lấy theo ô chọn
+// đang có; `tuyChon` thêm/ghi đè (vd tên vừa gõ khi đổi loại bài).
 function xemTruocNhap(noiDung, tenFile, tuyChon) {
-  const kq = phanTichChuDe(noiDung, Object.assign({ tenFile: tenFile }, tuyChon || {}));
+  const kq = phanTichChuDe(noiDung, Object.assign({ tenFile: tenFile }, tuyChonTuOChon(), tuyChon || {}));
   nhapDangXem = { noiDung: noiDung, tenFile: tenFile, kq: kq };
   if (!kq.ok) {
     baoLoiNhap(kq.loi);
@@ -1078,12 +1089,9 @@ function veXemTruoc(kq) {
 // Đổi loại bài ở màn xem trước: đọc lại với loại đã chọn, giữ tên + trình độ
 // người dùng vừa gõ.
 function doiLoaiXemTruoc() {
+  loaiDaChon = true;
   if (!nhapDangXem) return;
-  xemTruocNhap(nhapDangXem.noiDung, nhapDangXem.tenFile, {
-    loai: mineType.value,
-    ten: mineTopic.value,
-    trinhDo: mineLevel.value || undefined
-  });
+  xemTruocNhap(nhapDangXem.noiDung, nhapDangXem.tenFile, { ten: mineTopic.value });
 }
 
 // Lưu bài đang xem trước. Trả về bài đã lưu, hoặc null (đã báo lỗi).
@@ -1134,7 +1142,7 @@ function docFileNhap(file) {
   });
   doc('UTF-8')
     .then(t => t.indexOf('�') !== -1 ? doc('windows-1258') : t)
-    .then(t => { mineText.value = t; xemTruocNhap(t, file.name); })
+    .then(t => { mineText.value = t; loaiDaChon = false; xemTruocNhap(t, file.name); })
     .catch(() => baoLoiNhap('Không đọc được file này. Hãy thử mở file, chép nội dung rồi dán vào ô bên dưới.'));
 }
 
