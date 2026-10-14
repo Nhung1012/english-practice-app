@@ -95,6 +95,29 @@ const topicPanel = document.getElementById('topicPanel');
 const topicListbox = document.getElementById('topicListbox');
 const topicCount = document.getElementById('topicCount');
 const scriptCard = document.getElementById('scriptCard');
+// 📥 Chủ đề của tôi (2026-10-14)
+const openMineBtn = document.getElementById('openMineBtn');
+const paneMine = document.getElementById('paneMine');
+const mineListView = document.getElementById('mineListView');
+const mineNote = document.getElementById('mineNote');
+const mineMsg = document.getElementById('mineMsg');
+const mineList = document.getElementById('mineList');
+const mineAddBtn = document.getElementById('mineAddBtn');
+const mineImport = document.getElementById('mineImport');
+const mineFile = document.getElementById('mineFile');
+const mineText = document.getElementById('mineText');
+const mineSampleBtn = document.getElementById('mineSampleBtn');
+const mineParseBtn = document.getElementById('mineParseBtn');
+const mineError = document.getElementById('mineError');
+const minePreview = document.getElementById('minePreview');
+const mineTopic = document.getElementById('mineTopic');
+const mineType = document.getElementById('mineType');
+const mineLevel = document.getElementById('mineLevel');
+const mineSummary = document.getElementById('mineSummary');
+const mineWarn = document.getElementById('mineWarn');
+const mineLines = document.getElementById('mineLines');
+const mineSaveBtn = document.getElementById('mineSaveBtn');
+const mineCancelBtn = document.getElementById('mineCancelBtn');
 
 // Chuỗi rỗng = ẩn hẳn dòng trạng thái. Từ 2026-08-19 app không tự mở bài lúc
 // vào trang, nên có lúc thật sự chẳng có gì để báo — để dòng trống nằm đó chỉ
@@ -171,6 +194,10 @@ function getSpeakerVoiceSettings(speaker) {
 // đang chọn, để người dùng chọn thẳng thay vì chỉ random.
 let topicOptions = [];
 let topicOptionsSession = 0;
+// `topicOptions` = bài tự nhập (📥, luôn ở đầu) + bài hệ thống. Giữ riêng phần
+// hệ thống để mỗi lần nhập/xoá một bài tự nhập chỉ dựng lại danh sách, không
+// phải gọi lại server — xem `dungDanhSachChuDe()`.
+let topicOptionsHeThong = [];
 // Từ khoá đang lọc trong ô tìm kiếm (đã chuẩn hoá).
 let topicQuery = '';
 
@@ -225,6 +252,25 @@ function highlightTopic(opt, terms) {
   return open ? html + '</mark>' : html;
 }
 
+// Dựng lại `topicOptions` từ bài tự nhập (đúng tab + trình độ, đúng người
+// đang dùng) và danh sách hệ thống đã tải.
+function dungDanhSachChuDe() {
+  const user = nguoiDungHienTai();
+  const cuaToi = baiCuaToi(user ? user.id : null)
+    .filter(b => b.type === currentTab && b.level === currentLevel)
+    .map(b => ({ topic: b.topic, id: b.id, mine: true, search: normalizeForSearch(b.topic) }));
+  topicOptions = cuaToi.concat(topicOptionsHeThong);
+}
+
+// Dòng nào trong danh sách là bài đang mở. Bài hệ thống so theo TÊN như cũ
+// (danh sách đã lọc trùng tên, id trong danh sách có thể khác id bài đang mở);
+// bài tự nhập so theo id, vì tên của nó được phép trùng tên bài hệ thống.
+function laChuDeDangMo(opt) {
+  if (!currentItem) return false;
+  if (opt.mine || laBaiCuaToi(currentItem.id)) return opt.id === currentItem.id;
+  return opt.topic === currentItem.topic;
+}
+
 // ---- Trạng thái của combobox ----
 let comboOpen = false;
 let comboFiltered = [];   // danh sách đang hiển thị
@@ -234,12 +280,11 @@ function renderTopicList() {
   const terms = topicQuery ? topicQuery.split(' ').filter(Boolean) : [];
   comboFiltered = getFilteredTopics();
 
-  const currentTopic = currentItem ? currentItem.topic : null;
   if (comboActive >= comboFiltered.length) comboActive = comboFiltered.length - 1;
   // Chưa điều hướng bằng phím → tự đánh dấu chủ đề đang mở (nếu còn trong
   // danh sách), để mở ra là thấy ngay mình đang ở đâu.
-  if (comboActive < 0 && currentTopic) {
-    comboActive = comboFiltered.findIndex(opt => opt.topic === currentTopic);
+  if (comboActive < 0 && currentItem) {
+    comboActive = comboFiltered.findIndex(laChuDeDangMo);
   }
 
   if (!topicOptions.length) {
@@ -248,13 +293,14 @@ function renderTopicList() {
     topicListbox.innerHTML = '<li class="tc-empty">Không tìm thấy chủ đề nào.<br>Thử từ khoá ngắn hơn nhé.</li>';
   } else {
     topicListbox.innerHTML = comboFiltered.map((opt, i) => {
-      const isCurrent = opt.topic === currentTopic;
-      const cls = ['tc-item', i === comboActive ? 'active' : '', isCurrent ? 'current' : '']
+      const isCurrent = laChuDeDangMo(opt);
+      const cls = ['tc-item', i === comboActive ? 'active' : '', isCurrent ? 'current' : '', opt.mine ? 'mine' : '']
         .filter(Boolean).join(' ');
       return `<li class="${cls}" role="option" data-i="${i}" id="tc-opt-${i}"`
         + ` aria-selected="${isCurrent}">`
         + `<span class="tc-check">${isCurrent ? '✓' : ''}</span>`
-        + `<span>${highlightTopic(opt, terms)}</span></li>`;
+        + `<span>${highlightTopic(opt, terms)}</span>`
+        + (opt.mine ? '<span class="tc-mine">📥 Của tôi</span>' : '') + '</li>';
     }).join('');
   }
 
@@ -374,8 +420,12 @@ function writeLog(entries) {
 // mode: 'read' | 'listen' | 'quiz' — khớp ràng buộc check của bảng study_log.
 // score: tỉ lệ đúng 0–1 cho bài quiz, null với các mode khác. Giữ đúng kiểu
 // `numeric` của cột study_log.score để tuần 16 đẩy thẳng lên Supabase.
+//
+// Bài tự nhập (id 'my:...') KHÔNG ghi: `study_log.content_id` là khoá ngoại
+// trỏ vào `content`, bài đó không bao giờ lên được server, và con số "Đã học"
+// trên máy với trên tài khoản sẽ lệch nhau — đúng loại lỗi tuần 17 đã sửa.
 function logStudy(contentId, mode, score, seconds) {
-  if (!contentId) return;
+  if (!contentId || laBaiCuaToi(contentId)) return;
   const entries = readLog();
   entries.push({
     content_id: contentId,
@@ -572,7 +622,8 @@ function saveWord(word, info, sourceId) {
     pos: info && info.pos ? info.pos : '',
     meaning_vi: info && info.vi ? info.vi : '',
     example: info && info.example ? info.example : '',
-    source_content_id: sourceId || null,
+    // Bài tự nhập không có trong `content` -> không ghi nguồn (khoá ngoại).
+    source_content_id: sourceId && !laBaiCuaToi(sourceId) ? sourceId : null,
     box: 1,
     due_date: homNay(),   // lưu xong là ôn được ngay hôm nay
     created_at: new Date().toISOString()
@@ -640,7 +691,7 @@ function gradeWord(word, remembered) {
 // hệ thống tự chọn chứ không phải bài người dùng muốn quay lại — danh sách đó
 // tự lấp đầy bằng nhiễu. Việc "muốn quay lại bài này" đã có ☆ làm rồi, và ☆ là
 // người dùng CHỦ ĐỘNG chọn nên nó đúng ý hơn hẳn.
-let modalPane = null; // 'fav' | 'review' | 'help' | 'account' | null
+let modalPane = null; // 'fav' | 'review' | 'help' | 'account' | 'mine' | null
 
 function openModal(pane) {
   modalPane = pane;
@@ -648,17 +699,27 @@ function openModal(pane) {
   paneReview.hidden = pane !== 'review';
   paneHelp.hidden = pane !== 'help';
   paneAccount.hidden = pane !== 'account';
+  paneMine.hidden = pane !== 'mine';
   modal.hidden = false;
   document.body.style.overflow = 'hidden'; // khoá cuộn nền khi popup đang mở
 
   // Hai khung con chỉ vào được TỪ khung Tài khoản (2026-08-19), nên chúng —
   // và chỉ chúng — có đường về. Khung Tài khoản và Hướng dẫn mở thẳng từ
   // màn hình chính, không đi ra từ đâu cả.
-  modalBack.hidden = !(pane === 'fav' || pane === 'review');
+  modalBack.hidden = !(pane === 'fav' || pane === 'review' || pane === 'mine');
 
   if (pane === 'fav') renderFav();
   else if (pane === 'review') renderVocab();
-  else {
+  else if (pane === 'mine') {
+    mineImport.hidden = true;
+    mineListView.hidden = false;
+    baoMine('');
+    renderMine();
+    // Mở khung là lúc người dùng muốn thấy đủ bài -> lấy bản mới của tài khoản
+    // (bài nhập ở máy khác) và thử đẩy lại bài ⏳ còn kẹt.
+    const user = nguoiDungHienTai();
+    if (user) dongBoBaiCuaToi(user);
+  } else {
     // Hai khung này là HTML tĩnh viết sẵn trong index.html, không sinh từ
     // dữ liệu, nên ở đây chỉ cần đặt tiêu đề.
     modalTitle.textContent = pane === 'account' ? 'Tài khoản' : 'Hướng dẫn nhanh';
@@ -675,6 +736,7 @@ function openModal(pane) {
       veThongKe();
       capNhatThongKe();
       renderFav();
+      renderMine();
     }
   }
   modalClose.focus();
@@ -758,6 +820,313 @@ function renderFav() {
       favList.appendChild(makeFavRow(it, !!(currentItem && currentItem.id === it.id)));
     });
   }
+}
+
+// ====== 📥 CHỦ ĐỀ CỦA TÔI (2026-10-14) ======
+// Người dùng tự nhập bài để học. Đọc file và kho trên máy: import.js. Gọi
+// server: supabase.js (bảng `user_content`). Ở đây chỉ có giao diện + điều phối.
+//
+// Hai màn trong cùng một khung popup:
+//   - danh sách bài đã nhập (mở / xoá) + nút ➕ Import
+//   - màn nhập: chọn file hoặc dán chữ -> XEM TRƯỚC -> sửa tên/loại/trình độ -> lưu
+// ⚠️ Không có đường nào lưu thẳng mà bỏ qua màn xem trước: bộ đọc .txt phải
+// đoán khá nhiều, người dùng cần thấy nó đoán gì trước khi bài vào kho.
+let nhapDangXem = null; // { noiDung, tenFile, kq } — kết quả đọc đang hiện ở màn xem trước
+
+function nguoiDungId() {
+  const u = nguoiDungHienTai();
+  return u ? u.id : null;
+}
+
+function baoMine(msg, laLoi) {
+  mineMsg.textContent = msg || '';
+  mineMsg.hidden = !msg;
+  mineMsg.classList.toggle('error', !!laLoi);
+}
+
+// Nhãn nút trong khung Tài khoản + danh sách (khi đang mở khung này).
+// Nút LUÔN hiện, kể cả khi chưa có bài nào: đây là lối vào duy nhất của tính
+// năng, ẩn đi thì người dùng không bao giờ biết là có.
+function renderMine() {
+  const ds = baiCuaToi(nguoiDungId());
+  openMineBtn.textContent = '📥 Chủ đề của tôi' + (ds.length ? ' (' + ds.length + ')' : '');
+  if (modalPane !== 'mine') return;
+
+  modalTitle.textContent = 'Chủ đề của tôi (' + ds.length + ')';
+  mineNote.textContent = nguoiDungHienTai()
+    ? 'Lưu trên tài khoản của bạn, mở máy nào cũng thấy.'
+    : 'Đang lưu trên máy này. Đăng nhập để mang theo sang máy khác.';
+
+  mineList.innerHTML = '';
+  if (!ds.length) {
+    const p = document.createElement('div');
+    p.className = 'hist-empty';
+    p.textContent = 'Chưa có chủ đề nào. Bấm ➕ Import để thêm bài từ file .txt hoặc .json.';
+    mineList.appendChild(p);
+    return;
+  }
+  ds.slice().reverse().forEach(b => mineList.appendChild(makeMineRow(b)));
+}
+
+function makeMineRow(b) {
+  const row = document.createElement('div');
+  row.className = 'hist-item';
+
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'hist-open';
+  const dangMo = !!(currentItem && currentItem.id === b.id);
+  const name = document.createElement('span');
+  name.className = 'hist-topic' + (dangMo ? ' hist-now' : '');
+  name.textContent = (TYPE_ICON[b.type] || '') + ' ' + b.topic + (dangMo ? ' (đang mở)' : '')
+    + (b.owner && !b.synced ? ' ⏳' : '');
+  if (b.owner && !b.synced) name.title = 'Chưa lên tài khoản, sẽ tự đưa lên khi có mạng.';
+  const badge = document.createElement('span');
+  badge.className = 'hist-badge';
+  badge.textContent = LEVEL_LABEL[b.level] || b.level || '';
+  open.appendChild(name);
+  open.appendChild(badge);
+  open.addEventListener('click', () => openLesson(b.id, b.type, b.level));
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'hist-del';
+  del.textContent = '🗑';
+  del.title = 'Xoá chủ đề này';
+  del.setAttribute('aria-label', 'Xoá chủ đề ' + b.topic);
+  del.addEventListener('click', () => {
+    const hoi = typeof window.confirm === 'function'
+      ? window.confirm('Xoá chủ đề "' + b.topic + '"? Không khôi phục lại được.')
+      : true;
+    if (hoi) xoaBaiCuaToi(b.id);
+  });
+
+  row.appendChild(open);
+  row.appendChild(del);
+  return row;
+}
+
+// Sau mỗi lần kho đổi: danh sách chủ đề, khung này, nút đánh dấu.
+function sauKhiKhoCuaToiDoi() {
+  dungDanhSachChuDe();
+  refreshComboIfOpen();
+  renderMine();
+}
+
+async function xoaBaiCuaToi(id) {
+  const b = timBaiCuaToi(id);
+  if (!b) return false;
+  const user = nguoiDungHienTai();
+  if (b.owner) {
+    if (!user || user.id !== b.owner) return false;
+    // Xoá trên server TRƯỚC. Xoá trên máy trước mà server hỏng thì lần đồng bộ
+    // sau bài lại hiện về — người dùng tưởng nút xoá không chạy.
+    // Bài chưa lên server (⏳) thì hỏng cũng không sao, cứ xoá trên máy.
+    const ok = await xoaBaiCuaToiTrenServer(user, id);
+    if (!ok && b.synced) {
+      baoMine('Chưa xoá được vì không kết nối được tài khoản. Thử lại sau nhé.', true);
+      return false;
+    }
+  }
+  xoaBaiCuaToiKho(id);
+  // Bỏ luôn dấu ⭐, nếu không danh sách đã đánh dấu còn một dòng bấm vào lỗi.
+  const favs = readJson(FAV_KEY, []);
+  if (favs.indexOf(id) !== -1) writeJson(FAV_KEY, favs.filter(x => x !== id));
+  if (currentItem && currentItem.id === id) xoaBaiDangMo();
+  baoMine('Đã xoá "' + b.topic + '".');
+  sauKhiKhoCuaToiDoi();
+  renderFav();
+  return true;
+}
+
+// Đồng bộ với tài khoản: nhận bài của khách, đẩy bài chưa lên, rồi lấy bản
+// của server về (bài xoá ở máy khác thì máy này cũng mất).
+let dangDongBoCuaToi = false;
+async function dongBoBaiCuaToi(user) {
+  if (!user || dangDongBoCuaToi) return false;
+  dangDongBoCuaToi = true;
+  try {
+    // 1. Bài nhập lúc chưa đăng nhập về tài khoản này.
+    const list = docKhoCuaToi();
+    let doi = false;
+    list.forEach(b => { if (!b.owner) { b.owner = user.id; b.synced = false; doi = true; } });
+    if (doi) ghiKhoCuaToi(list);
+
+    // 2. Đẩy bài chưa lên. Hỏng thì giữ synced = false, lần sau thử lại.
+    const chuaLen = baiCuaToi(user.id).filter(b => !b.synced);
+    if (chuaLen.length && await dayBaiCuaToiLenServer(user, chuaLen)) {
+      const ids = new Set(chuaLen.map(b => b.id));
+      const l2 = docKhoCuaToi();
+      l2.forEach(b => { if (ids.has(b.id)) b.synced = true; });
+      ghiKhoCuaToi(l2);
+    }
+
+    // 3. Lấy về. null = mạng hỏng -> GIỮ nguyên bản trên máy.
+    const tuServer = await taiBaiCuaToiTuServer(user);
+    if (tuServer) {
+      const giu = docKhoCuaToi().filter(b => b.owner !== user.id || !b.synced);
+      const daCo = new Set(giu.map(b => b.id));
+      ghiKhoCuaToi(giu.concat(tuServer.filter(b => !daCo.has(b.id))));
+    }
+    sauKhiKhoCuaToiDoi();
+    return true;
+  } finally {
+    dangDongBoCuaToi = false;
+  }
+}
+
+// ---- Màn nhập ----
+function moManNhap() {
+  mineListView.hidden = true;
+  mineImport.hidden = false;
+  modalTitle.textContent = 'Import chủ đề';
+  mineError.hidden = true;
+  minePreview.hidden = true;
+  nhapDangXem = null;
+}
+
+function dongManNhap() {
+  mineImport.hidden = true;
+  mineListView.hidden = false;
+  mineText.value = '';
+  if (mineFile) mineFile.value = '';
+  nhapDangXem = null;
+  renderMine();
+}
+
+function baoLoiNhap(msg) {
+  mineError.textContent = msg;
+  mineError.hidden = !msg;
+}
+
+// Đọc nội dung và hiện màn xem trước. `tuyChon` = lựa chọn của người dùng ở
+// màn xem trước (đổi loại bài thì phải đọc lại vì hình dạng bài đổi theo).
+function xemTruocNhap(noiDung, tenFile, tuyChon) {
+  const kq = phanTichChuDe(noiDung, Object.assign({ tenFile: tenFile }, tuyChon || {}));
+  nhapDangXem = { noiDung: noiDung, tenFile: tenFile, kq: kq };
+  if (!kq.ok) {
+    baoLoiNhap(kq.loi);
+    minePreview.hidden = true;
+    return kq;
+  }
+  baoLoiNhap('');
+  mineTopic.value = kq.bai.topic;
+  mineType.value = kq.bai.type;
+  mineLevel.value = kq.bai.level || '';
+  veXemTruoc(kq);
+  minePreview.hidden = false;
+  return kq;
+}
+
+function veXemTruoc(kq) {
+  const d = kq.bai.data;
+  const laHoiThoai = kq.bai.type === 'dialogue';
+  const cau = laHoiThoai
+    ? d.lines.map(l => ({ ten: l.n || (l.s === 'A' ? 'Người A' : 'Người B'), s: l.s, text: l.t, vi: l.vi || '' }))
+    : tachCauNhap(d.text).map((c, i) => ({ ten: '', s: '', text: c.text, vi: d.vi ? d.vi[i] || '' : '' }));
+  const soDich = cau.filter(c => c.vi).length;
+
+  const phan = [(laHoiThoai ? '💬 Hội thoại' : '🎙️ Luyện nghe') + ' · ' + cau.length + ' câu'];
+  if (soDich) phan.push(soDich + ' câu có bản dịch');
+  if (d.quiz) phan.push(d.quiz.length + ' câu hỏi');
+  let tom = phan.join(' · ');
+  if (kq.doan.type) tom += '. Loại bài do app tự nhận ra, sai thì đổi ở trên.';
+  if (kq.thieu.indexOf('level') !== -1) tom += ' Hãy chọn trình độ.';
+  if (kq.thieu.indexOf('topic') !== -1) tom += ' Hãy đặt tên chủ đề.';
+  mineSummary.textContent = tom;
+
+  mineWarn.innerHTML = '';
+  mineWarn.hidden = !kq.canhBao.length;
+  kq.canhBao.forEach(c => {
+    const li = document.createElement('li');
+    li.textContent = (c.dong ? 'Dòng ' + c.dong + ': ' : '') + c.lyDo;
+    mineWarn.appendChild(li);
+  });
+
+  mineLines.innerHTML = '';
+  cau.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'mine-line';
+    if (c.ten) {
+      const ten = document.createElement('span');
+      ten.className = c.s === 'A' ? 'speaker-a' : 'speaker-b';
+      ten.textContent = c.ten + ': ';
+      div.appendChild(ten);
+    }
+    const t = document.createElement('span');
+    t.textContent = c.text;
+    div.appendChild(t);
+    if (c.vi) {
+      const vi = document.createElement('div');
+      vi.className = 'line-vi';
+      vi.textContent = c.vi;
+      div.appendChild(vi);
+    }
+    mineLines.appendChild(div);
+  });
+}
+
+// Đổi loại bài ở màn xem trước: đọc lại với loại đã chọn, giữ tên + trình độ
+// người dùng vừa gõ.
+function doiLoaiXemTruoc() {
+  if (!nhapDangXem) return;
+  xemTruocNhap(nhapDangXem.noiDung, nhapDangXem.tenFile, {
+    loai: mineType.value,
+    ten: mineTopic.value,
+    trinhDo: mineLevel.value || undefined
+  });
+}
+
+// Lưu bài đang xem trước. Trả về bài đã lưu, hoặc null (đã báo lỗi).
+async function luuNhap() {
+  if (!nhapDangXem || !nhapDangXem.kq.ok) return null;
+  const topic = String(mineTopic.value || '').trim();
+  const level = mineLevel.value || '';
+  if (!topic) { baoLoiNhap('Hãy đặt tên cho chủ đề.'); return null; }
+  if (!LEVEL_LABEL[level]) { baoLoiNhap('Hãy chọn trình độ cho chủ đề.'); return null; }
+
+  const bai = nhapDangXem.kq.bai;
+  const user = nguoiDungHienTai();
+  const moi = themBaiCuaToi({
+    topic: topic.slice(0, GIOI_HAN_NHAP.kyTuTenBai),
+    type: bai.type,
+    level: level,
+    data: bai.data
+  }, user ? user.id : null);
+  if (moi.loi) { baoLoiNhap(moi.loi); return null; }
+
+  dongManNhap();
+  sauKhiKhoCuaToiDoi();
+  // Lưu xong là vào học ngay — người dùng nhập bài là để học bài đó.
+  openLesson(moi.id, moi.type, moi.level);
+
+  // Lên tài khoản sau, không bắt chờ mạng. Hỏng thì bài vẫn còn trên máy với
+  // dấu ⏳, lần đồng bộ sau (đăng nhập, mở khung này) tự đẩy lại.
+  if (user && await dayBaiCuaToiLenServer(user, [moi])) {
+    suaBaiCuaToiKho(moi.id, { synced: true });
+    renderMine();
+  }
+  return moi;
+}
+
+// Đọc file người dùng chọn. Notepad cũ lưu tiếng Việt bằng bảng mã Windows
+// (không phải UTF-8): đọc UTF-8 ra ký tự � thì đọc lại bằng windows-1258.
+function docFileNhap(file) {
+  if (!file) return;
+  if (file.size > GIOI_HAN_NHAP.kichThuocFile) {
+    baoLoiNhap('File quá lớn (tối đa ' + Math.round(GIOI_HAN_NHAP.kichThuocFile / 1024) + ' KB).');
+    return;
+  }
+  const doc = (bangMa) => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result || ''));
+    r.onerror = () => reject(r.error);
+    r.readAsText(file, bangMa);
+  });
+  doc('UTF-8')
+    .then(t => t.indexOf('�') !== -1 ? doc('windows-1258') : t)
+    .then(t => { mineText.value = t; xemTruocNhap(t, file.name); })
+    .catch(() => baoLoiNhap('Không đọc được file này. Hãy thử mở file, chép nội dung rồi dán vào ô bên dưới.'));
 }
 
 // ====== PHIÊN ÔN TẬP ======
@@ -1406,7 +1775,7 @@ async function loadSelectedTopic(opt) {
   setStatus('Đang tải chủ đề...');
 
   try {
-    if (!supabaseClient) throw new Error('Chưa cấu hình Supabase');
+    if (!supabaseClient && !laBaiCuaToi(opt.id)) throw new Error('Chưa cấu hình Supabase');
 
     currentItem = await fetchContentById(opt.id, currentTab);
     recordLesson();
@@ -1501,7 +1870,9 @@ function tokenizeWords(text) {
 function buildSentences() {
   if (!currentItem) return [];
   if (currentTab === 'dialogue') {
-    return currentItem.lines.map(l => ({ text: l.t, speaker: l.s, vi: l.vi || '' }));
+    // `n` = tên thật của người nói trong bài tự nhập (Tom, Mary...). Bài hệ
+    // thống không có trường này và hiện "Người A / Người B" như cũ.
+    return currentItem.lines.map(l => ({ text: l.t, speaker: l.s, vi: l.vi || '', name: l.n || '' }));
   }
   // `[.!?]*` (không phải `+`) để giữ lại đoạn cuối khi bài viết không kết thúc
   // bằng dấu câu — regex cũ `[^.!?]+[.!?]+` nuốt mất câu cuối trong trường hợp
@@ -1546,9 +1917,9 @@ function renderScript() {
     const textEl = document.createElement('div');
     textEl.className = 'line-text';
     if (s.speaker) {
-      const label = s.speaker === 'A' ? 'Người A' : 'Người B';
+      const label = s.name || (s.speaker === 'A' ? 'Người A' : 'Người B');
       const cls = s.speaker === 'A' ? 'speaker-a' : 'speaker-b';
-      textEl.innerHTML = `<span class="${cls}">${label}:</span> ${tokenizeWords(s.text)}`;
+      textEl.innerHTML = `<span class="${cls}">${escapeHtml(label)}:</span> ${tokenizeWords(s.text)}`;
     } else {
       textEl.innerHTML = tokenizeWords(s.text);
     }
@@ -2228,7 +2599,7 @@ document.querySelectorAll('.level-btn').forEach(btn => {
 function getPlainTextContent() {
   if (currentTab === 'dialogue') {
     return currentItem.lines
-      .map(line => `${line.s === 'A' ? 'Người A' : 'Người B'}: ${line.t}`)
+      .map(line => `${line.n || (line.s === 'A' ? 'Người A' : 'Người B')}: ${line.t}`)
       .join('\n');
   } else {
     return currentItem.text;
@@ -2442,6 +2813,17 @@ wpSave.addEventListener('click', (e) => {
 reviewBtn.addEventListener('click', batDauOnTap);
 
 openFavBtn.addEventListener('click', () => openModal('fav'));
+openMineBtn.addEventListener('click', () => openModal('mine'));
+mineAddBtn.addEventListener('click', moManNhap);
+mineCancelBtn.addEventListener('click', dongManNhap);
+mineSampleBtn.addEventListener('click', () => {
+  mineText.value = MAU_NHAP_TXT;
+  xemTruocNhap(MAU_NHAP_TXT, '');
+});
+mineParseBtn.addEventListener('click', () => xemTruocNhap(mineText.value || '', ''));
+mineFile.addEventListener('change', () => docFileNhap(mineFile.files && mineFile.files[0]));
+mineType.addEventListener('change', doiLoaiXemTruoc);
+mineSaveBtn.addEventListener('click', luuNhap);
 openHelpBtn.addEventListener('click', () => openModal('help'));
 accBtn.addEventListener('click', () => openModal('account'));
 accSigninBtn.addEventListener('click', dangNhapGoogle);
@@ -2481,6 +2863,7 @@ setStatus('');
 syncFavButton();
 renderFav();
 renderVocab();
+renderMine();
 capNhatGiaoDienTaiKhoan(); // vẽ ngay ở chế độ khách, không chờ mạng
 kiemTraDaiMoi();
 
@@ -2499,7 +2882,10 @@ loadTopicOptions();
 // chế độ khách, chỉ là nút vẫn ghi "Đăng nhập".
 khoiTaoAuth(phien => {
   capNhatGiaoDienTaiKhoan();
+  // Đăng nhập / đăng xuất là đổi người -> đổi bộ bài tự nhập được hiện.
+  sauKhiKhoCuaToiDoi();
   if (!phien || !phien.user) return;
+  dongBoBaiCuaToi(phien.user);
   // Nối tiếp chứ không chạy song song: hai việc này cùng bắn lúc mở trang,
   // và tạo hồ sơ là việc nhẹ hơn nhiều nên để nó xong trước cho gọn.
   // Không await ở ngoài — mạng chậm thì app vẫn dùng bình thường.

@@ -1,0 +1,21 @@
+{
+  "topic": "A rainy morning",
+  "type": "listening",
+  "level": "intermediate",
+  "data": {
+    "text": "It was raining when I left home. I forgot my umbrella, so I got wet. Next time I will check the weather first.",
+    "vi": [
+      "Trời đang mưa khi tôi ra khỏi nhà.",
+      "Tôi quên ô nên bị ướt.",
+      "Lần sau tôi sẽ xem thời tiết trước."
+    ],
+    "quiz": [
+      {
+        "q": "Why did the speaker get wet?",
+        "a": ["He forgot his umbrella", "He fell into a river", "He washed his car"],
+        "correct": 0,
+        "explain": "\"I forgot my umbrella, so I got wet.\""
+      }
+    ]
+  }
+}

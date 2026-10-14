@@ -160,6 +160,52 @@
         <div id="reviewPanel" hidden></div>
         <div id="reviewEmpty" hidden></div>
       </div>
+      <!-- 2026-10-14: 📥 Chủ đề của tôi — bài người dùng tự nhập (import.js).
+           Hai màn: danh sách bài đã nhập, và màn nhập (chọn file / dán chữ ->
+           xem trước -> lưu). Không có đường lưu nào bỏ qua màn xem trước. -->
+      <div id="paneMine" hidden>
+        <div id="mineListView">
+          <p class="acc-note" id="mineNote"></p>
+          <button type="button" class="btn" id="mineAddBtn">➕ Import chủ đề</button>
+          <p class="mine-msg" id="mineMsg" hidden></p>
+          <div id="mineList"></div>
+        </div>
+        <div id="mineImport" hidden>
+          <p class="acc-note">Chọn file <b>.txt</b> hoặc <b>.json</b>, hoặc dán nội dung vào ô bên dưới.
+            <button type="button" class="link-btn" id="mineSampleBtn">📄 Xem mẫu</button></p>
+          <input type="file" id="mineFile" accept=".txt,.json,text/plain,application/json">
+          <textarea id="mineText" rows="8" spellcheck="false"
+                    placeholder="Chủ đề: Ordering coffee&#10;Trình độ: cơ bản&#10;---&#10;A: Hi, can I get a latte?&#10;VI: Cho tôi một ly latte nhé?&#10;B: Sure, what size?"></textarea>
+          <div class="mine-actions">
+            <button type="button" class="btn" id="mineParseBtn">🔍 Xem trước</button>
+            <button type="button" class="btn secondary" id="mineCancelBtn">Huỷ</button>
+          </div>
+          <p class="mine-error" id="mineError" hidden></p>
+          <div id="minePreview" hidden>
+            <div class="mine-fields">
+              <label>Tên chủ đề <input type="text" id="mineTopic" maxlength="120"></label>
+              <label>Loại bài
+                <select id="mineType">
+                  <option value="dialogue">💬 Hội thoại</option>
+                  <option value="listening">🎙️ Luyện nghe</option>
+                </select>
+              </label>
+              <label>Trình độ
+                <select id="mineLevel">
+                  <option value="">— chọn —</option>
+                  <option value="beginner">🟢 Cơ bản (A1-A2)</option>
+                  <option value="intermediate">🟡 Trung cấp (B1-B2)</option>
+                  <option value="advanced">🔴 Nâng cao (C1-C2)</option>
+                </select>
+              </label>
+            </div>
+            <p class="mine-summary" id="mineSummary"></p>
+            <ul class="mine-warn" id="mineWarn" hidden></ul>
+            <div class="mine-lines" id="mineLines"></div>
+            <button type="button" class="btn" id="mineSaveBtn">💾 Lưu và học ngay</button>
+          </div>
+        </div>
+      </div>
       <div id="paneAccount" hidden>
         <!-- 2026-08-19 (lần 2): gỡ ba dòng chữ khỏi khung này —
              `accStats` (bộ đếm ba con số), `accSync` (dòng trạng thái đồng bộ,
@@ -174,6 +220,7 @@
           <span class="acc-chip" id="accLearned">📚 Đã học</span>
           <button type="button" class="btn secondary quick-btn" id="openFavBtn" hidden>⭐ Đã đánh dấu</button>
           <button type="button" class="btn secondary quick-btn" id="reviewBtn">🎯 Ôn tập</button>
+          <button type="button" class="btn secondary quick-btn" id="openMineBtn">📥 Chủ đề của tôi</button>
         </div>
         <div id="accGuest">
           <p class="acc-lead">Bạn đang dùng ở <b>chế độ khách</b>. Mọi tính năng đều dùng được bình thường, không có gì bị khoá.</p>
@@ -194,6 +241,7 @@
           <li><b>🇻🇳 Bản dịch</b> → bật chế độ song ngữ cho cả bài. Lựa chọn được nhớ cho các bài sau.</li>
           <li><b>⏮ ▶ ⏭ 🔁</b> → chuyển câu, phát, và lặp lại mãi một câu. Kéo <b>thanh tốc độ</b> để đọc chậm lại (0.6×–1.2×).</li>
           <li>Nút <b>tài khoản</b> ở góc trên bên phải → tiến độ (đã học, số từ đã lưu) và lối vào <b>⭐ Đã đánh dấu</b> với <b>🎯 Ôn tập</b>.</li>
+          <li><b>📥 Chủ đề của tôi</b> (trong khung tài khoản) → tự nhập bài để học từ file <b>.txt</b> hoặc <b>.json</b>, hoặc dán thẳng nội dung. Bài tự nhập hiện ở ô chọn chủ đề với nhãn <b>📥 Của tôi</b>. Bấm <b>📄 Xem mẫu</b> để xem cách viết file.</li>
           <li><b>☆</b> cạnh tên chủ đề → đánh dấu bài hay, mở lại lúc nào cũng được từ khung <b>⭐ Đã đánh dấu</b>.</li>
           <li><b>🎯 Ôn tập</b> → ôn các từ đã lưu theo 5 hộp: nhớ thì giãn dần 1 → 3 → 7 → 14 → 30 ngày, quên thì về hộp 1 và gặp lại ngay trong phiên. Nút mờ đi nghĩa là hôm nay chưa có từ nào tới hạn. Đang ôn mà gặp từ lưu nhầm thì bấm <b>🗑</b> để bỏ hẳn.</li>
           <li><b>📝 Câu hỏi hiểu bài</b> ở cuối bài → 4 câu trắc nghiệm, nộp xong có giải thích cho <i>mọi</i> câu. Bài chưa soạn thì khung này tự ẩn.</li>
@@ -225,6 +273,9 @@
 
 <!-- Cấu hình + các hàm đọc dữ liệu. Phải nạp trước app.js. -->
 <script src="supabase.js"></script>
+
+<!-- 📥 Chủ đề của tôi: bộ đọc file .txt/.json + kho trên máy. Nạp trước app.js. -->
+<script src="import.js"></script>
 
 <!-- Giao diện & logic. KHÔNG thêm defer: app.js đọc DOM ngay khi chạy. -->
 <script src="app.js"></script>
