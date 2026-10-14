@@ -106,7 +106,6 @@ const mineAddBtn = document.getElementById('mineAddBtn');
 const mineImport = document.getElementById('mineImport');
 const mineFile = document.getElementById('mineFile');
 const mineText = document.getElementById('mineText');
-const mineSampleBtn = document.getElementById('mineSampleBtn');
 const mineParseBtn = document.getElementById('mineParseBtn');
 const mineError = document.getElementById('mineError');
 const minePreview = document.getElementById('minePreview');
@@ -976,13 +975,16 @@ async function dongBoBaiCuaToi(user) {
 }
 
 // ---- Màn nhập ----
+// Mở màn nhập là có sẵn bài mẫu trong ô dán và phần xem trước đã hiện
+// (2026-10-14, bạn yêu cầu, thay cho nút "📄 Xem mẫu"): người dùng thấy ngay
+// cách viết và sửa thẳng trên đó, khỏi phải đi tìm mẫu.
 function moManNhap() {
   mineListView.hidden = true;
   mineImport.hidden = false;
   modalTitle.textContent = 'Import chủ đề';
-  mineError.hidden = true;
-  minePreview.hidden = true;
-  nhapDangXem = null;
+  if (mineFile) mineFile.value = '';
+  mineText.value = MAU_NHAP_TXT;
+  xemTruocNhap(MAU_NHAP_TXT, '');
 }
 
 function dongManNhap() {
@@ -2816,10 +2818,6 @@ openFavBtn.addEventListener('click', () => openModal('fav'));
 openMineBtn.addEventListener('click', () => openModal('mine'));
 mineAddBtn.addEventListener('click', moManNhap);
 mineCancelBtn.addEventListener('click', dongManNhap);
-mineSampleBtn.addEventListener('click', () => {
-  mineText.value = MAU_NHAP_TXT;
-  xemTruocNhap(MAU_NHAP_TXT, '');
-});
 mineParseBtn.addEventListener('click', () => xemTruocNhap(mineText.value || '', ''));
 mineFile.addEventListener('change', () => docFileNhap(mineFile.files && mineFile.files[0]));
 mineType.addEventListener('change', doiLoaiXemTruoc);

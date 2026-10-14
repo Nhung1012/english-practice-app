@@ -1487,3 +1487,10 @@ Thêm nhóm **Q** (13 test bộ đọc file — mỗi test một kiểu file l�
 1. ✅ Bảng `user_content` + RLS **đã tạo trên Supabase** ngày 2026-10-14 (migration `user_content_tu_nhap_chu_de`), không phải làm gì thêm.
 2. Đẩy lên GitHub: `index.html`, `styles.css`, `supabase.js`, **`import.js` (file mới)**, `app.js`, `tests/run.js`, `supabase_schema.sql`, `README.md`, `mau_import.txt`, `mau_import.json`. Thiếu `import.js` là trang trắng.
 3. Thử: import `mau_import.txt` khi chưa đăng nhập → đăng nhập → mở máy khác cùng tài khoản, bài phải hiện ở đó.
+
+### Màn Import mở ra là có sẵn bài mẫu (cùng ngày, theo yêu cầu của bạn)
+Bỏ nút **📄 Xem mẫu**. Bấm **➕ Import chủ đề** là ô dán đã điền sẵn bài mẫu "Ordering coffee" và phần xem trước hiện luôn; người dùng sửa thẳng trên đó rồi bấm 🔍 Xem trước, hoặc chọn file của mình. Dòng hướng dẫn đổi thành "Sửa bài mẫu bên dưới, dán nội dung của bạn, hoặc chọn file .txt / .json".
+
+Lưu ý đã chấp nhận: bấm 💾 Lưu ngay mà không sửa gì thì bài mẫu thành một chủ đề thật — xoá bằng nút 🗑 là xong.
+
+Thêm test **R14** (mở màn Import là có mẫu + xem trước, không còn nút Xem mẫu). **185/185 qua.**

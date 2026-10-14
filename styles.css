@@ -875,15 +875,6 @@
   .mine-msg { font-size: 13px; color: var(--green); margin: 0 0 8px; }
   .mine-msg.error, .mine-error { color: #dc2626; }
   .mine-error { font-size: 13px; margin: 8px 0; }
-  .link-btn {
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--primary);
-    font: inherit;
-    cursor: pointer;
-    text-decoration: underline;
-  }
   #mineFile { display: block; margin: 0 0 8px; font-size: 13px; max-width: 100%; }
   #mineText {
     width: 100%;
