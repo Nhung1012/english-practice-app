@@ -215,3 +215,45 @@ $$;
 
 revoke all on function thong_ke_tai_khoan(date) from public, anon;
 grant execute on function thong_ke_tai_khoan(date) to authenticated;
+
+-- ============================================================
+-- 2026-10-14 — 📥 CHỦ ĐỀ CỦA TÔI: bài người dùng tự nhập (import.js)
+-- Đã chạy trên Supabase ngày 2026-10-14 (migration user_content_tu_nhap_chu_de).
+--
+-- Vì sao là bảng riêng mà không chèn vào `content`: `content` là kho chung chỉ
+-- đọc, ai cũng thấy (policy "Public read access"). Bài tự nhập là của riêng
+-- từng người, và người dùng không bao giờ được quyền ghi vào `content`.
+--
+-- Cột `data` CÙNG hình dạng với content.data (lines / text / vi / quiz), nên
+-- app dựng bài bằng đúng hàm `buildItem()` như bài hệ thống.
+--
+-- `client_id` do trình duyệt sinh lúc nhập (id 'my:<client_id>'). Khoá
+-- (user_id, client_id) cho phép đẩy lại cùng một bài nhiều lần — mất mạng giữa
+-- chừng rồi thử lại — mà không sinh dòng trùng (upsert ... ignoreDuplicates).
+--
+-- ⚠️ study_log / vocab KHÔNG trỏ vào bảng này: bài tự nhập không tính vào số
+-- "Đã học" của tài khoản, từ lưu từ bài tự nhập có source_content_id = null.
+-- ============================================================
+create table if not exists user_content (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  client_id text not null check (char_length(client_id) between 1 and 64),
+  type text not null check (type in ('dialogue', 'listening')),
+  level text not null check (level in ('beginner', 'intermediate', 'advanced')),
+  topic text not null check (char_length(topic) between 1 and 120),
+  data jsonb not null,
+  created_at timestamptz not null default now(),
+  -- Chặn bài khổng lồ ở phía server: client đã giới hạn 300 KB mỗi file, nhưng
+  -- client thì ai cũng sửa được.
+  constraint user_content_data_size check (pg_column_size(data) <= 400000)
+);
+
+create unique index if not exists uq_user_content_client
+  on user_content (user_id, client_id);
+
+alter table user_content enable row level security;
+
+-- Mỗi người chỉ đọc/ghi/xoá bài của chính mình. Không có policy cho `anon`:
+-- khách lưu bài trên máy (localStorage `ep:mine`), đăng nhập mới đẩy lên.
+create policy "own user_content" on user_content for all to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));

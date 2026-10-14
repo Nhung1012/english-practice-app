@@ -1448,3 +1448,42 @@ Hàng nút khung Tài khoản còn: `📚 Đã học (9)` · `⭐ Đã đánh d�
 3. Mở lại trên **cả hai máy**. Máy tính sẽ đẩy nốt 5 bài còn thiếu (server hiện mới có 1 dòng được tính), rồi hai máy phải hiện **cùng một con số**.
 4. Học một bài trên iPhone → chờ vài giây → mở máy tính, số phải tăng. Đây là thứ trước đây **không bao giờ xảy ra**.
 5. Vẫn nợ từ tuần 13: đăng nhập tài khoản thứ hai, kiểm RLS thật.
+
+## 📥 Chủ đề của tôi — người dùng tự import bài để học (2026-10-14)
+
+Phương án A đã được bạn đồng ý: đăng nhập thì lưu trên tài khoản (bảng mới `user_content`), khách lưu trên máy và tự đẩy lên khi đăng nhập.
+
+### Cách dùng
+Khung **Tài khoản** → **📥 Chủ đề của tôi** → **➕ Import chủ đề** → chọn file `.txt`/`.json` hoặc dán nội dung → **🔍 Xem trước** → sửa tên / loại / trình độ nếu cần → **💾 Lưu và học ngay**. Bài tự nhập hiện ở ô chọn chủ đề (đúng tab + trình độ) với nhãn **📥 Của tôi**, dùng được mọi tính năng: nghe từng câu, tra từ, song ngữ, quiz (nếu file JSON có).
+
+File mẫu: `mau_import.txt` (hội thoại có bản dịch), `mau_import.json` (bài nghe có bản dịch + quiz).
+
+### Bộ đọc `.txt` "dễ tính" (`import.js`)
+Người dùng sẽ không viết đúng mẫu, nên:
+- Nhãn **Chủ đề / Loại / Trình độ**: không phân biệt hoa thường, có dấu hay không, thứ tự nào cũng được, nhận cả tiếng Anh (`Topic`, `Level: B1`...), đặt ở đâu trong file cũng được. Thiếu thì màn xem trước cho chọn; thiếu tên thì lấy tên file.
+- Dòng `---` không bắt buộc. Gạch đầu dòng, đánh số, dòng trống, BOM + xuống dòng Windows đều bỏ qua. File Notepad lưu bảng mã Windows (không phải UTF-8) được đọc lại bằng `windows-1258`.
+- **Tự nhận loại bài**: ≥ 60% dòng có dạng `Tên: câu` → hội thoại, ngược lại là bài nghe.
+- **Tên người thật** (Tom, Mary) được giữ để hiển thị (trường `n` trong `lines`); giọng đọc chia A/B theo thứ tự xuất hiện vì app chỉ có hai giọng. Người thứ 3 trở đi dùng chung giọng, có báo.
+- **Bản dịch**: `VI:` / `Dịch:` / dòng trong ngoặc / dòng tiếng Việt trần / `B: <tiếng Việt>` đều là bản dịch của câu ngay trên. `Vi: Hello` (tên người là Vi) và `Đặng: ...` không bị đọc nhầm thành nhãn.
+- **Bài nghe**: bản dịch của mỗi dòng gắn vào câu đầu của dòng đó, tính trên đúng cách `buildSentences()` tách câu — lệch một câu là app bỏ cả bản dịch. Dòng thiếu dấu kết câu được thêm dấu chấm để không dính vào câu sau.
+- Mọi thứ đã đoán đều hiện ở **màn xem trước**, cảnh báo tô vàng kèm số dòng. Không có đường nào lưu thẳng mà bỏ qua màn xem trước.
+- Giới hạn: 300 KB mỗi file, 300 câu mỗi bài, 1000 ký tự mỗi dòng, 200 bài mỗi người.
+
+### Lưu trữ
+- Id bài tự nhập là chuỗi `my:<client_id>`, bài hệ thống là số — không bao giờ trùng.
+- Kho trên máy `ep:mine`: `{ id, owner, type, level, topic, data, created_at, synced }`. `owner` null = của khách. Đăng nhập thì bài của khách chuyển sang tài khoản; đăng xuất thì bài của tài khoản **không hiện** cho người dùng chung máy.
+- Đồng bộ (`dongBoBaiCuaToi`) chạy lúc đăng nhập và mỗi lần mở khung 📥: đẩy bài chưa lên → lấy bản của server về (bài xoá ở máy khác thì máy này cũng mất). Mạng hỏng thì giữ nguyên bản trên máy; bài chưa lên có dấu ⏳.
+- Xoá bài đã lên tài khoản: xoá trên server **trước**, hỏng thì không xoá trên máy và báo lỗi (xoá máy trước thì lần đồng bộ sau bài lại hiện về).
+
+### ⚠️ Những gì bài tự nhập KHÔNG làm
+- **Không tính vào "📚 Đã học"** và không ghi `ep:log` / `study_log`: `study_log.content_id` là khoá ngoại trỏ vào `content`, bài tự nhập không lên được server, đếm trên máy mà không đếm trên tài khoản là lặp lại đúng lỗi lệch số tuần 17.
+- Từ lưu từ bài tự nhập vẫn vào sổ và vẫn ôn bình thường, chỉ có `source_content_id = null`.
+- `locIdConTonTai()` nay bỏ mọi id không phải số trước khi hỏi bảng `content`: lọt một id `my:...` vào `.in('id', ...)` là Postgres báo lỗi kiểu bigint và hỏng **cả lượt gộp**.
+
+### Kiểm thử: 184/184 qua
+Thêm nhóm **Q** (13 test bộ đọc file — mỗi test một kiểu file lệch chuẩn) và **R** (13 test lưu / hiển thị / đồng bộ, có Supabase giả cho `user_content`), cùng **H1b** (thứ tự nạp `import.js`). Kiểm ngược: bỏ chốt chặn id `my:` trong `locIdConTonTai` thì **R8 đỏ**; bỏ chốt trong `logStudy` thì **R3 đỏ**.
+
+### Việc của bạn
+1. ✅ Bảng `user_content` + RLS **đã tạo trên Supabase** ngày 2026-10-14 (migration `user_content_tu_nhap_chu_de`), không phải làm gì thêm.
+2. Đẩy lên GitHub: `index.html`, `styles.css`, `supabase.js`, **`import.js` (file mới)**, `app.js`, `tests/run.js`, `supabase_schema.sql`, `README.md`, `mau_import.txt`, `mau_import.json`. Thiếu `import.js` là trang trắng.
+3. Thử: import `mau_import.txt` khi chưa đăng nhập → đăng nhập → mở máy khác cùng tài khoản, bài phải hiện ở đó.

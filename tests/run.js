@@ -25,7 +25,11 @@ const IDS = ('accAvatar accBtn accEmail accGuest accLabel accSigninBtn accSignou
   + 'quizCard quizResetBtn quizScore quizSubmitBtn randomBtn rateRange rateValue '
   + 'reviewBtn reviewPanel scriptBox scriptLabel statusText topicCaret topicCombo topicCount '
   + 'topicListbox topicPanel topicSearch topicSearchClear topicText wordPopup wpClose '
-  + 'wpExample wpIpa wpPos wpSave wpSpeak wpVi wpWord').split(' ');
+  + 'wpExample wpIpa wpPos wpSave wpSpeak wpVi wpWord '
+  // 📥 Chủ đề của tôi (2026-10-14)
+  + 'openMineBtn paneMine mineListView mineNote mineMsg mineList mineAddBtn mineImport mineFile '
+  + 'mineText mineSampleBtn mineParseBtn mineError minePreview mineTopic mineType mineLevel '
+  + 'mineSummary mineWarn mineLines mineSaveBtn mineCancelBtn').split(' ');
 
 // Nguồn của app = các file JS cục bộ, nạp ĐÚNG thứ tự index.html khai báo.
 // Đọc thứ tự từ chính index.html chứ không viết cứng: nếu sau này thêm file
@@ -71,7 +75,13 @@ const HOOK = `
   layQuiz, chamQuiz, nopQuiz, chonDapAn, logStudy,
   renderVocab, saveWord, removeWord, dueWords, gradeWord, ngayOnGanNhat, dinhDangNgay, congNgay,
   renderReview, xoaTuDangOn,
-  batDauOnTap, chamTu, get reviewQueue() { return reviewQueue; }
+  batDauOnTap, chamTu, get reviewQueue() { return reviewQueue; },
+  // 📥 Chủ đề của tôi
+  phanTichChuDe, tachCauNhap, laBaiCuaToi, docKhoCuaToi, baiCuaToi, themBaiCuaToi,
+  xemTruocNhap, doiLoaiXemTruoc, luuNhap, xoaBaiCuaToi, dongBoBaiCuaToi, renderMine,
+  dungDanhSachChuDe, loadTopicOptions, loadSelectedTopic, renderTopicList, openCombo,
+  locIdConTonTai, MAU_NHAP_TXT, GIOI_HAN_NHAP,
+  get topicOptions() { return topicOptions; }
 };
 `;
 
@@ -681,8 +691,9 @@ const QUIZ_MAU = [
 // H. Cấu trúc file sau Giai đoạn 3 — canh cho việc tách file không bị đổ lại
 // ============================================================
 {
-  t('H1 index.html nạp đúng supabase.js rồi tới app.js', () => {
-    eq(JS_FILES, ['supabase.js', 'app.js']);
+  t('H1 index.html nạp đúng supabase.js, import.js rồi tới app.js', () => {
+    // 2026-10-14: thêm import.js (📥 Chủ đề của tôi) ở giữa — xem H1b.
+    eq(JS_FILES, ['supabase.js', 'import.js', 'app.js']);
   });
 
   t('H2 index.html không còn logic viết thẳng trong trang', () => {
@@ -2217,6 +2228,417 @@ function nhomP() {
   });
 }
 
+// ============================================================
+// Q. 📥 Chủ đề của tôi — BỘ ĐỌC FILE (import.js, 2026-10-14)
+//
+// Người dùng sẽ không viết đúng mẫu. Mỗi test dưới đây là một kiểu file
+// "lệch chuẩn" có thật: viết không dấu, đổi thứ tự, quên dòng ---, lưu bằng
+// Notepad (BOM + CRLF), dùng tên người thật thay vì A/B...
+// ============================================================
+function nhomQ() {
+  const c = taoSandbox();
+  const doc = (txt, o) => c.phanTichChuDe(txt, o);
+
+  t('Q1 file mẫu đọc ra đúng hội thoại, trình độ và bản dịch', () => {
+    const kq = doc(c.MAU_NHAP_TXT);
+    eq(kq.ok, true, kq.loi);
+    eq(kq.bai.topic, 'Ordering coffee');
+    eq(kq.bai.type, 'dialogue');
+    eq(kq.bai.level, 'beginner');
+    eq(kq.bai.data.lines.length, 4);
+    eq(kq.bai.data.lines.map(l => l.s), ['A', 'B', 'A', 'B']);
+    eq(kq.bai.data.lines[1].vi, 'Được ạ. Bạn muốn cỡ nào?');
+    eq(kq.canhBao.length, 0, 'file mẫu mà còn cảnh báo:');
+  });
+
+  t('Q2 phần đầu viết lệch: không dấu, chữ hoa, tiếng Anh, đảo thứ tự, BOM + CRLF, không có ---', () => {
+    const kq = doc('﻿LEVEL :  b2\r\n  chu de: At the bank \r\nLoai bai: Hoi thoai\r\n\r\nA: I want to open an account.\r\nB: Sure.\r\n');
+    eq(kq.ok, true, kq.loi);
+    eq(kq.bai.topic, 'At the bank');
+    eq(kq.bai.level, 'intermediate');
+    eq(kq.bai.type, 'dialogue');
+    eq(kq.bai.data.lines.length, 2);
+    eq(kq.doan.type, undefined, 'loại đã ghi trong file thì không phải "đoán":');
+  });
+
+  t('Q3 tên người thật: chia giọng A/B theo thứ tự, giữ tên để hiển thị', () => {
+    const kq = doc('Tom: Hi.\nMary: Hello.\nTom: Bye.\nJack: Wait!');
+    eq(kq.bai.type, 'dialogue', 'đa số dòng có tên người nói thì phải là hội thoại:');
+    eq(kq.doan.type, true);
+    eq(kq.bai.data.lines.map(l => l.s + ':' + l.n), ['A:Tom', 'B:Mary', 'A:Tom', 'A:Jack']);
+    ok(kq.canhBao.some(w => /3 người nói/.test(w.lyDo)), 'phải báo có người thứ 3 dùng chung giọng');
+  });
+
+  t('Q4 không có tên người nói -> tự hiểu là bài luyện nghe', () => {
+    const kq = doc('Topic: My day\nI woke up early. I made coffee.\nThen I went to work.');
+    eq(kq.bai.type, 'listening');
+    eq(kq.doan.type, true);
+    eq(kq.bai.data.text, 'I woke up early. I made coffee. Then I went to work.');
+  });
+
+  t('Q5 người dùng chọn "hội thoại" cho bài không ghi tên -> chia xen kẽ A/B, có báo', () => {
+    const kq = doc('Hello there.\nHi, how are you?\nFine.', { loai: 'dialogue' });
+    eq(kq.bai.type, 'dialogue');
+    eq(kq.bai.data.lines.map(l => l.s), ['A', 'B', 'A']);
+    ok(kq.canhBao.some(w => /xen kẽ/.test(w.lyDo)));
+  });
+
+  t('Q6 bốn kiểu viết bản dịch đều nhận: VI:, Dịch:, (ngoặc), dòng tiếng Việt trần', () => {
+    const kq = doc([
+      'A: Good morning.', 'VI: Chào buổi sáng.',
+      'B: Morning!', 'Dịch: Chào!',
+      'A: How are you?', '(Bạn khoẻ không?)',
+      'B: Fine, thanks.', 'Khoẻ, cảm ơn.',
+      'A: See you.', 'B: Hẹn gặp lại.'      // "B: <tiếng Việt>" = bản dịch câu trên
+    ].join('\n'));
+    eq(kq.bai.data.lines.map(l => l.vi || ''),
+      ['Chào buổi sáng.', 'Chào!', 'Bạn khoẻ không?', 'Khoẻ, cảm ơn.', 'Hẹn gặp lại.']);
+    eq(kq.bai.data.lines.length, 5, 'dòng dịch bị tính thành câu thoại:');
+  });
+
+  t('Q7 tên người trùng nhãn không bị nuốt: "Vi: Hello" là lời thoại, "Đặng:" không phải nhãn Loại', () => {
+    const kq = doc('Đặng: Hello, Vi.\nVi: Hi Dang!\nĐặng: How are you?');
+    eq(kq.bai.type, 'dialogue');
+    eq(kq.bai.data.lines.map(l => l.n), ['Đặng', 'Vi', 'Đặng']);
+    eq(kq.bai.data.lines[1].vi, undefined, '"Vi: Hi Dang!" bị đọc nhầm thành bản dịch:');
+  });
+
+  t('Q8 bài nghe: bản dịch khớp ĐÚNG số câu app tách ra, dòng thiếu dấu chấm không dính câu sau', () => {
+    const kq = doc([
+      'Trình độ: cơ bản',
+      'A short story',                       // tiêu đề không có dấu chấm
+      'I woke up early. I made coffee.',
+      'Tôi dậy sớm. Tôi pha cà phê.',
+      'Then I went to work!',
+      'Rồi tôi đi làm!'
+    ].join('\n'));
+    eq(kq.bai.type, 'listening');
+    const it = c.buildItem({ id: 'my:x', topic: 'T', data: kq.bai.data }, 'listening');
+    c.currentTab = 'listening';
+    c.currentItem = it;
+    const cau = c.buildSentences();
+    eq(cau.map(s => s.text), ['A short story.', 'I woke up early.', 'I made coffee.', 'Then I went to work!']);
+    eq(cau.map(s => s.vi), ['', 'Tôi dậy sớm. Tôi pha cà phê.', '', 'Rồi tôi đi làm!'],
+      'lệch một câu là app bỏ cả bản dịch:');
+    ok(kq.canhBao.some(w => w.dong === 3 && /2 câu/.test(w.lyDo)), 'phải báo dòng 3 có 2 câu một bản dịch');
+    c.currentItem = null;
+  });
+
+  t('Q9 thiếu tên/trình độ: lấy tên file, trình độ để người dùng chọn', () => {
+    const kq = doc('Hello world.', { tenFile: 'bai_hoc_1.txt' });
+    eq(kq.bai.topic, 'bai hoc 1');
+    eq(kq.doan.topic, true);
+    eq(kq.thieu, ['level']);
+    eq(doc('Hello world.').thieu, ['topic', 'level'], 'dán chữ (không có tên file):');
+    eq(doc('Hello.', { ten: 'Đặt tay', trinhDo: 'advanced' }).thieu, [], 'đã chọn ở màn xem trước:');
+  });
+
+  t('Q10 file không dùng được thì báo lý do, không ném lỗi', () => {
+    eq(doc('').ok, false);
+    eq(doc('   \n\n').ok, false);
+    ok(/tiếng Anh/.test(doc('Xin chào các bạn.\nHôm nay trời đẹp.').loi), 'toàn tiếng Việt');
+    ok(/cú pháp/.test(doc('{"topic": "x",}').loi), 'JSON hỏng');
+    ok(/một chủ đề/.test(doc('[{"text":"a."},{"text":"b."}]').loi), 'JSON nhiều bài');
+    ok(/tối đa 300/.test(doc(Array.from({ length: 301 }, (_, i) => 'Line ' + i + '.').join('\n')).loi), 'quá số câu');
+    ok(/quá lớn/.test(doc('a'.repeat(c.GIOI_HAN_NHAP.kichThuocFile + 1)).loi), 'quá dung lượng');
+  });
+
+  t('Q11 JSON: giữ quiz hợp lệ, bỏ câu hỏi hỏng và bản dịch lệch số câu (có báo)', () => {
+    const kq = doc(JSON.stringify({
+      topic: 'Weather', level: 'C1',
+      data: {
+        text: 'It rains. It is cold.',
+        vi: ['Trời mưa.'],
+        quiz: [{ q: 'Weather?', a: ['rain', 'sun'], correct: 0 }, { q: 'x', a: ['1'], correct: 0 }]
+      }
+    }));
+    eq(kq.ok, true, kq.loi);
+    eq(kq.bai.level, 'advanced');
+    eq(kq.bai.type, 'listening');
+    eq(kq.bai.data.quiz.length, 1);
+    eq(kq.bai.data.vi, undefined);
+    eq(kq.canhBao.length, 2);
+  });
+
+  t('Q12 nhãn đặt cuối file vẫn nhận; hai dòng chủ đề thì giữ dòng đầu và báo', () => {
+    const kq = doc('Topic: First\nA: Hi.\nB: Hello.\nTopic: Second\nTrình độ: nâng cao');
+    eq(kq.bai.topic, 'First');
+    eq(kq.bai.level, 'advanced');
+    ok(kq.canhBao.some(w => w.dong === 4), 'phải chỉ ra dòng 4');
+  });
+
+  t('Q13 câu tiếng Anh có chữ Pháp (café, résumé) không bị coi là bản dịch', () => {
+    const kq = doc('Topic: CV\nI sent my résumé from the café.\nThen I waited.');
+    eq(kq.bai.data.text, 'I sent my résumé from the café. Then I waited.');
+  });
+
+  t('H1b import.js nạp giữa supabase.js và app.js', () => {
+    const i = JS_FILES.indexOf('import.js');
+    ok(i > JS_FILES.indexOf('supabase.js') && i < JS_FILES.indexOf('app.js'), JS_FILES.join(','));
+  });
+}
+
+// ============================================================
+// R. 📥 Chủ đề của tôi — LƯU, HIỂN THỊ, ĐỒNG BỘ (2026-10-14)
+// ============================================================
+
+// Supabase giả cho bảng user_content (+ content để dựng danh sách chủ đề).
+function taoSupabaseCuaToi(opts = {}) {
+  const db = { user_content: (opts.rows || []).slice(), content: opts.content || [], daHoiId: [] };
+  const dem = { upsert: 0, xoa: 0, doc: 0 };
+  const loi = { message: 'mất mạng' };
+  const client = {
+    auth: { getSession: async () => ({ data: { session: null } }), onAuthStateChange() {} },
+    from(bang) {
+      if (bang === 'user_content') {
+        return {
+          select() {
+            const q = {
+              eq() { return q; },
+              order() {
+                dem.doc++;
+                if (opts.loiDoc) return Promise.resolve({ data: null, error: loi });
+                return Promise.resolve({ data: db.user_content.map(r => Object.assign({}, r)), error: null });
+              }
+            };
+            return q;
+          },
+          upsert(rows, o) {
+            dem.upsert++;
+            if (opts.loiGhi) return Promise.resolve({ error: loi });
+            ok(o && o.onConflict === 'user_id,client_id', 'upsert phải bám khoá (user_id, client_id)');
+            rows.forEach(r => {
+              if (!db.user_content.some(x => x.user_id === r.user_id && x.client_id === r.client_id)) {
+                db.user_content.push(r);
+              }
+            });
+            return Promise.resolve({ error: null });
+          },
+          delete() {
+            dem.xoa++;
+            const f = {};
+            const q = {
+              eq(col, v) {
+                f[col] = v;
+                if (!('user_id' in f && 'client_id' in f)) return q;
+                if (opts.loiXoa) return Promise.resolve({ error: loi });
+                db.user_content = db.user_content.filter(r => !(r.user_id === f.user_id && r.client_id === f.client_id));
+                return Promise.resolve({ error: null });
+              }
+            };
+            return q;
+          }
+        };
+      }
+      return {
+        select() {
+          const q = {
+            eq() { return q; },
+            order() { return Promise.resolve({ data: db.content, error: null }); },
+            in(col, vals) {
+              db.daHoiId.push(...vals);
+              return Promise.resolve({ data: vals.filter(v => db.content.some(r => r.id === v)).map(id => ({ id })), error: null });
+            }
+          };
+          return q;
+        }
+      };
+    },
+    rpc() { return Promise.resolve({ data: null, error: null }); }
+  };
+  return { supabase: { createClient: () => client }, db, dem };
+}
+
+const ngu = () => new Promise(r => setTimeout(r, 0));
+
+// Mở màn nhập, dán nội dung, xem trước, chọn trình độ, lưu.
+async function nhapBai(c, txt, level) {
+  c.document.getElementById('mineAddBtn').dispatch('click');
+  c.xemTruocNhap(txt, '');
+  if (level !== undefined) c.document.getElementById('mineLevel').value = level;
+  const moi = await c.luuNhap();
+  await ngu();
+  return moi;
+}
+
+async function nhomR() {
+  const BAI = 'Chủ đề: Ordering coffee\nTom: Hi, a latte please.\nAnna: Sure.';
+
+  await ta('R1 khách nhập bài: lưu trên máy, hiện đầu danh sách với nhãn 📥, mở học ngay', async () => {
+    const c = taoSandbox();
+    c.openModal('mine');
+    const moi = await nhapBai(c, BAI, 'beginner');
+    ok(moi && c.laBaiCuaToi(moi.id), 'id phải có tiền tố my:');
+    eq(c.docKhoCuaToi().length, 1);
+    eq(c.docKhoCuaToi()[0].owner, null);
+    eq(c.currentTab, 'dialogue');
+    eq(c.currentLevel, 'beginner');
+    eq(c.currentItem && c.currentItem.id, moi.id, 'lưu xong phải mở luôn bài vừa nhập:');
+    eq(c.topicOptions[0].id, moi.id);
+    eq(c.topicOptions[0].mine, true);
+    const box = c.document.getElementById('scriptBox');
+    ok(/Tom:/.test(box.children[0].children[1].innerHTML), 'phải hiện tên Tom thay vì "Người A"');
+    c.openCombo();
+    ok(/📥 Của tôi/.test(c.document.getElementById('topicListbox').innerHTML), 'thiếu nhãn 📥 Của tôi');
+    eq(c.document.getElementById('openMineBtn').textContent, '📥 Chủ đề của tôi (1)');
+    c.dungPhienHoc();
+  });
+
+  await ta('R2 chưa chọn trình độ thì không lưu, báo ngay trên màn xem trước', async () => {
+    const c = taoSandbox();
+    c.openModal('mine');
+    const moi = await nhapBai(c, BAI, '');
+    eq(moi, null);
+    eq(c.docKhoCuaToi().length, 0);
+    eq(c.document.getElementById('mineError').hidden, false);
+    ok(/trình độ/.test(c.document.getElementById('mineError').textContent));
+  });
+
+  await ta('R3 học bài tự nhập không ghi nhật ký học, lưu từ không ghi bài nguồn (khoá ngoại content)', async () => {
+    const c = taoSandbox({ storage: { 'ep:migr:seen': '1' } });
+    c.openModal('mine');
+    const moi = await nhapBai(c, BAI, 'beginner');
+    c.speakFrom(0);
+    c.logStudy(moi.id, 'quiz', 1);
+    eq(c.readLog().length, 0, 'bài tự nhập lọt vào ep:log:');
+    c.saveWord('latte', { vi: 'cà phê sữa' }, moi.id);
+    eq(c.readVocab()[0].source_content_id, null);
+    c.dungPhienHoc();
+  });
+
+  await ta('R4 trùng tên trong cùng loại + trình độ -> thêm (2), không chặn', async () => {
+    const c = taoSandbox();
+    c.openModal('mine');
+    await nhapBai(c, BAI, 'beginner');
+    c.openModal('mine');
+    const b2 = await nhapBai(c, BAI, 'beginner');
+    eq(b2.topic, 'Ordering coffee (2)');
+    c.dungPhienHoc();
+  });
+
+  await ta('R5 xoá bài: mất khỏi kho, danh sách, đánh dấu ⭐, và đóng bài nếu đang mở', async () => {
+    const c = taoSandbox();
+    c.openModal('mine');
+    const moi = await nhapBai(c, BAI, 'beginner');
+    c.toggleFav(moi.id);
+    eq(c.getFavorites().length, 1);
+    eq(await c.xoaBaiCuaToi(moi.id), true);
+    eq(c.docKhoCuaToi().length, 0);
+    eq(c.getFavorites().length, 0, 'còn dòng ⭐ trỏ vào bài đã xoá:');
+    eq(c.currentItem, null);
+    eq(c.topicOptions.length, 0);
+  });
+
+  await ta('R6 đổi loại ở màn xem trước: đọc lại theo loại mới, giữ tên vừa gõ', async () => {
+    const c = taoSandbox();
+    c.openModal('mine');
+    c.document.getElementById('mineAddBtn').dispatch('click');
+    c.xemTruocNhap('Hello there.\nHi!', '');
+    eq(c.document.getElementById('mineType').value, 'listening');
+    c.document.getElementById('mineTopic').value = 'Tên tôi gõ';
+    c.document.getElementById('mineType').value = 'dialogue';
+    c.doiLoaiXemTruoc();
+    eq(c.document.getElementById('mineTopic').value, 'Tên tôi gõ');
+    ok(/Hội thoại · 2 câu/.test(c.document.getElementById('mineSummary').textContent));
+  });
+
+  await ta('R7 bài của tài khoản không hiện cho khách dùng chung máy sau khi đăng xuất', async () => {
+    const c = taoSandbox({ storage: { 'ep:mine': JSON.stringify([
+      { id: 'my:a', owner: 'u1', type: 'dialogue', level: 'beginner', topic: 'Của An', data: { lines: [{ s: 'A', t: 'Hi.' }] }, synced: true },
+      { id: 'my:k', owner: null, type: 'dialogue', level: 'beginner', topic: 'Của khách', data: { lines: [{ s: 'A', t: 'Hi.' }] }, synced: false }
+    ]) } });
+    eq(c.topicOptions.map(o => o.topic), ['Của khách']);
+    c.phienDangNhap = { user: U1 };
+    c.dungDanhSachChuDe();
+    eq(c.topicOptions.map(o => o.topic), ['Của An']);
+  });
+
+  await ta('R8 gộp nhật ký lên tài khoản không bao giờ gửi id "my:..." vào truy vấn content', async () => {
+    const gia = taoSupabaseCuaToi({ content: [{ id: 10, topic: 'X' }] });
+    const c = taoSandbox({ supabase: gia.supabase });
+    await ngu();
+    const con = await c.locIdConTonTai([10, 'my:abc', null, '12']);
+    ok(!gia.db.daHoiId.some(id => String(id).startsWith('my:')), 'id my: lọt vào .in(): ' + gia.db.daHoiId);
+    eq([...con], [10]);
+  });
+
+  await ta('R9 đồng bộ: bài của khách lên tài khoản, bài máy khác về máy này, bài xoá ở máy khác biến mất', async () => {
+    const gia = taoSupabaseCuaToi({ rows: [
+      { user_id: 'u1', client_id: 'tumaykhac', type: 'listening', level: 'advanced', topic: 'Từ iPhone', data: { text: 'Hi.' }, created_at: moc(1) }
+    ] });
+    const c = taoSandbox({ supabase: gia.supabase, storage: { 'ep:mine': JSON.stringify([
+      { id: 'my:khach', owner: null, type: 'dialogue', level: 'beginner', topic: 'Nhập lúc chưa đăng nhập', data: { lines: [{ s: 'A', t: 'Hi.' }] }, synced: false },
+      { id: 'my:daxoa', owner: 'u1', type: 'dialogue', level: 'beginner', topic: 'Đã xoá ở máy khác', data: { lines: [{ s: 'A', t: 'Hi.' }] }, synced: true }
+    ]) } });
+    await ngu();
+    c.phienDangNhap = { user: U1 };
+    eq(await c.dongBoBaiCuaToi(U1), true);
+    const ids = c.baiCuaToi('u1').map(b => b.id).sort();
+    eq(ids, ['my:khach', 'my:tumaykhac']);
+    ok(c.baiCuaToi('u1').every(b => b.synced), 'còn bài chưa đánh dấu đã lên');
+    eq(gia.db.user_content.find(r => r.client_id === 'khach').topic, 'Nhập lúc chưa đăng nhập');
+    eq(c.baiCuaToi(null).length, 0, 'bài của khách phải chuyển hẳn sang tài khoản');
+    // Chạy lại không nhân đôi trên server.
+    await c.dongBoBaiCuaToi(U1);
+    eq(gia.db.user_content.length, 2);
+  });
+
+  await ta('R10 mạng hỏng lúc đồng bộ: giữ nguyên bài trên máy, bài chưa lên giữ dấu ⏳', async () => {
+    const gia = taoSupabaseCuaToi({ loiDoc: true, loiGhi: true });
+    const c = taoSandbox({ supabase: gia.supabase, storage: { 'ep:mine': JSON.stringify([
+      { id: 'my:a', owner: 'u1', type: 'dialogue', level: 'beginner', topic: 'A', data: { lines: [{ s: 'A', t: 'Hi.' }] }, synced: true },
+      { id: 'my:k', owner: null, type: 'dialogue', level: 'beginner', topic: 'K', data: { lines: [{ s: 'A', t: 'Hi.' }] }, synced: false }
+    ]) } });
+    await ngu();
+    c.phienDangNhap = { user: U1 };
+    await c.dongBoBaiCuaToi(U1);
+    eq(c.baiCuaToi('u1').map(b => b.id + ':' + b.synced), ['my:a:true', 'my:k:false'],
+      'server không trả lời mà máy lại xoá bài:');
+  });
+
+  await ta('R11 xoá bài đã lên tài khoản mà server hỏng: KHÔNG xoá trên máy, có báo', async () => {
+    const gia = taoSupabaseCuaToi({ loiXoa: true, rows: [
+      { user_id: 'u1', client_id: 'a', type: 'dialogue', level: 'beginner', topic: 'A', data: { lines: [{ s: 'A', t: 'Hi.' }] }, created_at: moc(1) }
+    ] });
+    const c = taoSandbox({ supabase: gia.supabase, storage: { 'ep:mine': JSON.stringify([
+      { id: 'my:a', owner: 'u1', type: 'dialogue', level: 'beginner', topic: 'A', data: { lines: [{ s: 'A', t: 'Hi.' }] }, synced: true }
+    ]) } });
+    await ngu();
+    c.phienDangNhap = { user: U1 };
+    c.openModal('mine');
+    eq(await c.xoaBaiCuaToi('my:a'), false);
+    eq(c.docKhoCuaToi().length, 1, 'xoá trên máy trước thì lần đồng bộ sau bài lại hiện về:');
+    eq(c.document.getElementById('mineMsg').hidden, false);
+  });
+
+  await ta('R12 đăng nhập rồi nhập bài: lên server ngay, có client_id', async () => {
+    const gia = taoSupabaseCuaToi();
+    const c = taoSandbox({ supabase: gia.supabase });
+    await ngu();
+    c.phienDangNhap = { user: U1 };
+    c.openModal('mine');
+    const moi = await nhapBai(c, BAI, 'intermediate');
+    await ngu();
+    eq(gia.db.user_content.length, 1);
+    eq('my:' + gia.db.user_content[0].client_id, moi.id);
+    eq(gia.db.user_content[0].user_id, 'u1');
+    eq(c.docKhoCuaToi()[0].synced, true);
+    c.dungPhienHoc();
+  });
+
+  await ta('R13 không có Supabase: bài tự nhập vẫn hiện trong danh sách và mở được', async () => {
+    const c = taoSandbox({ storage: { 'ep:mine': JSON.stringify([
+      { id: 'my:x', owner: null, type: 'listening', level: 'beginner', topic: 'Offline', data: { text: 'One. Two.' }, synced: false }
+    ]) } });
+    c.doiTab('listening');
+    eq(c.topicOptions.map(o => o.id), ['my:x']);
+    await c.loadSelectedTopic({ id: 'my:x' });
+    eq(c.currentItem && c.currentItem.topic, 'Offline');
+    eq(c.sentences.length, 2);
+    c.dungPhienHoc();
+  });
+}
+
 // ---------- kết quả ----------
 function inKetQua() {
   console.log(`\n${pass} qua, ${fail} hỏng (tổng ${pass + fail})`);
@@ -2229,6 +2651,7 @@ function inKetQua() {
 }
 
 nhomP();
+nhomQ();
 
-// Nhóm K là nhóm test bất đồng bộ duy nhất, nên phải chờ nó xong mới in kết quả.
-nhomK().then(inKetQua);
+// Nhóm K và R là hai nhóm bất đồng bộ, phải chờ xong mới in kết quả.
+nhomK().then(nhomR).then(inKetQua);

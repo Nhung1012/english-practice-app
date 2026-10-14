@@ -46,6 +46,12 @@ function buildItem(row, type) {
 // Lấy 1 bản ghi theo id, trả về đúng hình dạng của `currentItem` (luôn kèm id).
 // Dùng chung cho cả "chọn chủ đề trong danh sách" lẫn "đổi chủ đề ngẫu nhiên".
 async function fetchContentById(id, type) {
+  // Bài tự nhập nằm trong kho trên máy (import.js), không gọi mạng.
+  if (laBaiCuaToi(id)) {
+    const b = timBaiCuaToi(id);
+    if (!b) throw new Error('Không tìm thấy chủ đề tự nhập');
+    return buildItem({ id: b.id, topic: b.topic, data: b.data }, type);
+  }
   const { data, error } = await supabaseClient
     .from('content')
     .select('id, topic, data')
@@ -91,7 +97,10 @@ async function loadTopicOptions() {
   topicOptionsSession++;
   const mySession = topicOptionsSession;
 
-  topicOptions = [];
+  // Bài tự nhập nằm trên máy nên hiện được NGAY, kể cả khi mất mạng hay chưa
+  // cấu hình Supabase — không bắt người dùng chờ danh sách của server.
+  topicOptionsHeThong = [];
+  dungDanhSachChuDe();
   comboActive = -1;
   refreshComboIfOpen();
 
@@ -106,9 +115,10 @@ async function loadTopicOptions() {
     // Nếu người dùng đã đổi tab/trình độ khác trong lúc chờ, bỏ qua kết quả này.
     if (mySession !== topicOptionsSession) return;
     if (error || !data) return;
-    topicOptions = dedupeByTopic(
+    topicOptionsHeThong = dedupeByTopic(
       data.map(row => ({ topic: row.topic, id: row.id, search: normalizeForSearch(row.topic) }))
     );
+    dungDanhSachChuDe();
     refreshComboIfOpen();
   } catch (err) {
     console.warn('Không lấy được danh sách chủ đề từ Supabase:', err);
@@ -255,7 +265,11 @@ const MODE_HOP_LE = new Set(['read', 'listen', 'quiz']); // khớp check của s
 // khi xoá, còn insert vẫn bị chặn như thường.
 async function locIdConTonTai(ids) {
   const con = new Set();
-  const canKiem = [...new Set(ids.filter(id => id !== null && id !== undefined && id !== ''))];
+  // Chỉ id dạng SỐ mới có thể nằm trong `content`. Bài tự nhập có id chuỗi
+  // 'my:...' (import.js); lọt một id như vậy vào `.in('id', ...)` là Postgres
+  // báo lỗi kiểu bigint và hỏng CẢ lượt gộp, không riêng dòng đó.
+  const canKiem = [...new Set(ids.filter(id => id !== null && id !== undefined && id !== ''
+                                              && !laBaiCuaToi(id) && /^\d+$/.test(String(id))))];
   for (let i = 0; i < canKiem.length; i += GOP_LO_KIEM_ID) {
     const lo = canKiem.slice(i, i + GOP_LO_KIEM_ID);
     const { data, error } = await supabaseClient.from('content').select('id').in('id', lo);
@@ -520,5 +534,92 @@ async function docThongKeTaiKhoan(ngayHomNay) {
   } catch (err) {
     console.warn('Chưa đọc được thống kê từ tài khoản:', err.message || err);
     return null;
+  }
+}
+
+// ============================================================
+// 📥 CHỦ ĐỀ CỦA TÔI — bảng `user_content` (2026-10-14)
+//
+// Bài người dùng tự nhập (import.js đọc file, app.js vẽ giao diện). Bảng này
+// TÁCH RIÊNG khỏi `content`: `content` là kho chung chỉ đọc, ai cũng thấy;
+// bài tự nhập là của riêng từng người (RLS "own user_content").
+//
+// Khoá chống trùng là (user_id, client_id). `client_id` do máy sinh ra lúc
+// nhập (phần sau 'my:' của id), nên đẩy lại cùng một bài bao nhiêu lần cũng
+// chỉ có một dòng — mất mạng giữa chừng rồi thử lại vẫn an toàn.
+// ============================================================
+
+function dongTuBaiCuaToi(userId, bai) {
+  return {
+    user_id: userId,
+    client_id: String(bai.id).slice(MINE_PREFIX.length),
+    type: bai.type,
+    level: bai.level,
+    topic: bai.topic,
+    data: bai.data,
+    created_at: bai.created_at
+  };
+}
+
+function baiTuDongServer(userId, r) {
+  return {
+    id: MINE_PREFIX + r.client_id,
+    owner: userId,
+    type: r.type,
+    level: r.level,
+    topic: r.topic,
+    data: r.data,
+    created_at: r.created_at,
+    synced: true
+  };
+}
+
+// Trả về mảng bài của tài khoản, hoặc null khi mạng hỏng (= "không biết",
+// nơi gọi phải GIỮ bản trên máy chứ không được coi là tài khoản trống).
+async function taiBaiCuaToiTuServer(user) {
+  if (!supabaseClient || !user) return null;
+  try {
+    const { data, error } = await supabaseClient
+      .from('user_content')
+      .select('client_id, type, level, topic, data, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data || []).map(r => baiTuDongServer(user.id, r));
+  } catch (err) {
+    console.warn('Chưa tải được chủ đề tự nhập từ tài khoản:', err.message || err);
+    return null;
+  }
+}
+
+async function dayBaiCuaToiLenServer(user, dsBai) {
+  if (!supabaseClient || !user) return false;
+  if (!dsBai.length) return true;
+  try {
+    const { error } = await supabaseClient
+      .from('user_content')
+      .upsert(dsBai.map(b => dongTuBaiCuaToi(user.id, b)),
+              { onConflict: 'user_id,client_id', ignoreDuplicates: true });
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.warn('Chưa đưa được chủ đề tự nhập lên tài khoản:', err.message || err);
+    return false;
+  }
+}
+
+async function xoaBaiCuaToiTrenServer(user, id) {
+  if (!supabaseClient || !user) return false;
+  try {
+    const { error } = await supabaseClient
+      .from('user_content')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('client_id', String(id).slice(MINE_PREFIX.length));
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.warn('Chưa xoá được chủ đề tự nhập trên tài khoản:', err.message || err);
+    return false;
   }
 }

@@ -4,8 +4,9 @@ Web luyện nghe & đọc tiếng Anh: chọn trình độ (beginner / intermedi
 
 ## Kiến trúc
 
-- **Frontend**: 4 file tĩnh (`index.html` + `styles.css` + `supabase.js` + `app.js`), host trên Vercel. **Không có bước build** — các file JS là script cổ điển, nạp theo thứ tự khai báo trong `index.html`.
+- **Frontend**: 5 file tĩnh (`index.html` + `styles.css` + `supabase.js` + `import.js` + `app.js`), host trên Vercel. **Không có bước build** — các file JS là script cổ điển, nạp theo thứ tự khai báo trong `index.html`.
 - **Database**: Supabase (Postgres), bảng `content` (`type`, `level`, `topic`, `data` JSONB). Frontend chỉ đọc (SELECT) qua anon/publishable key.
+  Bài người dùng tự nhập nằm ở bảng riêng `user_content` (mỗi người chỉ thấy bài của mình, RLS).
 - **Nội dung**: nạp sẵn bằng các file SQL chạy trong Supabase SQL Editor (không sinh tự động).
 
 ## Các file
@@ -15,6 +16,8 @@ Web luyện nghe & đọc tiếng Anh: chọn trình độ (beginner / intermedi
 | `index.html` | Chỉ còn HTML: khung trang, các nút, popup. Không còn CSS/JS viết thẳng bên trong |
 | `styles.css` | Toàn bộ giao diện |
 | `supabase.js` | Cấu hình kết nối, **mọi** hàm đọc dữ liệu, và lớp đăng nhập. Nạp trước `app.js` |
+| `import.js` | 📥 Chủ đề của tôi: bộ đọc file `.txt`/`.json` người dùng tự nhập + kho `ep:mine` trên máy. Nạp giữa `supabase.js` và `app.js` |
+| `mau_import.txt`, `mau_import.json` | File mẫu cho người dùng tự nhập chủ đề |
 | `app.js` | Giao diện & logic: TTS, tra từ, sổ từ, lịch sử, dịch câu, quiz. Nạp cuối `<body>`, **không dùng `defer`** |
 | `supabase_schema.sql` | Tạo bảng `content`, RLS, unique index, hàm `get_random_content` |
 | `KE_HOACH_PHAT_TRIEN.md` | **File chính** — kế hoạch, lộ trình, nhật ký, và cách vận hành xưởng nội dung (mục 15) |
@@ -33,7 +36,7 @@ python3 gd2_batches/build_sql.py     # sinh lại 2 file SQL sau khi soạn thê
 ```
 
 Sửa code → chạy test → đẩy lên GitHub → Vercel tự deploy.
-Nhớ đẩy **cả 4 file** frontend nếu có sửa nhiều file cùng lúc — thiếu một file là trang trắng.
+Nhớ đẩy **cả 5 file** frontend nếu có sửa nhiều file cùng lúc — thiếu một file là trang trắng.
 
 ## Dựng lại từ đầu
 
