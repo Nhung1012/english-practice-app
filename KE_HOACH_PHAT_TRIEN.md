@@ -1494,3 +1494,14 @@ Bỏ nút **📄 Xem mẫu**. Bấm **➕ Import chủ đề** là ô dán đã 
 Lưu ý đã chấp nhận: bấm 💾 Lưu ngay mà không sửa gì thì bài mẫu thành một chủ đề thật — xoá bằng nút 🗑 là xong.
 
 Thêm test **R14** (mở màn Import là có mẫu + xem trước, không còn nút Xem mẫu). **185/185 qua.**
+
+### 👥 Mọi bài tự tạo đều công khai (cùng ngày, theo yêu cầu của bạn)
+Bạn chốt: bài tự tạo **luôn công khai**, không có ô chọn riêng tư.
+
+- **Supabase** (đã chạy): thêm cột `author_name` do trigger `gan_ten_nguoi_tao` điền từ `profiles.display_name` (người dùng không tự khai được, email không lộ), index `(type, level)`, và policy **"Public read user_content"** cho `anon` + `authenticated`. Quyền sửa/xoá vẫn chỉ của người tạo. 2 bài đã có trước đó đã được gắn tên người tạo.
+- **Ô chọn chủ đề**: thêm bài của người khác đúng tab + trình độ, nhãn **👥 tên người tạo**, đứng sau bài 📥 của mình và trước bài hệ thống. Bài của chính mình không hiện lặp (lọc theo `owner` lúc dựng danh sách, nên đăng nhập/đăng xuất xong là đúng ngay).
+- Id bài cộng đồng: `pub:<id>`. Giống bài 📥: không ghi `ep:log` / `study_log`, lưu từ thì `source_content_id = null`.
+- Khách: bài vẫn chỉ nằm trên máy, khung 📥 ghi rõ "Đăng nhập để bài được công khai". Đăng nhập là bài được đẩy lên và công khai.
+- ⚠️ **Kiểm duyệt**: ai đăng nhập cũng đăng bài cho mọi người xem được. Hiện xoá bài xấu bằng tay trong Supabase dashboard (Table Editor → `user_content`).
+
+Thêm test **R15** (bài người khác hiện đúng tab/trình độ, có nhãn, mở được, không ghi nhật ký) và **R16** (bài của mình không hiện hai lần). Kiểm ngược: bỏ bộ lọc `owner` thì **R16 đỏ**. **187/187 qua.**

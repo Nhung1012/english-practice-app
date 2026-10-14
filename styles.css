@@ -860,6 +860,7 @@
     background: #ecfdf5;
     color: #047857;
   }
+  .tc-cd { background: #eef2ff; color: #4338ca; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hist-del {
     flex-shrink: 0;
     background: none;

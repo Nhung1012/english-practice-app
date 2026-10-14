@@ -52,6 +52,16 @@ async function fetchContentById(id, type) {
     if (!b) throw new Error('Không tìm thấy chủ đề tự nhập');
     return buildItem({ id: b.id, topic: b.topic, data: b.data }, type);
   }
+  // Bài công khai của người khác: đọc từ `user_content` (policy "Public read").
+  if (laBaiCongDong(id)) {
+    const { data, error } = await supabaseClient
+      .from('user_content')
+      .select('id, topic, data')
+      .eq('id', Number(String(id).slice(PUB_PREFIX.length)))
+      .single();
+    if (error || !data) throw error || new Error('Không tìm thấy chủ đề cộng đồng');
+    return buildItem({ id: id, topic: data.topic, data: data.data }, type);
+  }
   const { data, error } = await supabaseClient
     .from('content')
     .select('id, topic, data')
@@ -100,6 +110,7 @@ async function loadTopicOptions() {
   // Bài tự nhập nằm trên máy nên hiện được NGAY, kể cả khi mất mạng hay chưa
   // cấu hình Supabase — không bắt người dùng chờ danh sách của server.
   topicOptionsHeThong = [];
+  topicOptionsCongDong = [];
   dungDanhSachChuDe();
   comboActive = -1;
   refreshComboIfOpen();
@@ -122,6 +133,39 @@ async function loadTopicOptions() {
     refreshComboIfOpen();
   } catch (err) {
     console.warn('Không lấy được danh sách chủ đề từ Supabase:', err);
+  }
+  await taiChuDeCongDong(mySession);
+}
+
+// 👥 Bài người khác tự tạo (2026-10-14: mọi bài tự tạo đều công khai).
+// Tách khỏi lệnh đọc `content` ở trên: bảng này hỏng thì danh sách hệ thống
+// vẫn phải hiện như cũ. Chỉ lấy tên + người tạo; nội dung bài đọc lúc mở.
+// Bài của chính mình bị loại ra ở `dungDanhSachChuDe()` (theo `owner`) — nó đã
+// hiện với nhãn 📥 từ kho trên máy. Lọc lúc dựng chứ không lúc tải, để đăng
+// nhập / đăng xuất xong là danh sách đúng ngay, không phải tải lại.
+async function taiChuDeCongDong(mySession) {
+  try {
+    const { data, error } = await supabaseClient
+      .from('user_content')
+      .select('id, topic, author_name, user_id')
+      .eq('type', currentTab)
+      .eq('level', currentLevel)
+      .order('created_at', { ascending: false });
+    if (mySession !== topicOptionsSession) return;
+    if (error || !data) return;
+    topicOptionsCongDong = data
+      .map(r => ({
+        topic: r.topic,
+        id: PUB_PREFIX + r.id,
+        community: true,
+        author: r.author_name || 'Ẩn danh',
+        owner: r.user_id,
+        search: normalizeForSearch(r.topic)
+      }));
+    dungDanhSachChuDe();
+    refreshComboIfOpen();
+  } catch (err) {
+    console.warn('Không lấy được chủ đề cộng đồng:', err.message || err);
   }
 }
 
