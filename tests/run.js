@@ -2392,13 +2392,23 @@ function taoSupabaseCuaToi(opts = {}) {
     from(bang) {
       if (bang === 'user_content') {
         return {
+          // Áp đúng các điều kiện .eq() — bài cộng đồng lọc theo type/level,
+          // mở bài lọc theo id, đồng bộ lọc theo user_id.
           select() {
+            const f = {};
+            const loc = () => db.user_content
+              .map((r, i) => Object.assign({ id: r.id || i + 1 }, r))
+              .filter(r => Object.keys(f).every(k => r[k] === f[k]));
             const q = {
-              eq() { return q; },
+              eq(col, v) { f[col] = v; return q; },
               order() {
                 dem.doc++;
                 if (opts.loiDoc) return Promise.resolve({ data: null, error: loi });
-                return Promise.resolve({ data: db.user_content.map(r => Object.assign({}, r)), error: null });
+                return Promise.resolve({ data: loc(), error: null });
+              },
+              single() {
+                const r = loc()[0];
+                return Promise.resolve(r ? { data: r, error: null } : { data: null, error: { message: 'không có' } });
               }
             };
             return q;
@@ -2638,6 +2648,39 @@ async function nhomR() {
     // Mẫu điền sẵn phải khớp file mau_import.txt người dùng tải về từ site.
     const tep = fs.readFileSync(path.join(ROOT, 'mau_import.txt'), 'utf8');
     eq(c.phanTichChuDe(tep).bai.data.lines.length, 4);
+  });
+
+  await ta('R15 bài công khai của người khác hiện với nhãn 👥 tên người tạo và mở học được', async () => {
+    const gia = taoSupabaseCuaToi({ rows: [
+      { id: 7, user_id: 'u2', client_id: 'x', type: 'dialogue', level: 'beginner', topic: 'Bài của Bình', author_name: 'Bình', data: { lines: [{ s: 'A', t: 'Hello.' }, { s: 'B', t: 'Hi.' }] }, created_at: moc(2) },
+      { id: 8, user_id: 'u2', client_id: 'y', type: 'listening', level: 'beginner', topic: 'Khác tab', author_name: 'Bình', data: { text: 'X.' }, created_at: moc(2) }
+    ] });
+    const c = taoSandbox({ supabase: gia.supabase });
+    await ngu(); await ngu();
+    const cd = c.topicOptions.filter(o => o.community);
+    eq(cd.map(o => o.id + ':' + o.author), ['pub:7:Bình'], 'sai bài cộng đồng (phải đúng tab + trình độ):');
+    c.openCombo();
+    ok(/👥 Bình/.test(c.document.getElementById('topicListbox').innerHTML), 'thiếu nhãn 👥 Bình');
+    await c.loadSelectedTopic({ id: 'pub:7' });
+    eq(c.currentItem && c.currentItem.topic, 'Bài của Bình');
+    eq(c.sentences.length, 2);
+    c.speakFrom(0);
+    eq(c.readLog().length, 0, 'bài cộng đồng lọt vào ep:log (khoá ngoại content):');
+    c.saveWord('hello', {}, 'pub:7');
+    eq(c.readVocab()[0].source_content_id, null);
+    c.dungPhienHoc();
+  });
+
+  await ta('R16 bài công khai của CHÍNH MÌNH không hiện hai lần (đã có dòng 📥)', async () => {
+    const gia = taoSupabaseCuaToi({ rows: [
+      { id: 9, user_id: 'u1', client_id: 'a', type: 'dialogue', level: 'beginner', topic: 'Của An', author_name: 'An', data: { lines: [{ s: 'A', t: 'Hi.' }] }, created_at: moc(1) }
+    ] });
+    const c = taoSandbox({ supabase: gia.supabase });
+    await ngu(); await ngu();
+    eq(c.topicOptions.filter(o => o.community).length, 1, 'khách phải thấy bài của An:');
+    c.phienDangNhap = { user: U1 };
+    await c.dongBoBaiCuaToi(U1);
+    eq(c.topicOptions.map(o => (o.mine ? '📥' : '') + (o.community ? '👥' : '') + o.topic), ['📥Của An']);
   });
 
   await ta('R13 không có Supabase: bài tự nhập vẫn hiện trong danh sách và mở được', async () => {

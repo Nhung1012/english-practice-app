@@ -32,6 +32,13 @@ function laBaiCuaToi(id) {
   return typeof id === 'string' && id.indexOf(MINE_PREFIX) === 0;
 }
 
+// Bài công khai của NGƯỜI KHÁC (2026-10-14): 'pub:<id của dòng user_content>'.
+// Bài của chính mình vẫn đi đường 'my:' (kho trên máy), không đi đường này.
+const PUB_PREFIX = 'pub:';
+function laBaiCongDong(id) {
+  return typeof id === 'string' && id.indexOf(PUB_PREFIX) === 0;
+}
+
 // Bỏ dấu + chữ thường để so khớp nhãn "Chủ đề", "chu de", "CHỦ ĐỀ"... như nhau.
 // Không dùng `normalizeForSearch` của app.js: file này nạp trước app.js.
 function boDauNhap(s) {

@@ -6,7 +6,7 @@ Web luyện nghe & đọc tiếng Anh: chọn trình độ (beginner / intermedi
 
 - **Frontend**: 5 file tĩnh (`index.html` + `styles.css` + `supabase.js` + `import.js` + `app.js`), host trên Vercel. **Không có bước build** — các file JS là script cổ điển, nạp theo thứ tự khai báo trong `index.html`.
 - **Database**: Supabase (Postgres), bảng `content` (`type`, `level`, `topic`, `data` JSONB). Frontend chỉ đọc (SELECT) qua anon/publishable key.
-  Bài người dùng tự nhập nằm ở bảng riêng `user_content` (mỗi người chỉ thấy bài của mình, RLS).
+  Bài người dùng tự nhập nằm ở bảng riêng `user_content`: ai cũng đọc được (công khai), chỉ người tạo được sửa/xoá (RLS).
 - **Nội dung**: nạp sẵn bằng các file SQL chạy trong Supabase SQL Editor (không sinh tự động).
 
 ## Các file

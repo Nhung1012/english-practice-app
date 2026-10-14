@@ -197,6 +197,7 @@ let topicOptionsSession = 0;
 // hệ thống để mỗi lần nhập/xoá một bài tự nhập chỉ dựng lại danh sách, không
 // phải gọi lại server — xem `dungDanhSachChuDe()`.
 let topicOptionsHeThong = [];
+let topicOptionsCongDong = []; // 👥 bài công khai của người khác (supabase.js)
 // Từ khoá đang lọc trong ô tìm kiếm (đã chuẩn hoá).
 let topicQuery = '';
 
@@ -258,7 +259,9 @@ function dungDanhSachChuDe() {
   const cuaToi = baiCuaToi(user ? user.id : null)
     .filter(b => b.type === currentTab && b.level === currentLevel)
     .map(b => ({ topic: b.topic, id: b.id, mine: true, search: normalizeForSearch(b.topic) }));
-  topicOptions = cuaToi.concat(topicOptionsHeThong);
+  // Thứ tự: bài của tôi, bài cộng đồng (mới nhất trước), rồi bài hệ thống.
+  const congDong = topicOptionsCongDong.filter(o => !user || o.owner !== user.id);
+  topicOptions = cuaToi.concat(congDong, topicOptionsHeThong);
 }
 
 // Dòng nào trong danh sách là bài đang mở. Bài hệ thống so theo TÊN như cũ
@@ -266,7 +269,9 @@ function dungDanhSachChuDe() {
 // bài tự nhập so theo id, vì tên của nó được phép trùng tên bài hệ thống.
 function laChuDeDangMo(opt) {
   if (!currentItem) return false;
-  if (opt.mine || laBaiCuaToi(currentItem.id)) return opt.id === currentItem.id;
+  if (opt.mine || opt.community || laBaiCuaToi(currentItem.id) || laBaiCongDong(currentItem.id)) {
+    return opt.id === currentItem.id;
+  }
   return opt.topic === currentItem.topic;
 }
 
@@ -299,7 +304,8 @@ function renderTopicList() {
         + ` aria-selected="${isCurrent}">`
         + `<span class="tc-check">${isCurrent ? '✓' : ''}</span>`
         + `<span>${highlightTopic(opt, terms)}</span>`
-        + (opt.mine ? '<span class="tc-mine">📥 Của tôi</span>' : '') + '</li>';
+        + (opt.mine ? '<span class="tc-mine">📥 Của tôi</span>' : '')
+        + (opt.community ? `<span class="tc-mine tc-cd">👥 ${escapeHtml(opt.author)}</span>` : '') + '</li>';
     }).join('');
   }
 
@@ -424,7 +430,7 @@ function writeLog(entries) {
 // trỏ vào `content`, bài đó không bao giờ lên được server, và con số "Đã học"
 // trên máy với trên tài khoản sẽ lệch nhau — đúng loại lỗi tuần 17 đã sửa.
 function logStudy(contentId, mode, score, seconds) {
-  if (!contentId || laBaiCuaToi(contentId)) return;
+  if (!contentId || laBaiCuaToi(contentId) || laBaiCongDong(contentId)) return;
   const entries = readLog();
   entries.push({
     content_id: contentId,
@@ -622,7 +628,7 @@ function saveWord(word, info, sourceId) {
     meaning_vi: info && info.vi ? info.vi : '',
     example: info && info.example ? info.example : '',
     // Bài tự nhập không có trong `content` -> không ghi nguồn (khoá ngoại).
-    source_content_id: sourceId && !laBaiCuaToi(sourceId) ? sourceId : null,
+    source_content_id: sourceId && !laBaiCuaToi(sourceId) && !laBaiCongDong(sourceId) ? sourceId : null,
     box: 1,
     due_date: homNay(),   // lưu xong là ôn được ngay hôm nay
     created_at: new Date().toISOString()
@@ -852,9 +858,10 @@ function renderMine() {
   if (modalPane !== 'mine') return;
 
   modalTitle.textContent = 'Chủ đề của tôi (' + ds.length + ')';
+  // 2026-10-14: mọi bài tự tạo đều công khai (bạn chốt, không có lựa chọn riêng tư).
   mineNote.textContent = nguoiDungHienTai()
-    ? 'Lưu trên tài khoản của bạn, mở máy nào cũng thấy.'
-    : 'Đang lưu trên máy này. Đăng nhập để mang theo sang máy khác.';
+    ? '🌐 Bài của bạn được công khai: mọi người đều học được, có ghi tên bạn.'
+    : 'Đang lưu trên máy này, chỉ bạn thấy. Đăng nhập để bài được công khai cho mọi người và mang sang máy khác.';
 
   mineList.innerHTML = '';
   if (!ds.length) {

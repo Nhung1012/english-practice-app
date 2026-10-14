@@ -253,7 +253,50 @@ create unique index if not exists uq_user_content_client
 
 alter table user_content enable row level security;
 
--- Mỗi người chỉ đọc/ghi/xoá bài của chính mình. Không có policy cho `anon`:
--- khách lưu bài trên máy (localStorage `ep:mine`), đăng nhập mới đẩy lên.
+-- Mỗi người chỉ ghi/xoá bài của chính mình. Khách lưu bài trên máy
+-- (localStorage `ep:mine`), đăng nhập mới đẩy lên. Quyền ĐỌC công khai: xem
+-- phần "MỌI BÀI TỰ TẠO ĐỀU CÔNG KHAI" ngay bên dưới.
 create policy "own user_content" on user_content for all to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
+-- ============================================================
+-- 2026-10-14 (lần 2) — MỌI BÀI TỰ TẠO ĐỀU CÔNG KHAI
+-- Đã chạy trên Supabase ngày 2026-10-14 (các migration user_content_author_name,
+-- user_content_ham_ten_nguoi_tao, user_content_trigger_ten, user_content_doc_cong_khai).
+--
+-- Bạn chốt: không có lựa chọn riêng tư, bài tự tạo của người đã đăng nhập ai
+-- cũng đọc được. Quyền SỬA / XOÁ vẫn chỉ của người tạo (policy "own user_content").
+-- ============================================================
+
+-- Tên người tạo hiện cạnh bài (👥 ...). Do TRIGGER điền từ profiles.display_name,
+-- không lấy từ client: người dùng không tự khai tên người khác được, và email
+-- không bao giờ lộ ra.
+alter table user_content
+  add column if not exists author_name text not null default 'Ẩn danh';
+
+create or replace function gan_ten_nguoi_tao()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  new.author_name := coalesce(
+    nullif(trim((select display_name from profiles where id = new.user_id)), ''),
+    'Ẩn danh');
+  return new;
+end;
+$$;
+
+-- `before insert or update`: cả khi người dùng tự update cột author_name qua
+-- API, trigger vẫn ghi đè lại bằng tên trong hồ sơ.
+create trigger trg_user_content_ten_nguoi_tao
+  before insert or update on user_content
+  for each row execute function gan_ten_nguoi_tao();
+
+-- Danh sách bài cộng đồng lọc theo (type, level) giống bảng content.
+create index if not exists idx_user_content_type_level
+  on user_content (type, level);
+
+-- Ai cũng đọc được — cả khách (anon) lẫn người đã đăng nhập.
+create policy "Public read user_content" on user_content for select to anon, authenticated
+  using (true);
