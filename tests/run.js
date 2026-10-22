@@ -29,7 +29,9 @@ const IDS = ('accAvatar accBtn accEmail accGuest accLabel accSigninBtn accSignou
   // 📥 Chủ đề của tôi (2026-10-14)
   + 'openMineBtn paneMine mineListView mineNote mineMsg mineList mineAddBtn mineImport mineFile '
   + 'mineText mineParseBtn mineError minePreview mineType mineLevel '
-  + 'mineSummary mineWarn mineLines mineSaveBtn mineCancelBtn').split(' ');
+  + 'mineSummary mineWarn mineLines mineSaveBtn mineCancelBtn '
+  // 🔥 Streak + mục tiêu + heatmap (2026-10-22)
+  + 'streakBadge streakLine goalSelect heatmap accStreak').split(' ');
 
 // Nguồn của app = các file JS cục bộ, nạp ĐÚNG thứ tự index.html khai báo.
 // Đọc thứ tự từ chính index.html chứ không viết cứng: nếu sau này thêm file
@@ -81,7 +83,11 @@ const HOOK = `
   xemTruocNhap, xemTruocTuOChu, CHO_XEM_TRUOC_MS, doiLoaiXemTruoc, luuNhap, xoaBaiCuaToi, dongBoBaiCuaToi, renderMine,
   dungDanhSachChuDe, loadTopicOptions, loadSelectedTopic, renderTopicList, openCombo,
   locIdConTonTai, MAU_NHAP_TXT, MAU_NHAP_TEN, GIOI_HAN_NHAP,
-  get topicOptions() { return topicOptions; }
+  get topicOptions() { return topicOptions; },
+  // 🔥 Streak + mục tiêu + heatmap
+  tinhChuoi, doiNgay, mucO, lichHocTrenMay, lichHocHienTai, veChuoi, doiMucTieu,
+  docMucTieuMay, muiGio, docLichHoc, luuMucTieuTaiKhoan, taoHoSoNeuChua,
+  get lichServer() { return lichServer; }, set lichServer(v) { lichServer = v; }
 };
 `;
 
@@ -2733,6 +2739,239 @@ async function nhomR() {
   });
 }
 
+// ============================================================
+// S. 🔥 Streak + mục tiêu hằng ngày + heatmap (2.1b, 2026-10-22)
+// ============================================================
+
+// Supabase giả riêng cho nhóm này: chỉ cần RPC `lich_hoc_tai_khoan` và hai lệnh
+// ghi vào `profiles`. Ghi lại mọi lệnh gọi để kiểm THAM SỐ app gửi đi, không
+// chỉ kết quả — gửi sai múi giờ là cắt sai ngày mà màn hình vẫn có số.
+function taoClientLich(opts = {}) {
+  const ghi = { rpc: [], update: [], upsert: [] };
+  const rong = () => Promise.resolve({ data: [], error: null });
+  const client = {
+    auth: { getSession: async () => ({ data: { session: null } }), onAuthStateChange() {} },
+    rpc(ten, args) {
+      ghi.rpc.push({ ten, args });
+      if (ten !== 'lich_hoc_tai_khoan') return Promise.resolve({ data: null, error: null });
+      if (opts.loi) return Promise.resolve({ data: null, error: { message: 'loi rpc lich' } });
+      return Promise.resolve({ data: opts.lich || { goal: null, days: [] }, error: null });
+    },
+    from(bang) {
+      const q = { eq() { return q; }, in() { return q; }, order: rong, limit: rong, then: (r, j) => rong().then(r, j) };
+      return {
+        select() { return q; },
+        update(patch) {
+          return { eq(col, v) { ghi.update.push({ bang, patch, col, v }); return Promise.resolve({ error: null }); } };
+        },
+        upsert(row, o) { ghi.upsert.push({ bang, row, o }); return Promise.resolve({ error: null }); }
+      };
+    }
+  };
+  return { supabase: { createClient: () => client }, ghi };
+}
+
+// Bản ghi `ep:log` của một bài học lùi về `soNgay` ngày trước (giữa trưa, để
+// không lọt sang ngày khác vì giờ mùa hè).
+function banGhiHoc(contentId, soNgay) {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - soNgay);
+  return { content_id: contentId, mode: 'read', score: null, seconds: 60, created_at: d.toISOString() };
+}
+
+async function nhomS() {
+  const T = '2026-10-22';
+  const lui = (n) => {
+    const t = new Date(Date.parse(T + 'T00:00:00Z') - n * 86400000);
+    return t.toISOString().slice(0, 10);
+  };
+  const c0 = taoSandbox();
+
+  t('S1 ba ngày liên tiếp tới hôm nay, mục tiêu 1 bài -> 🔥3', () => {
+    const r = c0.tinhChuoi({ [lui(2)]: 1, [lui(1)]: 1, [T]: 1 }, 1, T);
+    eq([r.hienTai, r.daDatHomNay, r.homNay], [3, true, 1]);
+  });
+
+  t('S2 hôm nay chưa học: chuỗi vẫn giữ tới hôm qua, không về 0', () => {
+    const r = c0.tinhChuoi({ [lui(2)]: 1, [lui(1)]: 1 }, 1, T);
+    eq([r.hienTai, r.daDatHomNay], [2, false]);
+  });
+
+  t('S3 bỏ trống cả hôm qua lẫn hôm nay -> chuỗi gãy', () => {
+    eq(c0.tinhChuoi({ [lui(3)]: 1, [lui(2)]: 1 }, 1, T).hienTai, 0);
+  });
+
+  t('S4 mục tiêu 2 bài: ngày chỉ học 1 bài không tính', () => {
+    const r = c0.tinhChuoi({ [lui(1)]: 2, [T]: 1 }, 2, T);
+    eq([r.hienTai, r.daDatHomNay, r.homNay], [1, false, 1]);
+  });
+
+  t('S5 kỷ lục giữ chuỗi dài nhất trong quá khứ', () => {
+    const days = {};
+    [20, 19, 18, 17, 16].forEach(n => { days[lui(n)] = 1; });
+    days[lui(1)] = 1; days[T] = 1;
+    const r = c0.tinhChuoi(days, 1, T);
+    eq([r.hienTai, r.kyLuc], [2, 5]);
+  });
+
+  t('S6 doiNgay qua cuối tháng, cuối năm, năm nhuận', () => {
+    eq(c0.doiNgay('2026-03-01', -1), '2026-02-28');
+    eq(c0.doiNgay('2028-03-01', -1), '2028-02-29');
+    eq(c0.doiNgay('2027-01-01', -1), '2026-12-31');
+    eq(c0.doiNgay('2026-12-31', 1), '2027-01-01');
+  });
+
+  t('S7 mức màu ô theo mục tiêu', () => {
+    eq([0, 1, 2, 3, 4].map(n => c0.mucO(n, 2)), [0, 1, 2, 2, 3]);
+  });
+
+  t('S8 đếm trên máy: một bài học hai lần trong ngày vẫn là một bài', () => {
+    const c = taoSandbox({ storage: { 'ep:migr:seen': '1', 'ep:log': JSON.stringify([
+      banGhiHoc(5, 0), banGhiHoc(5, 0), banGhiHoc(6, 0), banGhiHoc(7, 1),
+      { content_id: 8, created_at: 'hỏng' }, { created_at: banGhiHoc(9, 0).created_at }
+    ]) } });
+    const lich = c.lichHocTrenMay();
+    eq(lich[c.homNay()], 2);
+    eq(lich[c.congNgay(-1)], 1);
+    eq(Object.keys(lich).length, 2);
+  });
+
+  t('S9 khách chưa học gì: ẩn 🔥, dòng tiến độ nói rõ, mục tiêu mặc định 1', () => {
+    const c = taoSandbox();
+    const d = c.document;
+    eq(d.getElementById('streakBadge').hidden, true);
+    eq(d.getElementById('streakLine').textContent, 'Chưa có chuỗi ngày học · Hôm nay 0/1 bài');
+    eq(d.getElementById('goalSelect').value, '1');
+  });
+
+  t('S10 khách học hôm nay: 🔥1 hiện ở nút Tài khoản, ô hôm nay tô màu "đạt"', () => {
+    const c = taoSandbox({ storage: { 'ep:migr:seen': '1', 'ep:log': JSON.stringify([banGhiHoc(5, 0)]) } });
+    const d = c.document;
+    const badge = d.getElementById('streakBadge');
+    eq([badge.hidden, badge.textContent, badge.classList.contains('streak-pending')], [false, '🔥1', false]);
+    eq(d.getElementById('streakLine').textContent, '🔥 1 ngày liên tiếp · Hôm nay 1/1 bài ✅ · Kỷ lục 1 ngày');
+    const o = d.getElementById('heatmap').children;
+    eq(o.length, 12 * 7);
+    const homNay = o.filter(x => !x.classList.contains('hm-future')).pop();
+    ok(homNay.classList.contains('hm-2'), 'ô cuối chưa tới tương lai phải là hôm nay, mức 2');
+    ok(homNay.title.endsWith(': 1 bài'), homNay.title);
+  });
+
+  t('S11 heatmap: ô sau hôm nay giữ chỗ nhưng ẩn, đúng số ngày còn lại của tuần', () => {
+    const c = taoSandbox();
+    const thu = (new Date(Date.parse(c.homNay() + 'T00:00:00Z')).getUTCDay() + 6) % 7;
+    const tuongLai = c.document.getElementById('heatmap').children
+      .filter(x => x.classList.contains('hm-future')).length;
+    eq(tuongLai, 6 - thu);
+  });
+
+  t('S12 chỉ học hôm qua: 🔥 vẫn hiện nhưng mờ (chờ học hôm nay)', () => {
+    const c = taoSandbox({ storage: { 'ep:migr:seen': '1', 'ep:log': JSON.stringify([banGhiHoc(5, 1)]) } });
+    const badge = c.document.getElementById('streakBadge');
+    eq([badge.hidden, badge.textContent], [false, '🔥1']);
+    ok(badge.classList.contains('streak-pending'));
+    ok(badge.title.includes('học thêm 1 bài'), badge.title);
+  });
+
+  t('S13 học xong một bài (logStudy) là 🔥 đổi ngay, không cần mở lại trang', () => {
+    const c = taoSandbox({ storage: { 'ep:migr:seen': '1' } });
+    eq(c.document.getElementById('streakBadge').hidden, true);
+    c.logStudy(5, 'read', null, 60);
+    eq(c.document.getElementById('streakBadge').textContent, '🔥1');
+  });
+
+  await ta('S14 khách đổi mục tiêu: nhớ trên máy, tính lại theo mục tiêu mới', async () => {
+    const c = taoSandbox({ storage: { 'ep:migr:seen': '1', 'ep:log': JSON.stringify([banGhiHoc(5, 0)]) } });
+    await c.doiMucTieu('2');
+    eq(c.localStorage.getItem('ep:goal'), '2');
+    eq(c.document.getElementById('goalSelect').value, '2');
+    eq(c.document.getElementById('streakLine').textContent, 'Chưa có chuỗi ngày học · Hôm nay 1/2 bài');
+  });
+
+  t('S15 ep:goal hỏng hoặc ngoài 1–3 -> về 1', () => {
+    eq(taoSandbox({ storage: { 'ep:goal': '7' } }).docMucTieuMay(), 1);
+    eq(taoSandbox({ storage: { 'ep:goal': '{x' } }).docMucTieuMay(), 1);
+    eq(taoSandbox({ storage: { 'ep:goal': '3' } }).docMucTieuMay(), 3);
+  });
+
+  await ta('S16 docLichHoc: gửi múi giờ của máy, đọc đúng goal + days', async () => {
+    const gia = taoClientLich({ lich: { goal: 2, days: [['2026-10-20', 3], ['2026-10-21', 1]] } });
+    const c = await sandboxGop(gia);
+    c.phienDangNhap = { user: U1 };
+    const l = await c.docLichHoc('Asia/Ho_Chi_Minh');
+    eq(l, { goal: 2, days: { '2026-10-20': 3, '2026-10-21': 1 } });
+    const goi = gia.ghi.rpc.filter(x => x.ten === 'lich_hoc_tai_khoan').pop();
+    eq(goi.args, { p_tz: 'Asia/Ho_Chi_Minh' });
+    ok(typeof c.muiGio() === 'string' && c.muiGio().length > 0);
+  });
+
+  await ta('S17 docLichHoc: lỗi mạng hoặc chưa đăng nhập -> null (không phải lịch rỗng)', async () => {
+    const c = await sandboxGop(taoClientLich({ loi: true }));
+    eq(await c.docLichHoc('UTC'), null, 'chưa đăng nhập');
+    c.phienDangNhap = { user: U1 };
+    eq(await c.docLichHoc('UTC'), null, 'lỗi rpc');
+  });
+
+  await ta('S18 đã đăng nhập: gộp lịch tài khoản với máy theo max từng ngày', async () => {
+    const c = await sandboxGop(taoClientLich(), { 'ep:log': JSON.stringify([banGhiHoc(5, 0), banGhiHoc(5, 1)]) });
+    c.phienDangNhap = { user: U1 };
+    const homQua = c.congNgay(-1), homKia = c.congNgay(-2);
+    c.lichServer = { goal: 1, days: { [homKia]: 1, [homQua]: 2 } };
+    const l = c.lichHocHienTai();
+    // hôm qua: server 2, máy 1 -> 2 (không cộng đôi); hôm nay: chỉ máy có -> 1
+    eq([l.days[homKia], l.days[homQua], l.days[c.homNay()]], [1, 2, 1]);
+    c.veChuoi();
+    eq(c.document.getElementById('streakBadge').textContent, '🔥3');
+  });
+
+  await ta('S19 đã đăng nhập: mục tiêu lấy từ tài khoản, không lấy từ máy', async () => {
+    const c = await sandboxGop(taoClientLich(), { 'ep:goal': '1' });
+    c.phienDangNhap = { user: U1 };
+    c.lichServer = { goal: 3, days: {} };
+    c.veChuoi();
+    eq(c.document.getElementById('goalSelect').value, '3');
+  });
+
+  await ta('S20 đã đăng nhập đổi mục tiêu: ghi profiles.daily_goal của chính mình', async () => {
+    const gia = taoClientLich();
+    const c = await sandboxGop(gia);
+    c.phienDangNhap = { user: U1 };
+    c.lichServer = { goal: 1, days: {} };
+    await c.doiMucTieu(2);
+    eq(gia.ghi.update, [{ bang: 'profiles', patch: { daily_goal: 2 }, col: 'id', v: 'u1' }]);
+    eq(c.lichServer.goal, 2);
+  });
+
+  await ta('S21 đăng xuất: bỏ lịch của tài khoản cũ, quay về số trên máy', async () => {
+    const c = await sandboxGop(taoClientLich());
+    c.phienDangNhap = { user: U1 };
+    c.lichServer = { goal: 2, days: { [c.homNay()]: 5 } };
+    c.phienDangNhap = null;
+    c.capNhatGiaoDienTaiKhoan();
+    eq(c.lichServer, null);
+    eq(c.document.getElementById('streakBadge').hidden, true);
+  });
+
+  await ta('S22 tạo hồ sơ mới mang theo mục tiêu khách đã chọn, không ghi đè hồ sơ cũ', async () => {
+    const gia = taoClientLich();
+    const c = await sandboxGop(gia);
+    await c.taoHoSoNeuChua(U1, 2);
+    const u = gia.ghi.upsert.pop();
+    eq(u.row, { id: 'u1', display_name: 'An', daily_goal: 2 });
+    eq(u.o.ignoreDuplicates, true);
+  });
+
+  await ta('S23 capNhatThongKe đọc cả lịch học của tài khoản', async () => {
+    const gia = taoClientLich({ lich: { goal: 1, days: [] } });
+    const c = await sandboxGop(gia);
+    c.phienDangNhap = { user: U1 };
+    await c.capNhatThongKe();
+    ok(gia.ghi.rpc.some(x => x.ten === 'lich_hoc_tai_khoan'), 'phải gọi lich_hoc_tai_khoan');
+    eq(c.lichServer, { goal: 1, days: {} });
+  });
+}
+
 // ---------- kết quả ----------
 function inKetQua() {
   console.log(`\n${pass} qua, ${fail} hỏng (tổng ${pass + fail})`);
@@ -2747,5 +2986,5 @@ function inKetQua() {
 nhomP();
 nhomQ();
 
-// Nhóm K và R là hai nhóm bất đồng bộ, phải chờ xong mới in kết quả.
-nhomK().then(nhomR).then(inKetQua);
+// Nhóm K, R và S là các nhóm bất đồng bộ, phải chờ xong mới in kết quả.
+nhomK().then(nhomR).then(nhomS).then(inKetQua);

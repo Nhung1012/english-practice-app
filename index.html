@@ -15,6 +15,9 @@
     <!-- Nút tài khoản LUÔN hiện (kể cả khi chưa đăng nhập). Bấm vào mở
          popup, không phải trang riêng. -->
     <button type="button" class="acc-btn" id="accBtn" aria-label="Tài khoản">
+      <!-- 🔥 số ngày liên tiếp đạt mục tiêu (2.1b). Đứng ĐẦU nút: tên người
+           dùng phải là con cuối để CSS cắt bớt "…" khi tên dài. -->
+      <span id="streakBadge" class="streak-badge" hidden></span>
       <span id="accAvatar" class="acc-avatar" hidden></span>
       <span id="accLabel">Đăng nhập</span>
     </button>
@@ -218,6 +221,19 @@
           <button type="button" class="btn secondary quick-btn" id="openFavBtn" hidden>⭐ Đã đánh dấu</button>
           <button type="button" class="btn secondary quick-btn" id="reviewBtn">🎯 Ôn tập</button>
           <button type="button" class="btn secondary quick-btn" id="openMineBtn">📥 Chủ đề của tôi</button>
+        </div>
+        <!-- 🔥 Streak + mục tiêu + heatmap (2.1b, 2026-10-22). Nằm NGOÀI
+             accGuest/accUser: khách cũng có chuỗi ngày học, đếm trên máy. -->
+        <div class="acc-streak" id="accStreak">
+          <p class="streak-line" id="streakLine"></p>
+          <label class="goal-pick">Mục tiêu mỗi ngày
+            <select id="goalSelect">
+              <option value="1">1 bài</option>
+              <option value="2">2 bài</option>
+              <option value="3">3 bài</option>
+            </select>
+          </label>
+          <div class="heatmap" id="heatmap" role="img" aria-label="Lịch học"></div>
         </div>
         <div id="accGuest">
           <p class="acc-lead">Bạn đang dùng ở <b>chế độ khách</b>. Mọi tính năng đều dùng được bình thường, không có gì bị khoá.</p>

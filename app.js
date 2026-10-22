@@ -68,6 +68,11 @@ const signinBar = document.getElementById('signinBar');
 const signinCount = document.getElementById('signinCount');
 const signinBarBtn = document.getElementById('signinBarBtn');
 const signinBarClose = document.getElementById('signinBarClose');
+// 🔥 Streak + mục tiêu + heatmap (2.1b, 2026-10-22)
+const streakBadge = document.getElementById('streakBadge');
+const streakLine = document.getElementById('streakLine');
+const goalSelect = document.getElementById('goalSelect');
+const heatmap = document.getElementById('heatmap');
 const favBtn = document.getElementById('favBtn');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
@@ -438,6 +443,7 @@ function logStudy(contentId, mode, score, seconds) {
     created_at: new Date().toISOString()
   });
   writeLog(entries);
+  veChuoi(); // học xong một bài là 🔥 và ô hôm nay phải đổi ngay, kể cả khi offline
 }
 
 // ============================================================
@@ -1588,7 +1594,7 @@ function capNhatGiaoDienTaiKhoan() {
   if (user) accEmail.textContent = user.email || tenHienThi(user);
   // Đăng xuất thì bỏ số của tài khoản cũ đi, đừng để nó còn hiện cho người
   // tiếp theo dùng máy này. Số của server sẽ do dayLenTaiKhoan() nạp lại.
-  if (!user) thongKeServer = null;
+  if (!user) { thongKeServer = null; lichServer = null; }
   veThongKe();
   // Đăng nhập xong thì dải mời không còn lý do tồn tại.
   kiemTraDaiMoi();
@@ -1637,15 +1643,175 @@ function soLieuTienDo() {
 // Còn lại việc vẽ nhãn nút Ôn tập (dùng `canOn` của `soLieuTienDo()`).
 function veThongKe() {
   renderVocab();
+  veChuoi();
 }
 
 // Đọc lại số từ server rồi vẽ. Gọi sau mỗi lần đẩy dữ liệu và mỗi lần mở khung
 // Tài khoản. Không await ở nơi gọi — vẽ số cũ trước, số mới đè lên sau.
 async function capNhatThongKe() {
-  if (!nguoiDungHienTai()) { thongKeServer = null; veThongKe(); return; }
-  const t = await docThongKeTaiKhoan(homNay());
+  if (!nguoiDungHienTai()) { thongKeServer = null; lichServer = null; veThongKe(); return; }
+  const [t, l] = await Promise.all([docThongKeTaiKhoan(homNay()), docLichHoc(muiGio())]);
   if (t) thongKeServer = t;   // null = mạng hỏng -> GIỮ số cũ, đừng nháy về 0
+  if (l) lichServer = l;      // như trên
   veThongKe();
+}
+
+// ============================================================
+// 🔥 STREAK + MỤC TIÊU HẰNG NGÀY + HEATMAP (tuần 18–19, mục 2.1b — 2026-10-22)
+//
+// Luật:
+//   - Mục tiêu: 1, 2 hoặc 3 bài mỗi ngày (mặc định 1). "Bài" theo đúng luật
+//     của phiên học: bấm ▶ Nghe, ở lại đủ một phút, hoặc làm quiz. Một bài học
+//     hai lần trong ngày vẫn là một bài.
+//   - Streak = số ngày LIÊN TIẾP đạt mục tiêu. Hôm nay chưa đạt thì chuỗi tính
+//     tới hôm qua và vẫn còn nguyên tới hết ngày — mở app buổi sáng mà thấy
+//     🔥 về 0 thì người dùng nản ngay.
+//   - Kỷ lục = chuỗi dài nhất từng có.
+//
+// Không lưu streak ở đâu cả: mỗi lần vẽ là tính lại từ lịch sử học. Hệ quả cần
+// biết: ĐỔI MỤC TIÊU là tính lại cả lịch sử theo mục tiêu mới — nâng từ 1 lên 3
+// bài thì những ngày chỉ học 1 bài không còn tính, chuỗi có thể ngắn lại.
+//
+// Nguồn số liệu giống bộ đếm ở trên: khách đọc `ep:log` của máy; đã đăng nhập
+// thì lấy lịch của tài khoản (`lichServer`) rồi GỘP với máy này theo từng ngày
+// bằng max — bài vừa học chưa kịp đẩy lên vẫn hiện ngay, mà không đếm đôi bài
+// đã có trên server. Mạng hỏng thì dùng số trên máy.
+// ============================================================
+const GOAL_KEY = 'ep:goal';
+const MUC_TIEU = [1, 2, 3];
+const HEATMAP_TUAN = 12;
+let lichServer = null; // { goal, days } của tài khoản, hoặc null = chưa/không đọc được
+
+function chuanMucTieu(v) {
+  const n = Number(v);
+  return MUC_TIEU.includes(n) ? n : 1;
+}
+
+function docMucTieuMay() {
+  return chuanMucTieu(readJson(GOAL_KEY, 1));
+}
+
+// Tên múi giờ IANA để server cắt ngày giống hệt máy. Trình duyệt quá cũ không
+// có Intl thì gửi UTC — lệch vài giờ còn hơn là không hiện gì.
+function muiGio() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch (err) {
+    return 'UTC';
+  }
+}
+
+// 'YYYY-MM-DD' cách `ymd` n ngày (n âm = lùi lại). Tính trên mốc UTC nửa đêm
+// nên không bị giờ mùa hè làm hụt/thừa một ngày.
+function doiNgay(ymd, n) {
+  return new Date(Date.parse(ymd + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+}
+
+// Số bài KHÁC NHAU đã học theo từng ngày địa phương, đếm trên `ep:log`.
+function lichHocTrenMay() {
+  const theoNgay = {};
+  readLog().forEach(e => {
+    const t = new Date(e && e.created_at);
+    if (!e || !e.content_id || isNaN(t.getTime())) return;
+    const d = new Date(t.getTime() - t.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    if (!theoNgay[d]) theoNgay[d] = new Set();
+    theoNgay[d].add(e.content_id);
+  });
+  const out = {};
+  Object.keys(theoNgay).forEach(d => { out[d] = theoNgay[d].size; });
+  return out;
+}
+
+// Mục tiêu + lịch đang dùng, đã chọn xong nguồn — ĐÚNG MỘT chỗ trả lời, cùng
+// lý do với `soLieuTienDo()`.
+function lichHocHienTai() {
+  const mayNay = lichHocTrenMay();
+  if (!nguoiDungHienTai() || !lichServer) return { goal: docMucTieuMay(), days: mayNay };
+  const days = Object.assign({}, lichServer.days);
+  Object.keys(mayNay).forEach(d => { days[d] = Math.max(days[d] || 0, mayNay[d]); });
+  return { goal: chuanMucTieu(lichServer.goal || docMucTieuMay()), days: days };
+}
+
+// Hàm thuần: không đọc DOM, không đọc localStorage — test gọi thẳng.
+function tinhChuoi(days, goal, today) {
+  const dat = d => (days[d] || 0) >= goal;
+  let hienTai = 0;
+  let d = dat(today) ? today : doiNgay(today, -1);
+  while (dat(d)) { hienTai++; d = doiNgay(d, -1); }
+
+  let kyLuc = 0, chay = 0, truoc = null;
+  Object.keys(days).filter(x => x <= today && dat(x)).sort().forEach(x => {
+    chay = truoc && doiNgay(x, -1) === truoc ? chay + 1 : 1;
+    if (chay > kyLuc) kyLuc = chay;
+    truoc = x;
+  });
+  return { hienTai: hienTai, kyLuc: kyLuc, homNay: days[today] || 0, daDatHomNay: dat(today) };
+}
+
+// Mức màu một ô: 0 chưa học · 1 có học nhưng chưa đạt · 2 đạt · 3 gấp đôi mục tiêu.
+function mucO(n, goal) {
+  if (!n) return 0;
+  if (n < goal) return 1;
+  return n < goal * 2 ? 2 : 3;
+}
+
+// HEATMAP_TUAN cột, mỗi cột một tuần từ thứ Hai tới Chủ nhật; cột cuối là tuần
+// này. Ô sau hôm nay vẫn giữ chỗ (lưới không bị lệch) nhưng ẩn đi.
+function veHeatmap(days, goal, today) {
+  if (!heatmap) return;
+  heatmap.textContent = '';
+  const thu = (new Date(Date.parse(today + 'T00:00:00Z')).getUTCDay() + 6) % 7; // 0 = thứ Hai
+  const batDau = doiNgay(today, -thu - (HEATMAP_TUAN - 1) * 7);
+  let soNgayHoc = 0;
+  for (let i = 0; i < HEATMAP_TUAN * 7; i++) {
+    const d = doiNgay(batDau, i);
+    const o = document.createElement('span');
+    if (d > today) {
+      o.className = 'hm-cell hm-future';
+    } else {
+      const n = days[d] || 0;
+      if (n) soNgayHoc++;
+      o.className = 'hm-cell hm-' + mucO(n, goal);
+      o.title = dinhDangNgay(d) + ': ' + (n ? n + ' bài' : 'chưa học');
+    }
+    heatmap.appendChild(o);
+  }
+  heatmap.setAttribute('aria-label', 'Lịch học ' + HEATMAP_TUAN + ' tuần gần nhất: '
+    + soNgayHoc + ' ngày có học');
+}
+
+function veChuoi() {
+  if (!streakBadge) return;
+  const { goal, days } = lichHocHienTai();
+  const today = homNay();
+  const c = tinhChuoi(days, goal, today);
+
+  // Nút góc trên: chỉ hiện khi đang có chuỗi. Mờ đi khi hôm nay chưa đạt —
+  // nhắc là chuỗi còn đó nhưng cần học thêm để giữ.
+  streakBadge.hidden = c.hienTai < 1;
+  streakBadge.textContent = '🔥' + c.hienTai;
+  streakBadge.classList.toggle('streak-pending', !c.daDatHomNay);
+  streakBadge.title = c.hienTai + ' ngày liên tiếp đạt mục tiêu'
+    + (c.daDatHomNay ? '' : ' · hôm nay học thêm ' + (goal - c.homNay) + ' bài để giữ chuỗi');
+
+  if (streakLine) {
+    const phan = [c.hienTai ? '🔥 ' + c.hienTai + ' ngày liên tiếp' : 'Chưa có chuỗi ngày học',
+                  'Hôm nay ' + Math.min(c.homNay, goal) + '/' + goal + ' bài' + (c.daDatHomNay ? ' ✅' : '')];
+    if (c.kyLuc) phan.push('Kỷ lục ' + c.kyLuc + ' ngày');
+    streakLine.textContent = phan.join(' · ');
+  }
+  if (goalSelect) goalSelect.value = String(goal);
+  veHeatmap(days, goal, today);
+}
+
+async function doiMucTieu(v) {
+  const g = chuanMucTieu(v);
+  writeJson(GOAL_KEY, g);
+  // Vẽ ngay theo mục tiêu mới, không chờ mạng. Lưu hỏng thì lần đọc lịch sau
+  // sẽ trả mục tiêu cũ của tài khoản về — người dùng thấy và chọn lại được.
+  if (lichServer) lichServer.goal = g;
+  veChuoi();
+  if (nguoiDungHienTai()) await luuMucTieuTaiKhoan(g);
 }
 
 // ============================================================
@@ -2855,6 +3021,7 @@ mineType.addEventListener('change', doiLoaiXemTruoc);
 mineSaveBtn.addEventListener('click', luuNhap);
 openHelpBtn.addEventListener('click', () => openModal('help'));
 accBtn.addEventListener('click', () => openModal('account'));
+if (goalSelect) goalSelect.addEventListener('change', () => doiMucTieu(goalSelect.value));
 accSigninBtn.addEventListener('click', dangNhapGoogle);
 signinBarBtn.addEventListener('click', dangNhapGoogle);
 accSignoutBtn.addEventListener('click', async () => {
@@ -2918,7 +3085,7 @@ khoiTaoAuth(phien => {
   // Nối tiếp chứ không chạy song song: hai việc này cùng bắn lúc mở trang,
   // và tạo hồ sơ là việc nhẹ hơn nhiều nên để nó xong trước cho gọn.
   // Không await ở ngoài — mạng chậm thì app vẫn dùng bình thường.
-  taoHoSoNeuChua(phien.user).then(() => dayLenTaiKhoan(phien.user));
+  taoHoSoNeuChua(phien.user, docMucTieuMay()).then(() => dayLenTaiKhoan(phien.user));
 });
 
 // Nhật ký cũ (ghi từ trước khi có cache tên bài) chỉ có id. Bài đã đánh dấu mà
