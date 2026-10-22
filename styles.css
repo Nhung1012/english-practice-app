@@ -828,20 +828,8 @@
   /* 2026-08-19: gỡ `.acc-stats` (đoạn văn bộ đếm) và `.acc-sync` (dòng trạng
      thái đồng bộ). Ba con số nay nằm thẳng trên nhãn hàng nút `.acc-links`. */
 
-  /* "📚 Đã học (5)" — trông cùng cỡ với hai nút bên cạnh nhưng KHÔNG bấm được:
-     không có khung nào để mở ra. Cố ý không dùng viền đậm như nút thật, để
-     người dùng không bấm hụt. */
-  .acc-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 7px 12px;
-    border-radius: 8px;
-    background: #f1f5f9;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    cursor: default;
-  }
+  /* 2026-10-22: gỡ chip "📚 Đã học (n)" (`.acc-chip`) theo yêu cầu người dùng.
+     Nhật ký học (ep:log / study_log) vẫn ghi như cũ, chỉ không hiện số nữa. */
 
   /* Trên điện thoại nút tài khoản dễ đè lên tiêu đề dài, nên cho tiêu đề
      chừa chỗ và rút nút lại còn phần chữ ngắn. */

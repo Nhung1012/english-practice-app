@@ -64,7 +64,6 @@ const accUser = document.getElementById('accUser');
 const accEmail = document.getElementById('accEmail');
 const accSigninBtn = document.getElementById('accSigninBtn');
 const accSignoutBtn = document.getElementById('accSignoutBtn');
-const accLearned = document.getElementById('accLearned');
 const signinBar = document.getElementById('signinBar');
 const signinCount = document.getElementById('signinCount');
 const signinBarBtn = document.getElementById('signinBarBtn');
@@ -1633,16 +1632,10 @@ function soLieuTienDo() {
     : { soBai: soBaiDaHoc(), soTu: readVocab().length, canOn: dueWords().length };
 }
 
-// Chip "📚 Đã học (n)". Cố ý KHÔNG phải nút: không có khung nào để mở ra.
-// `title` giữ lại câu giải thích điều kiện được tính — người dùng mở một bài
-// rồi thấy số không nhúc nhích sẽ tưởng app hỏng chứ không đoán ra là cố ý.
+// 2026-10-22: gỡ chip "📚 Đã học (n)" khỏi khung Tài khoản theo yêu cầu người
+// dùng. Nhật ký học vẫn ghi và vẫn đẩy lên `study_log`, chỉ là không hiện số.
+// Còn lại việc vẽ nhãn nút Ôn tập (dùng `canOn` của `soLieuTienDo()`).
 function veThongKe() {
-  if (!accLearned) return;
-  const { soBai } = soLieuTienDo();
-  accLearned.textContent = '📚 Đã học' + (soBai ? ' (' + soBai + ')' : '');
-  accLearned.title = 'Một bài được tính khi bạn bấm ▶ Nghe, ở lại trong bài một '
-    + 'phút, hoặc làm câu hỏi hiểu bài. Mở bài rồi thoát ngay thì không tính.';
-  // Nhãn nút Sổ từ dùng chung `canOn`, nên vẽ lại luôn cho khỏi lệch nhau.
   renderVocab();
 }
 

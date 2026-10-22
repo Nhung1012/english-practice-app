@@ -18,7 +18,7 @@ const ROOT = path.join(__dirname, '..');
 const HTML = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 
 const IDS = ('accAvatar accBtn accEmail accGuest accLabel accSigninBtn accSignoutBtn accUser paneAccount '
-  + 'accLearned signinBar signinBarBtn signinBarClose signinCount '
+  + 'signinBar signinBarBtn signinBarClose signinCount '
   + 'biBtn copyBtn favBtn favList loopBtn modal modalBackdrop modalClose '
   + 'modalTitle modalBack nextBtn openHelpBtn openFavBtn paneHelp paneFav paneReview reviewEmpty playBtn prevBtn quizBox '
   + 'accLinks scriptCard '
@@ -1355,9 +1355,6 @@ async function nhomK() {
     c.phienDangNhap = { user: U1 };
     await c.dayLenTaiKhoan(U1);
 
-    const chip = c.document.getElementById('accLearned').textContent;
-    ok(/\(3\)/.test(chip), `máy này chỉ có 1 bài trong localStorage nhưng tài khoản có 3 — `
-      + `phải hiện 3, nhận: "${chip}"`);
     eq(c.soLieuTienDo(), { soBai: 3, soTu: 1, canOn: 1 },
       'ba con số của TÀI KHOẢN phải đọc được từ server:');
 
@@ -1380,8 +1377,7 @@ async function nhomK() {
     }
     c.phienDangNhap = { user: U1 };
     await c.capNhatThongKe();
-    const chip = c.document.getElementById('accLearned').textContent;
-    eq(chip, '📚 Đã học',
+    eq(c.soLieuTienDo().soBai, 0,
       'đếm cả dòng luật cũ là quay lại đúng con số sai bản 17/8 vừa dẹp');
   });
 
@@ -1392,9 +1388,8 @@ async function nhomK() {
     c.phienDangNhap = { user: U1 };
     c.thongKeServer = { soBai: 12, soTu: 3, canOn: 0 };
     await c.capNhatThongKe();
-    const chip = c.document.getElementById('accLearned').textContent;
-    ok(/\(12\)/.test(chip),
-      `RPC hỏng mà đã vứt số cũ đi, người dùng thấy tiến độ tụt về 0. Nhận: "${chip}"`);
+    eq(c.soLieuTienDo().soBai, 12,
+      'RPC hỏng mà đã vứt số cũ đi, tiến độ tụt về 0:');
   });
 
   // ---- K15 ----
@@ -1579,85 +1574,64 @@ async function nhomK() {
       created_at: new Date(Date.UTC(2026, 7, i + 1)).toISOString()
     })));
 
-  // 2026-08-19: ba con số chuyển từ đoạn văn `accStats` lên NHÃN hàng nút.
-  // Câu hỏi nhóm này canh vẫn y nguyên — "người dùng có NHÌN THẤY con số
-  // không" — chỉ đổi chỗ đọc kết quả.
-  const chip = (c) => c.document.getElementById('accLearned').textContent;
+  // 2026-10-22: chip "📚 Đã học (n)" đã gỡ khỏi giao diện, nhưng luật đếm
+  // vẫn giữ (dữ liệu vẫn ghi), nên nhóm này đọc thẳng `soLieuTienDo().soBai`.
+  const soBai = (c) => c.soLieuTienDo().soBai;
   const nutOn = (c) => c.document.getElementById('reviewBtn').textContent;
 
-  t('N1 ĐÃ ĐĂNG NHẬP vẫn thấy được số bài đã học', () => {
-    // Đây chính là lỗi cũ: dải mời ẩn khi đăng nhập, và đó là chỗ DUY NHẤT
-    // hiển thị con số.
+  t('N1 đã đăng nhập vẫn đếm đúng số bài đã học', () => {
     const c = taoSandbox({ storage: moKho({ 'ep:log': nBai(4) }) });
     c.phienDangNhap = { user: { id: 'u1', email: 'a@b.c', user_metadata: {} } };
     c.capNhatGiaoDienTaiKhoan();
-    ok(/Đã học/.test(chip(c)), 'khung Tài khoản phải nói số bài đã học');
-    ok(/\(4\)/.test(chip(c)), `mong thấy số 4, nhận "${chip(c)}"`);
+    eq(soBai(c), 4);
     eq(c.document.getElementById('signinBar').hidden, true, 'dải mời vẫn phải ẩn:');
   });
 
-  t('N2 CHƯA đăng nhập cũng thấy, không phụ thuộc trạng thái tài khoản', () => {
+  t('N2 chưa đăng nhập cũng đếm, không phụ thuộc trạng thái tài khoản', () => {
     const c = taoSandbox({ storage: moKho({ 'ep:log': nBai(2) }) });
     c.phienDangNhap = null;
     c.capNhatGiaoDienTaiKhoan();
-    ok(/\(2\)/.test(chip(c)), `nhận "${chip(c)}"`);
+    eq(soBai(c), 2);
   });
 
-  t('N3 điều kiện được tính vẫn nói ra, dù đã bỏ đoạn văn giải thích', () => {
-    // Người dùng mở bài rồi thấy số không nhúc nhích sẽ tưởng app hỏng. Đoạn
-    // văn cũ đã bỏ, câu giải thích chuyển vào `title` của chip.
-    const c = taoSandbox({ storage: moKho() });
-    c.capNhatGiaoDienTaiKhoan();
-    const el = c.document.getElementById('accLearned');
-    ok(/Nghe/.test(el.title) && /phút/.test(el.title),
-      `phải nêu điều kiện, nhận title "${String(el.title).slice(0, 100)}"`);
+  t('N3 chip "Đã học" đã gỡ sạch khỏi giao diện (22/10)', () => {
+    ok(!/id="accLearned"|acc-chip/.test(HTML), 'chip Đã học vẫn còn trong index.html');
+    // Dải mời đăng nhập ("Đã học 3 bài rồi") là chuyện khác, vẫn giữ.
+    ok(!/đã học, số từ/.test(HTML), 'Hướng dẫn vẫn nhắc tiến độ "đã học"');
   });
 
-  t('N4 mở bài KHÔNG làm số tăng, bấm Nghe thì tăng — thấy được ngay trên UI', () => {
+  t('N4 mở bài KHÔNG làm số tăng, bấm Nghe thì tăng', () => {
     const c = taoSandbox({ storage: moKho() });
     c.currentItem = { id: 11, topic: 'Bài 11', lines: [{ s: 'A', t: 'Hello there.' }] };
     c.currentTab = 'dialogue';
     c.recordLesson();
-    c.veThongKe();
-    eq(chip(c), '📚 Đã học', 'mở bài mà đã tính là học');
+    eq(soBai(c), 0, 'mở bài mà đã tính là học:');
 
     c.renderScript();
     c.speakFrom(0);
-    c.veThongKe();
-    ok(/\(1\)/.test(chip(c)), `bấm Nghe phải tính, nhận "${chip(c)}"`);
-  });
-
-  t('N5 mở khung Tài khoản là vẽ lại số liệu, không dùng số cũ từ lúc khởi động', () => {
-    const c = taoSandbox({ storage: moKho() });
-    c.capNhatGiaoDienTaiKhoan();
-    const truoc = chip(c);
-    c.localStorage.setItem('ep:log', nBai(7));
-    c.openModal('account');
-    ok(truoc !== chip(c) && /\(7\)/.test(chip(c)),
-      `vừa học xong mở ra phải thấy số mới, nhận "${chip(c)}"`);
+    eq(soBai(c), 1, 'bấm Nghe phải tính:');
   });
 
   t('N6 đếm bài KHÁC NHAU, không đếm số dòng nhật ký', () => {
     const c = taoSandbox({ storage: moKho({ 'ep:log': JSON.stringify(
       [1, 1, 1, 2].map((id, i) => ({ content_id: id, mode: 'read', score: null, seconds: 60,
         created_at: new Date(Date.UTC(2026, 7, i + 1)).toISOString() }))) }) });
-    c.veThongKe();
-    ok(/\(2\)/.test(chip(c)), `phải là 2 bài, không phải 4. Nhận "${chip(c)}"`);
+    eq(soBai(c), 2, 'phải là 2 bài, không phải 4:');
   });
 
-  t('N8 chip và hai nút KHÔNG được nằm trong accGuest/accUser', () => {
+  t('N8 hai nút KHÔNG được nằm trong accGuest/accUser', () => {
     // DOM giả đăng ký phần tử theo id một cách phẳng, không có quan hệ cha–con,
     // nên `accUser.hidden = true` không kéo theo phần tử con — N1/N2 vẫn xanh
     // dù đặt nhầm chỗ. Chỉ có cách đọc thẳng HTML mới bắt được.
     const pane = HTML.match(/<div id="paneAccount"[^>]*>([\s\S]*?)\n      <\/div>/);
     ok(pane, 'không tìm thấy khung paneAccount trong index.html');
-    ok(/id="accLearned"/.test(pane[1]), 'chip Đã học phải nằm trong paneAccount');
+    ok(/id="reviewBtn"/.test(pane[1]), 'nút Ôn tập phải nằm trong paneAccount');
 
     const trong = (id) => {
       const m = HTML.match(new RegExp('<div id="' + id + '"[^>]*>([\\s\\S]*?)\\n        </div>'));
       return m ? m[1] : '';
     };
-    ['accLearned', 'reviewBtn', 'openFavBtn'].forEach((id) => {
+    ['reviewBtn', 'openFavBtn'].forEach((id) => {
       ok(!new RegExp('id="' + id + '"').test(trong('accGuest')),
         id + ' nằm trong accGuest thì người ĐÃ đăng nhập không thấy — đúng lỗi cũ');
       ok(!new RegExp('id="' + id + '"').test(trong('accUser')),
@@ -1684,11 +1658,10 @@ async function nhomK() {
     ok(/\(0\)/.test(nutOn(c)), `nhận "${nutOn(c)}"`);
   });
 
-  t('N10 chưa lưu từ nào thì ẩn nút Ôn tập, chip không có ngoặc rỗng', () => {
+  t('N10 chưa lưu từ nào thì ẩn nút Ôn tập', () => {
     const c = taoSandbox({ storage: moKho() });
     c.veThongKe();
     eq(c.document.getElementById('reviewBtn').hidden, true);
-    eq(chip(c), '📚 Đã học');
   });
 }
 
@@ -1772,9 +1745,8 @@ function nhomP() {
     const c = taoSandbox({ storage: moKho({ 'ep:log': nBaiP(3) }) });
     c.saveWord('lease', { vi: 'thuê' }, 1); // lưu xong là tới hạn ôn ngay
     c.veThongKe();
-    const chip = c.document.getElementById('accLearned').textContent;
     const nut = c.document.getElementById('reviewBtn').textContent;
-    ok(/\(3\)/.test(chip), `số bài đã học phải có trên chip, nhận "${chip}"`);
+    eq(c.soLieuTienDo().soBai, 3, 'luật đếm bài đã học vẫn phải giữ:');
     ok(/🎯 Ôn tập \(1\)/.test(nut), `số từ tới hạn phải ở trên nút Ôn tập, nhận "${nut}"`);
     // Không còn chỗ thứ hai nào hiện lại mấy con số này
     ok(!/id="accStats"|class="acc-stats"/.test(HTML), 'đoạn văn bộ đếm vẫn còn trong HTML');
