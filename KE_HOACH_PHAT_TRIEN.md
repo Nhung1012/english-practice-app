@@ -1524,3 +1524,14 @@ Lỗi: dán bài vào ô chữ rồi bấm 💾 Lưu (chưa bấm 🔍 Xem trư�
 - **Tên chủ đề chỉ lấy từ ô "Tên chủ đề"** (giống trình độ, loại bài). Bài mẫu chỉ còn lời thoại; ô tên điền sẵn "Ordering coffee". Chọn file thì ô tên lấy theo tên file. Dòng "Chủ đề:" / `topic` trong file cũ vẫn nhận ra là tiêu đề (không lẫn vào bài) nhưng bị bỏ qua. `mau_import.txt` / `mau_import.json` bỏ dòng tên.
 
 Sửa test Q1, Q2, Q12, R1 (dán rồi Lưu luôn, không Xem trước), R6; thêm **R18** (dán rồi Lưu ngay → lưu đúng bài vừa dán) và **R19** (gõ là xem trước tự cập nhật, giữ tên đã gõ). Kiểm ngược: để nút Lưu dùng kết quả xem trước cũ thì **R18 đỏ**. **191/191 qua.**
+
+### Bỏ ô "Tên chủ đề", lấy tên ngay trong nội dung (2026-10-22, bạn đồng ý)
+Đổi lại quyết định trên cho riêng tên chủ đề: màn Import **không còn ô Tên chủ đề**.
+
+- Tên lấy từ dòng **`Chủ đề: ...`** trong ô chữ (vẫn nhận `# ...`, `Topic:`, `Tiêu đề:`...; viết không dấu cũng được). File .json lấy từ trường `"topic"`. Có hai dòng tên thì dùng dòng đầu (có báo).
+- Không có dòng tên: chọn file thì lấy theo tên file; dán chữ thì **không lưu được**, app báo "Thêm dòng "Chủ đề: ..." ở đầu bài".
+- Xem trước hiện tên đọc được ở đầu dòng tóm tắt (📌 Ordering coffee · 💬 Hội thoại · ...).
+- Bài mẫu, `mau_import.txt` mở đầu bằng `Chủ đề: Ordering coffee`; `mau_import.json` có `"topic"`.
+- Trình độ và Loại bài vẫn chỉ lấy từ ô chọn như cũ.
+
+Sửa test Q1, Q2, Q9, Q12, R6, R14, R18, R19; thêm **R2b** (dán bài không có dòng Chủ đề → không lưu, có nhắc). **192/192 qua.**

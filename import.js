@@ -123,11 +123,13 @@ const RE_NGOAC = /^\s*[(\[（](.+)[)\]）]\s*$/;
 //             nghĩa là cảnh báo chung, không gắn với dòng nào.
 // `doan`    : những gì đã TỰ ĐOÁN (để màn xem trước nói ra), vd { type: true }.
 //
-// `tuyChon.loai` / `tuyChon.trinhDo` / `tuyChon.ten`: người dùng đã chọn ở màn
-// xem trước. Tên, trình độ và loại bài CHỈ lấy từ các ô bên dưới (2026-10-14,
-// bạn chọn): dòng "Chủ đề:" / "Trình độ:" / "Loại:" trong file vẫn được nhận
-// ra là dòng tiêu đề (không lẫn vào bài) nhưng bị bỏ qua. Ô tên trống thì lấy
-// theo tên file; không chọn loại thì app tự đoán theo nội dung.
+// `tuyChon.loai` / `tuyChon.trinhDo`: người dùng đã chọn ở màn xem trước.
+// Trình độ và loại bài CHỈ lấy từ các ô bên dưới (2026-10-14, bạn chọn): dòng
+// "Trình độ:" / "Loại:" trong file vẫn được nhận ra (không lẫn vào bài) nhưng
+// bị bỏ qua; không chọn loại thì app tự đoán theo nội dung.
+// Tên chủ đề lấy NGAY TRONG NỘI DUNG (2026-10-22, bạn yêu cầu, bỏ ô Tên chủ
+// đề): dòng "Chủ đề: ..." (hoặc "# ...", "Topic: ...") trong .txt, trường
+// "topic" trong .json. Không có thì lấy theo tên file (`tuyChon.tenFile`).
 // ------------------------------------------------------------
 function phanTichChuDe(noiDung, tuyChon) {
   const o = tuyChon || {};
@@ -281,8 +283,8 @@ function hoanThien(kq, o) {
   const doan = {};
   const thieu = [];
 
-  // Tên bài: người dùng gõ > trong file > tên file.
-  let topic = String(o.ten || '').trim();
+  // Tên bài: dòng "Chủ đề:" trong nội dung > tên file.
+  let topic = kq.dau && kq.dau.topic ? String(kq.dau.topic.v).trim() : '';
   if (!topic && o.tenFile) {
     topic = String(o.tenFile).replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim();
     if (topic) doan.topic = true;
@@ -562,6 +564,7 @@ function suaBaiCuaToiKho(id, patch) {
 // Bài mẫu điền sẵn khi mở màn nhập (moManNhap) — giữ khớp với file mau_import.txt.
 const MAU_NHAP_TEN = 'Ordering coffee';
 const MAU_NHAP_TXT = [
+  'Chủ đề: ' + MAU_NHAP_TEN,
   'A: Hi, can I get a latte, please?',
   'VI: Chào bạn, cho tôi một ly latte nhé?',
   'B: Sure. What size would you like?',

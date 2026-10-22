@@ -28,7 +28,7 @@ const IDS = ('accAvatar accBtn accEmail accGuest accLabel accSigninBtn accSignou
   + 'wpExample wpIpa wpPos wpSave wpSpeak wpVi wpWord '
   // 📥 Chủ đề của tôi (2026-10-14)
   + 'openMineBtn paneMine mineListView mineNote mineMsg mineList mineAddBtn mineImport mineFile '
-  + 'mineText mineParseBtn mineError minePreview mineTopic mineType mineLevel '
+  + 'mineText mineParseBtn mineError minePreview mineType mineLevel '
   + 'mineSummary mineWarn mineLines mineSaveBtn mineCancelBtn').split(' ');
 
 // Nguồn của app = các file JS cục bộ, nạp ĐÚNG thứ tự index.html khai báo.
@@ -2239,10 +2239,10 @@ function nhomQ() {
   const c = taoSandbox();
   const doc = (txt, o) => c.phanTichChuDe(txt, o);
 
-  t('Q1 file mẫu đọc ra đúng hội thoại và bản dịch; tên + trình độ lấy từ ô bên dưới', () => {
-    ok(!/Chủ đề|Trình độ|Loại|---/.test(c.MAU_NHAP_TXT), 'bài mẫu chỉ còn lời thoại');
-    eq(doc(c.MAU_NHAP_TXT).bai.topic, '', 'tên không lấy từ nội dung:');
-    const kq = doc(c.MAU_NHAP_TXT, { ten: c.MAU_NHAP_TEN, trinhDo: 'beginner' });
+  t('Q1 file mẫu đọc ra đúng hội thoại và bản dịch; tên lấy từ dòng "Chủ đề:", trình độ từ ô bên dưới', () => {
+    ok(/^Chủ đề: /.test(c.MAU_NHAP_TXT), 'bài mẫu phải mở đầu bằng dòng Chủ đề:');
+    ok(!/Trình độ|Loại|---/.test(c.MAU_NHAP_TXT), 'bài mẫu chỉ còn tên + lời thoại');
+    const kq = doc(c.MAU_NHAP_TXT, { trinhDo: 'beginner' });
     eq(kq.ok, true, kq.loi);
     eq(kq.bai.topic, 'Ordering coffee');
     eq(kq.bai.type, 'dialogue');
@@ -2253,12 +2253,12 @@ function nhomQ() {
     eq(kq.canhBao.length, 0, 'file mẫu mà còn cảnh báo:');
   });
 
-  t('Q2 phần đầu viết lệch (không dấu, chữ hoa, BOM + CRLF, không có ---); dòng Chủ đề/Trình độ/Loại bị bỏ qua, không lẫn vào bài', () => {
+  t('Q2 phần đầu viết lệch (không dấu, chữ hoa, BOM + CRLF, không có ---); dòng Chủ đề làm tên, dòng Trình độ/Loại bị bỏ qua, không lẫn vào bài', () => {
     const kq = doc('﻿LEVEL :  b2\r\n  chu de: At the bank \r\nLoai bai: nghe\r\n\r\nA: I want to open an account.\r\nB: Sure.\r\n');
     eq(kq.ok, true, kq.loi);
-    eq(kq.bai.topic, '', 'tên chỉ lấy từ ô Tên chủ đề:');
+    eq(kq.bai.topic, 'At the bank', 'tên lấy từ dòng "chu de":');
     eq(kq.bai.level, null, 'trình độ chỉ lấy từ ô chọn:');
-    eq(kq.thieu, ['topic', 'level']);
+    eq(kq.thieu, ['level']);
     eq(kq.bai.type, 'dialogue', 'loại tự đoán theo nội dung, không theo dòng "Loai bai":');
     eq(kq.doan.type, true);
     eq(kq.bai.data.lines.length, 2, 'dòng tiêu đề bị lẫn vào lời thoại:');
@@ -2334,7 +2334,9 @@ function nhomQ() {
     eq(kq.doan.topic, true);
     eq(kq.thieu, ['level']);
     eq(doc('Hello world.').thieu, ['topic', 'level'], 'dán chữ (không có tên file):');
-    eq(doc('Hello.', { ten: 'Đặt tay', trinhDo: 'advanced' }).thieu, [], 'đã chọn ở màn xem trước:');
+    eq(doc('Chủ đề: Đặt tay\nHello.', { trinhDo: 'advanced' }).thieu, [], 'có dòng Chủ đề + đã chọn trình độ:');
+    eq(doc('# Đặt phòng\nHello.', { tenFile: 'x.txt' }).bai.topic, 'Đặt phòng', 'dòng trong nội dung thắng tên file:');
+    eq(doc(JSON.stringify({ topic: 'Weather', data: { text: 'Hi.' } })).bai.topic, 'Weather', 'JSON: trường topic:');
   });
 
   t('Q10 file không dùng được thì báo lý do, không ném lỗi', () => {
@@ -2365,8 +2367,8 @@ function nhomQ() {
   });
 
   t('Q12 nhãn đặt cuối file vẫn nhận ra (không lẫn vào bài); hai dòng chủ đề thì báo', () => {
-    const kq = doc('Topic: First\nA: Hi.\nB: Hello.\nTopic: Second\nTrình độ: nâng cao', { ten: 'Tên ở ô' });
-    eq(kq.bai.topic, 'Tên ở ô', 'ô tên thắng dòng Topic:');
+    const kq = doc('Topic: First\nA: Hi.\nB: Hello.\nTopic: Second\nTrình độ: nâng cao');
+    eq(kq.bai.topic, 'First', 'hai dòng Topic thì dùng dòng đầu:');
     eq(kq.bai.data.lines.length, 2, 'dòng "Trình độ" cuối file bị lẫn vào lời thoại:');
     ok(kq.canhBao.some(w => w.dong === 4), 'phải chỉ ra dòng 4');
   });
@@ -2485,7 +2487,7 @@ async function nhapBai(c, txt, level) {
 }
 
 async function nhomR() {
-  const BAI = 'Tom: Hi, a latte please.\nAnna: Sure.';   // tên bài lấy từ ô Tên chủ đề
+  const BAI = 'Chủ đề: Ordering coffee\nTom: Hi, a latte please.\nAnna: Sure.';
 
   await ta('R1 khách nhập bài: lưu trên máy, hiện đầu danh sách với nhãn 📥, mở học ngay', async () => {
     const c = taoSandbox();
@@ -2515,6 +2517,17 @@ async function nhomR() {
     eq(c.docKhoCuaToi().length, 0);
     eq(c.document.getElementById('mineError').hidden, false);
     ok(/trình độ/.test(c.document.getElementById('mineError').textContent));
+  });
+
+  await ta('R2b dán bài không có dòng "Chủ đề:" thì không lưu, chỉ cách thêm tên', async () => {
+    const c = taoSandbox();
+    c.openModal('mine');
+    const moi = await nhapBai(c, 'Tom: Hi.\nAnna: Sure.', 'beginner');
+    eq(moi, null);
+    eq(c.docKhoCuaToi().length, 0);
+    ok(/Chủ đề: \.\.\./.test(c.document.getElementById('mineError').textContent),
+      c.document.getElementById('mineError').textContent);
+    ok(/Chủ đề: \.\.\./.test(c.document.getElementById('mineSummary').textContent), 'xem trước phải nhắc thêm tên');
   });
 
   await ta('R3 học bài tự nhập không ghi nhật ký học, lưu từ không ghi bài nguồn (khoá ngoại content)', async () => {
@@ -2552,17 +2565,15 @@ async function nhomR() {
     eq(c.topicOptions.length, 0);
   });
 
-  await ta('R6 đổi loại ở màn xem trước: đọc lại theo loại mới, giữ tên vừa gõ', async () => {
+  await ta('R6 đổi loại ở màn xem trước: đọc lại theo loại mới', async () => {
     const c = taoSandbox();
     c.openModal('mine');
     c.document.getElementById('mineAddBtn').dispatch('click');
     c.document.getElementById('mineText').value = 'Hello there.\nHi!';
     c.xemTruocTuOChu();
     eq(c.document.getElementById('mineType').value, 'listening');
-    c.document.getElementById('mineTopic').value = 'Tên tôi gõ';
     c.document.getElementById('mineType').value = 'dialogue';
     c.doiLoaiXemTruoc();
-    eq(c.document.getElementById('mineTopic').value, 'Tên tôi gõ');
     ok(/Hội thoại · 2 câu/.test(c.document.getElementById('mineSummary').textContent));
   });
 
@@ -2669,25 +2680,23 @@ async function nhomR() {
     const c = taoSandbox();
     c.openModal('mine');
     c.document.getElementById('mineAddBtn').dispatch('click');
-    c.document.getElementById('mineText').value = 'A: Where is the station?\nB: Turn left.';
-    c.document.getElementById('mineTopic').value = 'Hỏi đường';
+    c.document.getElementById('mineText').value = 'Chủ đề: Hỏi đường\nA: Where is the station?\nB: Turn left.';
     const moi = await c.luuNhap();
     eq(moi.topic, 'Hỏi đường');
     eq(moi.data.lines.map(l => l.t), ['Where is the station?', 'Turn left.']);
   });
 
-  await ta('R19 gõ / dán vào ô chữ là phần xem trước tự cập nhật, giữ tên đã gõ ở ô dưới', async () => {
+  await ta('R19 gõ / dán vào ô chữ là phần xem trước tự cập nhật, kể cả tên chủ đề', async () => {
     const c = taoSandbox();
     c.openModal('mine');
     c.document.getElementById('mineAddBtn').dispatch('click');
-    c.document.getElementById('mineTopic').value = 'Tên tôi gõ';
     const o = c.document.getElementById('mineText');
-    o.value = 'Hello there.\nHi! How are you?';
+    o.value = 'Chủ đề: Tên tôi gõ\nHello there.\nHi! How are you?';
     o.dispatch('input');
     await new Promise(r => setTimeout(r, c.CHO_XEM_TRUOC_MS + 50));
     ok(/Luyện nghe · 3 câu/.test(c.document.getElementById('mineSummary').textContent),
       c.document.getElementById('mineSummary').textContent);
-    eq(c.document.getElementById('mineTopic').value, 'Tên tôi gõ');
+    ok(/📌 Tên tôi gõ/.test(c.document.getElementById('mineSummary').textContent), 'tên chủ đề phải hiện ở xem trước');
   });
 
   await ta('R14 bấm ➕ Import là có sẵn bài mẫu và phần xem trước, không còn nút Xem mẫu', async () => {
@@ -2696,12 +2705,14 @@ async function nhomR() {
     c.document.getElementById('mineAddBtn').dispatch('click');
     eq(c.document.getElementById('mineText').value, c.MAU_NHAP_TXT);
     eq(c.document.getElementById('minePreview').hidden, false, 'phần xem trước phải hiện ngay:');
-    eq(c.document.getElementById('mineTopic').value, c.MAU_NHAP_TEN);
+    ok(/📌 Ordering coffee/.test(c.document.getElementById('mineSummary').textContent), 'xem trước phải hiện tên chủ đề mẫu');
+    ok(!/id="mineTopic"/.test(HTML), 'ô Tên chủ đề vẫn còn trong index.html');
     eq(c.document.getElementById('mineLevel').value, 'beginner');
     ok(!/mineSampleBtn/.test(HTML), 'nút Xem mẫu vẫn còn trong index.html');
     // Mẫu điền sẵn phải khớp file mau_import.txt người dùng tải về từ site.
     const tep = fs.readFileSync(path.join(ROOT, 'mau_import.txt'), 'utf8');
     eq(c.phanTichChuDe(tep).bai.data.lines.length, 4);
+    eq(c.phanTichChuDe(tep).bai.topic, c.MAU_NHAP_TEN);
   });
 
   await ta('R15 bài công khai của người khác hiện với nhãn 👥 tên người tạo và mở học được', async () => {

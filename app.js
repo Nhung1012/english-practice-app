@@ -109,7 +109,6 @@ const mineText = document.getElementById('mineText');
 const mineParseBtn = document.getElementById('mineParseBtn');
 const mineError = document.getElementById('mineError');
 const minePreview = document.getElementById('minePreview');
-const mineTopic = document.getElementById('mineTopic');
 const mineType = document.getElementById('mineType');
 const mineLevel = document.getElementById('mineLevel');
 const mineSummary = document.getElementById('mineSummary');
@@ -992,7 +991,6 @@ function moManNhap() {
   if (mineFile) mineFile.value = '';
   mineText.value = MAU_NHAP_TXT;
   loaiDaChon = false;
-  mineTopic.value = MAU_NHAP_TEN;
   mineLevel.value = currentLevel;
   xemTruocNhap(MAU_NHAP_TXT, '');
 }
@@ -1012,14 +1010,14 @@ function baoLoiNhap(msg) {
   mineError.hidden = !msg;
 }
 
-// Tên, trình độ và loại bài chỉ lấy từ các ô ở màn xem trước (2026-10-14, bạn
-// chọn; trước đây dòng "Trình độ:" / "Chủ đề:" trong ô chữ và ô bên dưới giẫm
-// lên nhau). Trình độ mặc định theo trình độ đang học. Loại bài app tự đoán
-// cho tới khi người dùng tự đổi ô chọn (`loaiDaChon`).
+// Trình độ và loại bài chỉ lấy từ các ô ở màn xem trước (2026-10-14, bạn
+// chọn). Tên chủ đề lấy từ dòng "Chủ đề: ..." trong ô chữ (2026-10-22, bạn
+// yêu cầu bỏ ô Tên chủ đề). Trình độ mặc định theo trình độ đang học. Loại bài
+// app tự đoán cho tới khi người dùng tự đổi ô chọn (`loaiDaChon`).
 let loaiDaChon = false;
+const LOI_THIEU_TEN = 'Thêm dòng "Chủ đề: ..." ở đầu bài để đặt tên chủ đề.';
 function tuyChonTuOChon() {
   return {
-    ten: mineTopic.value,
     trinhDo: mineLevel.value || undefined,
     loai: loaiDaChon ? mineType.value : undefined
   };
@@ -1034,8 +1032,8 @@ function xemTruocTuOChu() {
   return xemTruocNhap(mineText.value || '', nhapDangXem ? nhapDangXem.tenFile : '');
 }
 
-// Đọc nội dung và hiện màn xem trước. Tên, trình độ, loại bài lấy theo các ô
-// đang có; `tuyChon` thêm/ghi đè.
+// Đọc nội dung và hiện màn xem trước. Trình độ, loại bài lấy theo các ô đang
+// có; `tuyChon` thêm/ghi đè.
 function xemTruocNhap(noiDung, tenFile, tuyChon) {
   const kq = phanTichChuDe(noiDung, Object.assign({ tenFile: tenFile }, tuyChonTuOChon(), tuyChon || {}));
   nhapDangXem = { noiDung: noiDung, tenFile: tenFile, kq: kq };
@@ -1045,7 +1043,6 @@ function xemTruocNhap(noiDung, tenFile, tuyChon) {
     return kq;
   }
   baoLoiNhap('');
-  mineTopic.value = kq.bai.topic;
   mineType.value = kq.bai.type;
   mineLevel.value = kq.bai.level || '';
   veXemTruoc(kq);
@@ -1064,10 +1061,12 @@ function veXemTruoc(kq) {
   const phan = [(laHoiThoai ? '💬 Hội thoại' : '🎙️ Luyện nghe') + ' · ' + cau.length + ' câu'];
   if (soDich) phan.push(soDich + ' câu có bản dịch');
   if (d.quiz) phan.push(d.quiz.length + ' câu hỏi');
+  // Tên chủ đề đọc được từ nội dung hiện đầu dòng tóm tắt để người dùng soát.
+  if (kq.bai.topic) phan.unshift('📌 ' + kq.bai.topic);
   let tom = phan.join(' · ');
   if (kq.doan.type) tom += '. Loại bài do app tự nhận ra, sai thì đổi ở trên.';
   if (kq.thieu.indexOf('level') !== -1) tom += ' Hãy chọn trình độ.';
-  if (kq.thieu.indexOf('topic') !== -1) tom += ' Hãy đặt tên chủ đề.';
+  if (kq.thieu.indexOf('topic') !== -1) tom += ' ' + LOI_THIEU_TEN;
   mineSummary.textContent = tom;
 
   mineWarn.innerHTML = '';
@@ -1101,8 +1100,8 @@ function veXemTruoc(kq) {
   });
 }
 
-// Đổi loại bài ở màn xem trước: đọc lại với loại đã chọn, giữ tên + trình độ
-// người dùng vừa gõ.
+// Đổi loại bài ở màn xem trước: đọc lại với loại đã chọn, giữ trình độ người
+// dùng vừa chọn.
 function doiLoaiXemTruoc() {
   loaiDaChon = true;
   xemTruocTuOChu();
@@ -1113,9 +1112,9 @@ function doiLoaiXemTruoc() {
 // Trả về bài đã lưu, hoặc null (đã báo lỗi).
 async function luuNhap() {
   if (!xemTruocTuOChu().ok) return null;
-  const topic = String(mineTopic.value || '').trim();
+  const topic = String(nhapDangXem.kq.bai.topic || '').trim();
   const level = mineLevel.value || '';
-  if (!topic) { baoLoiNhap('Hãy đặt tên cho chủ đề.'); return null; }
+  if (!topic) { baoLoiNhap(LOI_THIEU_TEN); return null; }
   if (!LEVEL_LABEL[level]) { baoLoiNhap('Hãy chọn trình độ cho chủ đề.'); return null; }
 
   const bai = nhapDangXem.kq.bai;
@@ -1161,7 +1160,6 @@ function docFileNhap(file) {
     .then(t => {
       mineText.value = t;
       loaiDaChon = false;
-      mineTopic.value = '';   // ô tên lấy theo tên file, người dùng sửa lại được
       xemTruocNhap(t, file.name);
     })
     .catch(() => baoLoiNhap('Không đọc được file này. Hãy thử mở file, chép nội dung rồi dán vào ô bên dưới.'));
