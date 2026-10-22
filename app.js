@@ -616,7 +616,8 @@ function getFavorites() {
     .reverse();
 }
 
-const LEVEL_LABEL = { beginner: 'Cơ bản', intermediate: 'Trung cấp', advanced: 'Nâng cao' };
+// 2026-10-22: chỉ hiện mã CEFR, khớp với các nút trình độ và ô chọn ở Import.
+const LEVEL_LABEL = { beginner: 'A1-A2', intermediate: 'B1-B2', advanced: 'C1-C2' };
 const TYPE_ICON = { dialogue: '💬', listening: '🎙️' };
 
 // 2026-08-19: `timeAgo()` đã gỡ. Nó chỉ phục vụ dòng "Học tiếp" và cột thời
