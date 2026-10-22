@@ -218,7 +218,8 @@ grant execute on function thong_ke_tai_khoan(date) to authenticated;
 
 -- ============================================================
 -- 2026-10-22 — TUẦN 18–19 (2.1b): STREAK 🔥 + MỤC TIÊU HẰNG NGÀY + HEATMAP
--- Migration `lich_hoc_tai_khoan`. Chỉ ĐỌC: không đổi bảng, không ghi dữ liệu.
+-- Đã chạy trên Supabase ngày 2026-10-22 (migration lich_hoc_tai_khoan).
+-- Chỉ ĐỌC: không đổi bảng, không ghi dữ liệu.
 --
 -- Trả về mục tiêu của người gọi (profiles.daily_goal) và số bài KHÁC NHAU đã
 -- học (`counted`) theo từng ngày địa phương: { goal, days: [[ngày, số bài]] }.

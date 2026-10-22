@@ -1559,5 +1559,5 @@ Phương án đã được bạn đồng ý ngày 22/10.
 Thêm nhóm **S** (23 test). Kiểm ngược: đổi gộp max thành cộng thì **S18 đỏ**; bỏ luật "hôm nay chưa học vẫn giữ chuỗi" thì **S2, S4, S12 đỏ**.
 
 ### Việc của bạn
-1. Chạy migration `lich_hoc_tai_khoan` (đoạn mới cuối mục Tuần 17 trong `supabase_schema.sql`) — chưa chạy thì người đã đăng nhập vẫn thấy số tính trên máy, không lỗi gì.
+1. ✅ Migration `lich_hoc_tai_khoan` **đã chạy trên Supabase** ngày 2026-10-22, đã thử gọi bằng một tài khoản thật (trả đúng mục tiêu + số bài theo ngày giờ VN). Không phải làm gì thêm.
 2. Merge PR → Vercel tự deploy. Mở khung Tài khoản, học một bài, xem 🔥 và ô hôm nay đổi màu.
