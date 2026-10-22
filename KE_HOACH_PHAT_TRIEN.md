@@ -1,13 +1,18 @@
 # Kế hoạch phát triển — Luyện Nghe & Đọc Tiếng Anh
 
 > **File duy nhất.** Thay thế hoàn toàn `PHAN_TICH_TINH_NANG_2026-07-31.md` và `DINH_HUONG_2026-08-03.md` (đã xoá).
-> Cập nhật lần cuối: **2026-08-04** · Dựa trên `index.html` / `app.js` / `supabase.js` và `supabase_schema.sql`
+> Cập nhật lần cuối: **2026-10-22** · Dựa trên `index.html` / `app.js` / `supabase.js` / `import.js` và `supabase_schema.sql`
 >
-> **Đang ở đâu:** xong Giai đoạn 1 (tuần 1–5), **phần code của Giai đoạn 2** (1.4 dịch câu, 2.5 quiz), **Giai đoạn 3** (tách file — mục 13) và **tuần 13–16** của Giai đoạn 4 (bảng + RLS, đăng nhập Google, gộp dữ liệu lên tài khoản).
-> ⏳ **Toàn bộ từ tuần 5 trở đi chưa lên production** — bản đang chạy trên site thật vẫn là bản tuần 4.
-> ✅ **Nợ quiz đã trả xong 2026-08-17** — toàn bộ **97/97 bài đã dịch nay đều có quiz**, đã chạy vào Supabase (mục 14).
-> Còn nợ: dịch 74 bài luyện nghe (mục 12) — **đã chủ động hoãn** để ưu tiên việc khác.
-> **Việc kế tiếp: tuần 17 — 2.3 đồng bộ sổ từ + tiến độ hai chiều** (3h).
+> **Đang ở đâu:** ✅ **Lộ trình tính năng đã xong.** Xong Giai đoạn 1–3 và cả Giai đoạn 4 (tuần 13–19): bảng + RLS, đăng nhập Google, gộp dữ liệu lên tài khoản, server làm nguồn thật cho bộ đếm (tuần 17), streak 🔥 + mục tiêu hằng ngày + heatmap (tuần 18–19). Thêm ngoài lộ trình: 📥 Chủ đề của tôi (import bài, công khai cho mọi người).
+> ✅ **Toàn bộ đã lên production** — mỗi PR merge vào `main` là Vercel tự deploy.
+> ❌ **Đã bỏ (2026-10-22, theo quyết định của bạn):** Giai đoạn 5 — **2.4** trang thống kê và **2.2** lộ trình khoá học. Mục 2–4 bên dưới vẫn giữ nguyên để tham khảo.
+> ❌ **2.3 đồng bộ sổ từ** không còn theo nghĩa ban đầu: khung 📒 Sổ từ đã gỡ (tuần 17), từ vẫn lưu và ôn qua 🎯 Ôn tập.
+> ✅ Nội dung: **97/97 bài đã dịch đều có quiz** (mục 14), thêm 9 bài nghề giáo viên (2026-09-16, đã có trên Supabase).
+>
+> **Việc còn treo (chưa cần làm):**
+> - Kiểm tra RLS bằng tài khoản thứ hai — người A không đọc được dữ liệu người B.
+> - Dịch 74 bài luyện nghe trung cấp (id 725–788, 924–933 — mục 12). Bài chưa dịch thì app tự ẩn nút 👁.
+> - Đề xuất: công cụ kiểm duyệt bài công khai (hiện phải xoá tay trong Supabase Table Editor).
 
 ---
 
@@ -1561,3 +1566,17 @@ Thêm nhóm **S** (23 test). Kiểm ngược: đổi gộp max thành cộng th�
 ### Việc của bạn
 1. ✅ Migration `lich_hoc_tai_khoan` **đã chạy trên Supabase** ngày 2026-10-22, đã thử gọi bằng một tài khoản thật (trả đúng mục tiêu + số bài theo ngày giờ VN). Không phải làm gì thêm.
 2. Merge PR → Vercel tự deploy. Mở khung Tài khoản, học một bài, xem 🔥 và ô hôm nay đổi màu.
+
+## 🎨 Rà soát giao diện + đổi tên hiển thị (2026-10-22, PR #9–#13)
+
+Ghi bù — các PR này đã merge nhưng chưa được ghi vào file này.
+
+- **PR #9 — rà soát UI/UX:** trên điện thoại tiêu đề ngắn, nút Tài khoản cùng hàng; chưa chọn bài thì có lời nhắc và khoá ⏮ ▶ ⏭ 🔁; ☆ sát tên chủ đề; tab Luyện nghe có thanh ⏮ ▶ ⏭ nổi ở đáy khi cuộn qua bộ nút chính; nút Bản dịch cạnh Copy; Import có nút "📂 Chọn file" và nút Lưu ghim ở đáy popup; Ôn tập bỏ nút ✕ trùng; quiz hiện "Còn N câu chưa trả lời"; Hướng dẫn chia 4 nhóm; popup tra từ trên điện thoại trượt từ dưới lên; heatmap giãn hết bề ngang khung.
+- **PR #10 — tab Hội thoại:** ẩn khung nghe chung (⏮ Nghe ⏭ 🔁 + tốc độ). Chỉ còn ▶ ở từng câu, bấm là đọc đúng câu đó rồi dừng — tab này để người dùng tự đọc.
+- **PR #11–#13 — tên và nhãn:** bỏ dòng mô tả dưới tiêu đề; tiêu đề trang **"🎧📖 Luyện Tiếng Anh"**, tên tab trình duyệt **"Luyện Tiếng Anh"**; nhãn trình độ ở mọi nơi (nút chính, ô chọn ở Import, danh sách Đã đánh dấu / Chủ đề của tôi) chỉ còn mã **A1-A2 / B1-B2 / C1-C2**.
+
+## 📝 Cập nhật phần đầu file kế hoạch (2026-10-22)
+
+Phần "Đang ở đâu" ở đầu file viết lại theo hiện trạng: lộ trình tính năng đã xong, đã lên production, bỏ Giai đoạn 5 (2.4 thống kê, 2.2 khoá học) theo quyết định của bạn, và danh sách việc còn treo.
+
+**Quy ước từ nay:** mỗi lần thay đổi hay sửa gì đều cập nhật tài liệu trong cùng PR — thêm mục nhật ký ở cuối file này, sửa phần đầu nếu hiện trạng đổi, và README / `supabase_schema.sql` nếu liên quan.
