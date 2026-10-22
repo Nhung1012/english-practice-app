@@ -13,7 +13,7 @@
     <!-- Điện thoại không đủ chỗ cho tiêu đề dài lẫn nút tài khoản trên một hàng
          (2026-10-22): nút bị cắt còn "Đă…". CSS chỉ hiện một trong hai bản. -->
     <h1>🎧 <span class="title-long">Luyện Nghe &amp; Đọc Tiếng Anh</span><span class="title-short">Luyện Tiếng Anh</span></h1>
-    <p>Chọn trình độ, random chủ đề, luyện nghe/đọc mỗi ngày</p>
+    <!-- 2026-10-22: bỏ dòng mô tả "Chọn trình độ, random chủ đề…" theo yêu cầu người dùng. -->
     <!-- Nút tài khoản LUÔN hiện (kể cả khi chưa đăng nhập). Bấm vào mở
          popup, không phải trang riêng. -->
     <button type="button" class="acc-btn" id="accBtn" aria-label="Tài khoản">
@@ -42,9 +42,9 @@
   <div class="card">
     <div class="row-label">Trình độ</div>
     <div class="level-group" id="levelGroup">
-      <button class="level-btn active" data-level="beginner">🟢 Cơ bản (A1-A2)</button>
-      <button class="level-btn" data-level="intermediate">🟡 Trung cấp (B1-B2)</button>
-      <button class="level-btn" data-level="advanced">🔴 Nâng cao (C1-C2)</button>
+      <button class="level-btn active" data-level="beginner" title="Cơ bản">🟢 A1-A2</button>
+      <button class="level-btn" data-level="intermediate" title="Trung cấp">🟡 B1-B2</button>
+      <button class="level-btn" data-level="advanced" title="Nâng cao">🔴 C1-C2</button>
     </div>
 
     <div class="row-label">Chủ đề hôm nay</div>
