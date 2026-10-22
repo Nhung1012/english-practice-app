@@ -10,7 +10,9 @@
 <body>
 <div class="container">
   <header>
-    <h1>🎧 Luyện Nghe &amp; Đọc Tiếng Anh</h1>
+    <!-- Điện thoại không đủ chỗ cho tiêu đề dài lẫn nút tài khoản trên một hàng
+         (2026-10-22): nút bị cắt còn "Đă…". CSS chỉ hiện một trong hai bản. -->
+    <h1>🎧 <span class="title-long">Luyện Nghe &amp; Đọc Tiếng Anh</span><span class="title-short">Luyện Tiếng Anh</span></h1>
     <p>Chọn trình độ, random chủ đề, luyện nghe/đọc mỗi ngày</p>
     <!-- Nút tài khoản LUÔN hiện (kể cả khi chưa đăng nhập). Bấm vào mở
          popup, không phải trang riêng. -->
@@ -47,7 +49,7 @@
 
     <div class="row-label">Chủ đề hôm nay</div>
     <div class="topic-display">
-      <span id="topicText">—</span>
+      <span id="topicText" class="topic-empty">Chưa chọn chủ đề</span>
       <button class="btn secondary ctrl-btn" id="favBtn" title="Đánh dấu chủ đề này"
               aria-label="Đánh dấu chủ đề này" aria-pressed="false">☆</button>
       <button class="btn secondary" id="randomBtn">🔀 Đổi chủ đề</button>
@@ -69,7 +71,11 @@
       </div>
     </div>
 
-    <div class="controls">
+    <!-- Lời nhắc lúc chưa có bài (2026-10-22). Thay cho cảnh nút Nghe bấm được
+         mà chẳng có gì để nghe; tự ẩn khi đã mở bài (capNhatKhungNoiDung). -->
+    <p class="empty-hint" id="emptyHint">👆 Chọn một chủ đề ở ô tìm kiếm, hoặc bấm <b>🔀 Đổi chủ đề</b> để bắt đầu.</p>
+
+    <div class="controls" id="controlsRow">
       <button class="btn secondary ctrl-btn" id="prevBtn" title="Câu trước" aria-label="Câu trước">⏮</button>
       <button class="btn" id="playBtn"><span class="btn-icon">▶️ Nghe</span></button>
       <button class="btn secondary ctrl-btn" id="nextBtn" title="Câu sau" aria-label="Câu sau">⏭</button>
@@ -120,6 +126,8 @@
     <div id="quizBox"></div>
     <div class="quiz-foot">
       <button class="btn" id="quizSubmitBtn">Nộp bài</button>
+      <!-- Nói rõ vì sao nút Nộp bài còn mờ (2026-10-22). -->
+      <span class="quiz-hint" id="quizHint" hidden></span>
       <span class="quiz-score" id="quizScore"></span>
     </div>
   </div>
@@ -131,6 +139,14 @@
     <button type="button" class="help-btn" id="openHelpBtn"
             aria-label="Hướng dẫn sử dụng">❓ Hướng dẫn</button>
   </footer>
+</div>
+
+<!-- Thanh nghe thu gọn (2026-10-22): chỉ ở tab Luyện nghe, hiện khi đã cuộn
+     qua bộ nút chính để khỏi phải cuộn ngược lên. Các nút chỉ bấm hộ nút thật. -->
+<div class="mini-player" id="miniPlayer" hidden>
+  <button type="button" class="btn secondary ctrl-btn" id="miniPrev" title="Câu trước" aria-label="Câu trước">⏮</button>
+  <button type="button" class="btn" id="miniPlay">▶️ Nghe</button>
+  <button type="button" class="btn secondary ctrl-btn" id="miniNext" title="Câu sau" aria-label="Câu sau">⏭</button>
 </div>
 
 <!-- Popup chung cho "Đã đánh dấu" và "Ôn tập" (mục 1.5 & 1.3).
@@ -175,7 +191,11 @@
         </div>
         <div id="mineImport" hidden>
           <p class="acc-note">Sửa bài mẫu bên dưới, dán nội dung của bạn, hoặc chọn file <b>.txt</b> / <b>.json</b>.</p>
-          <input type="file" id="mineFile" accept=".txt,.json,text/plain,application/json">
+          <!-- Nút chọn file mặc định của trình duyệt hiện chữ tiếng Anh ("Choose File")
+               nên ẩn đi, bấm vào nhãn tiếng Việt thay thế. -->
+          <label class="btn secondary file-btn">📂 Chọn file
+            <input type="file" id="mineFile" class="file-input" accept=".txt,.json,text/plain,application/json">
+          </label>
           <textarea id="mineText" rows="8" spellcheck="false"
                     placeholder="A: Hi, can I get a latte?&#10;VI: Cho tôi một ly latte nhé?&#10;B: Sure, what size?"></textarea>
           <div class="mine-actions">
@@ -203,7 +223,10 @@
             <p class="mine-summary" id="mineSummary"></p>
             <ul class="mine-warn" id="mineWarn" hidden></ul>
             <div class="mine-lines" id="mineLines"></div>
-            <button type="button" class="btn" id="mineSaveBtn">💾 Lưu và học ngay</button>
+            <!-- Ghim ở đáy popup: bài dài thì nút này bị đẩy khuất, phải cuộn mới thấy. -->
+            <div class="mine-save-bar">
+              <button type="button" class="btn" id="mineSaveBtn">💾 Lưu và học ngay</button>
+            </div>
           </div>
         </div>
       </div>
@@ -246,18 +269,31 @@
         </div>
       </div>
       <div id="paneHelp" hidden>
+        <!-- 2026-10-22: chia các mục thành 4 nhóm có tiêu đề, đọc lướt dễ hơn
+             một khối chữ liền. Không bọc nhóm bằng thẻ div: test đọc khung này
+             tới cặp thẻ đóng div đầu tiên. -->
+        <h4 class="help-head">🚀 Bắt đầu</h4>
         <ul class="help-list">
           <li><b>Chọn chủ đề</b> ở ô tìm kiếm, hoặc bấm <b>🔀 Đổi chủ đề</b> để lấy một bài ngẫu nhiên. App không tự mở bài — lúc vào trang cũng như khi bạn đổi tab hay đổi trình độ, màn hình để trống chờ bạn chọn.</li>
+          <li><b>☆</b> cạnh tên chủ đề → đánh dấu bài hay, mở lại lúc nào cũng được từ khung <b>⭐ Đã đánh dấu</b>.</li>
+        </ul>
+        <h4 class="help-head">🎧 Trong bài học</h4>
+        <ul class="help-list">
           <li><b>Bấm vào một từ</b> trong bài → hiện phiên âm, nghĩa và ví dụ. Bấm <b>☆</b> trong popup để lưu từ lại học dần.</li>
           <li><b>▶</b> ở đầu mỗi câu → nghe riêng câu đó. Đang đọc thì nút đổi thành <b>■</b>, bấm lại là dừng ngay tại chỗ.</li>
           <li><b>👁</b> ở cuối câu → hiện nghĩa tiếng Việt của cả câu. Câu chưa có bản dịch thì không có nút này.</li>
           <li><b>🇻🇳 Bản dịch</b> → bật chế độ song ngữ cho cả bài. Lựa chọn được nhớ cho các bài sau.</li>
           <li><b>⏮ ▶ ⏭ 🔁</b> → chuyển câu, phát, và lặp lại mãi một câu. Kéo <b>thanh tốc độ</b> để đọc chậm lại (0.6×–1.2×).</li>
-          <li>Nút <b>tài khoản</b> ở góc trên bên phải → lối vào <b>⭐ Đã đánh dấu</b> với <b>🎯 Ôn tập</b>.</li>
-          <li><b>📥 Chủ đề của tôi</b> (trong khung tài khoản) → tự nhập bài để học từ file <b>.txt</b> hoặc <b>.json</b>, hoặc dán thẳng nội dung. Bài tự nhập hiện ở ô chọn chủ đề với nhãn <b>📥 Của tôi</b>. Đã đăng nhập thì bài được <b>công khai</b>: người khác thấy nó với nhãn <b>👥 tên bạn</b>. Bấm <b>➕ Import</b> là có sẵn bài mẫu để xem cách viết và sửa thẳng trên đó.</li>
-          <li><b>☆</b> cạnh tên chủ đề → đánh dấu bài hay, mở lại lúc nào cũng được từ khung <b>⭐ Đã đánh dấu</b>.</li>
-          <li><b>🎯 Ôn tập</b> → ôn các từ đã lưu theo 5 hộp: nhớ thì giãn dần 1 → 3 → 7 → 14 → 30 ngày, quên thì về hộp 1 và gặp lại ngay trong phiên. Nút mờ đi nghĩa là hôm nay chưa có từ nào tới hạn. Đang ôn mà gặp từ lưu nhầm thì bấm <b>🗑</b> để bỏ hẳn.</li>
           <li><b>📝 Câu hỏi hiểu bài</b> ở cuối bài → 4 câu trắc nghiệm, nộp xong có giải thích cho <i>mọi</i> câu. Bài chưa soạn thì khung này tự ẩn.</li>
+        </ul>
+        <h4 class="help-head">🎯 Từ vựng &amp; ôn tập</h4>
+        <ul class="help-list">
+          <li>Nút <b>tài khoản</b> ở góc trên bên phải → lối vào <b>⭐ Đã đánh dấu</b> với <b>🎯 Ôn tập</b>.</li>
+          <li><b>🎯 Ôn tập</b> → ôn các từ đã lưu theo 5 hộp: nhớ thì giãn dần 1 → 3 → 7 → 14 → 30 ngày, quên thì về hộp 1 và gặp lại ngay trong phiên. Nút mờ đi nghĩa là hôm nay chưa có từ nào tới hạn. Đang ôn mà gặp từ lưu nhầm thì bấm <b>🗑</b> để bỏ hẳn.</li>
+        </ul>
+        <h4 class="help-head">📥 Chủ đề của tôi</h4>
+        <ul class="help-list">
+          <li><b>📥 Chủ đề của tôi</b> (trong khung tài khoản) → tự nhập bài để học từ file <b>.txt</b> hoặc <b>.json</b>, hoặc dán thẳng nội dung. Bài tự nhập hiện ở ô chọn chủ đề với nhãn <b>📥 Của tôi</b>. Đã đăng nhập thì bài được <b>công khai</b>: người khác thấy nó với nhãn <b>👥 tên bạn</b>. Bấm <b>➕ Import</b> là có sẵn bài mẫu để xem cách viết và sửa thẳng trên đó.</li>
         </ul>
         <p class="help-note">Chưa cần tài khoản. Từ đã lưu, tiến độ và các lựa chọn được giữ ngay trên máy này — đăng nhập để dùng chung trên mọi thiết bị.</p>
       </div>
