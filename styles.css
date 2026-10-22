@@ -930,7 +930,6 @@
   /* 2026-10-22: trước đây tiêu đề dài xuống 2 dòng và nút bị rút còn 80px,
      chữ "Đăng nhập" bị cắt thành "Đă…". Nay trên điện thoại dùng tiêu đề ngắn,
      tiêu đề bên trái – nút bên phải trên cùng một hàng. */
-  .title-short { display: none; }
   @media (max-width: 560px) {
     header {
       display: grid;
@@ -941,8 +940,6 @@
       margin-bottom: 16px;
     }
     header h1 { grid-column: 1; grid-row: 1; font-size: 20px; margin: 0; }
-    .title-long { display: none; }
-    .title-short { display: inline; }
     .acc-btn { grid-column: 2; grid-row: 1; position: static; max-width: 170px; font-size: 12px; padding: 5px 10px; }
     .topic-display { padding: 10px 12px; }
     .topic-display #randomBtn { padding: 9px 12px; }

@@ -10,9 +10,9 @@
 <body>
 <div class="container">
   <header>
-    <!-- Điện thoại không đủ chỗ cho tiêu đề dài lẫn nút tài khoản trên một hàng
-         (2026-10-22): nút bị cắt còn "Đă…". CSS chỉ hiện một trong hai bản. -->
-    <h1>🎧 <span class="title-long">Luyện Nghe &amp; Đọc Tiếng Anh</span><span class="title-short">Luyện Tiếng Anh</span></h1>
+    <!-- 2026-10-22: tiêu đề rút gọn "🎧📖 Luyện Anh" cho mọi màn hình (người dùng
+         chọn). Tên đầy đủ vẫn ở thẻ <title> và tooltip. -->
+    <h1 title="Luyện Nghe &amp; Đọc Tiếng Anh">🎧📖 Luyện Anh</h1>
     <!-- 2026-10-22: bỏ dòng mô tả "Chọn trình độ, random chủ đề…" theo yêu cầu người dùng. -->
     <!-- Nút tài khoản LUÔN hiện (kể cả khi chưa đăng nhập). Bấm vào mở
          popup, không phải trang riêng. -->
@@ -214,9 +214,9 @@
               <label>Trình độ
                 <select id="mineLevel">
                   <option value="">— chọn —</option>
-                  <option value="beginner">🟢 Cơ bản (A1-A2)</option>
-                  <option value="intermediate">🟡 Trung cấp (B1-B2)</option>
-                  <option value="advanced">🔴 Nâng cao (C1-C2)</option>
+                  <option value="beginner">🟢 A1-A2</option>
+                  <option value="intermediate">🟡 B1-B2</option>
+                  <option value="advanced">🔴 C1-C2</option>
                 </select>
               </label>
             </div>
