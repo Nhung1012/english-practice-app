@@ -245,13 +245,17 @@ async function dangXuat() {
 // Tạo dòng `profiles` ở lần đăng nhập đầu tiên.
 // Dùng upsert + ignoreDuplicates: chạy lại mỗi lần đăng nhập vẫn an toàn và
 // KHÔNG ghi đè daily_goal / streak người dùng đã có.
-async function taoHoSoNeuChua(user) {
+//
+// `mucTieu` (2026-10-22): mục tiêu khách đã chọn trên máy. Chỉ dùng khi hồ sơ
+// được tạo MỚI — ignoreDuplicates nên tài khoản đã có thì giữ mục tiêu cũ.
+async function taoHoSoNeuChua(user, mucTieu) {
   if (!supabaseClient || !user) return false;
+  const hoSo = { id: user.id, display_name: tenHienThi(user) };
+  if (mucTieu) hoSo.daily_goal = mucTieu;
   try {
     const { error } = await supabaseClient
       .from('profiles')
-      .upsert({ id: user.id, display_name: tenHienThi(user) },
-              { onConflict: 'id', ignoreDuplicates: true });
+      .upsert(hoSo, { onConflict: 'id', ignoreDuplicates: true });
     if (error) throw error;
     return true;
   } catch (err) {
@@ -578,6 +582,48 @@ async function docThongKeTaiKhoan(ngayHomNay) {
   } catch (err) {
     console.warn('Chưa đọc được thống kê từ tài khoản:', err.message || err);
     return null;
+  }
+}
+
+// ============================================================
+// 🔥 LỊCH HỌC CỦA TÀI KHOẢN — streak, mục tiêu, heatmap (2.1b, 2026-10-22)
+//
+// Một lần gọi RPC `lich_hoc_tai_khoan` lấy cả mục tiêu lẫn số bài theo từng
+// ngày. Ngày được cắt theo múi giờ của MÁY (`tz`), cùng lý do với `p_today` ở
+// trên: server chạy UTC.
+//
+// Trả về { goal, days: { 'YYYY-MM-DD': số bài } } hoặc null khi chưa đăng nhập
+// / mạng hỏng — null nghĩa là "không biết", app.js lùi về số trên máy.
+// ============================================================
+async function docLichHoc(tz) {
+  if (!supabaseClient || !nguoiDungHienTai()) return null;
+  try {
+    const { data, error } = await supabaseClient
+      .rpc('lich_hoc_tai_khoan', { p_tz: tz || 'UTC' });
+    if (error) throw error;
+    const t = data || {};
+    const days = {};
+    (Array.isArray(t.days) ? t.days : []).forEach(cap => {
+      if (Array.isArray(cap) && cap[0]) days[String(cap[0]).slice(0, 10)] = Number(cap[1]) || 0;
+    });
+    return { goal: Number(t.goal) || null, days: days };
+  } catch (err) {
+    console.warn('Chưa đọc được lịch học từ tài khoản:', err.message || err);
+    return null;
+  }
+}
+
+async function luuMucTieuTaiKhoan(mucTieu) {
+  const user = nguoiDungHienTai();
+  if (!supabaseClient || !user) return false;
+  try {
+    const { error } = await supabaseClient
+      .from('profiles').update({ daily_goal: mucTieu }).eq('id', user.id);
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.warn('Chưa lưu được mục tiêu lên tài khoản:', err.message || err);
+    return false;
   }
 }
 

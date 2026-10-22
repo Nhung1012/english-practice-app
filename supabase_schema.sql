@@ -217,6 +217,48 @@ revoke all on function thong_ke_tai_khoan(date) from public, anon;
 grant execute on function thong_ke_tai_khoan(date) to authenticated;
 
 -- ============================================================
+-- 2026-10-22 — TUẦN 18–19 (2.1b): STREAK 🔥 + MỤC TIÊU HẰNG NGÀY + HEATMAP
+-- Đã chạy trên Supabase ngày 2026-10-22 (migration lich_hoc_tai_khoan).
+-- Chỉ ĐỌC: không đổi bảng, không ghi dữ liệu.
+--
+-- Trả về mục tiêu của người gọi (profiles.daily_goal) và số bài KHÁC NHAU đã
+-- học (`counted`) theo từng ngày địa phương: { goal, days: [[ngày, số bài]] }.
+--
+-- Streak và kỷ lục do app.js tính từ chính danh sách này (hàm `tinhChuoi`).
+-- Cố ý KHÔNG lưu vào profiles.streak_current / streak_best: đó là số suy ra
+-- được, lưu lại thì phải lo cập nhật cho đúng, và người dùng đổi mục tiêu là
+-- hai cột đó sai ngay.
+--
+-- p_tz: tên múi giờ IANA của máy ('Asia/Ho_Chi_Minh'). Cắt ngày theo UTC thì
+-- bài học lúc 6 giờ sáng ở VN rơi sang hôm trước và chuỗi gãy oan. Tên múi giờ
+-- sai thì Postgres báo lỗi, app lùi về số trên máy.
+--
+-- security invoker + RLS "own log"/"own profile" => chỉ thấy dữ liệu của mình.
+create or replace function lich_hoc_tai_khoan(p_tz text default 'UTC')
+returns json
+language sql
+stable
+set search_path = public, pg_temp
+as $$
+  select json_build_object(
+    'goal', (select daily_goal from profiles where id = (select auth.uid())),
+    'days', coalesce((
+      select json_agg(json_build_array(d, n) order by d)
+      from (
+        select (created_at at time zone p_tz)::date as d,
+               count(distinct content_id) as n
+        from study_log
+        where user_id = (select auth.uid()) and counted
+        group by 1
+      ) t
+    ), '[]'::json)
+  );
+$$;
+
+revoke all on function lich_hoc_tai_khoan(text) from public, anon;
+grant execute on function lich_hoc_tai_khoan(text) to authenticated;
+
+-- ============================================================
 -- 2026-10-14 — 📥 CHỦ ĐỀ CỦA TÔI: bài người dùng tự nhập (import.js)
 -- Đã chạy trên Supabase ngày 2026-10-14 (migration user_content_tu_nhap_chu_de).
 --

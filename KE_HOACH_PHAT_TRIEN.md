@@ -1535,3 +1535,29 @@ Sửa test Q1, Q2, Q12, R1 (dán rồi Lưu luôn, không Xem trước), R6; th�
 - Trình độ và Loại bài vẫn chỉ lấy từ ô chọn như cũ.
 
 Sửa test Q1, Q2, Q9, Q12, R6, R14, R18, R19; thêm **R2b** (dán bài không có dòng Chủ đề → không lưu, có nhắc). **192/192 qua.**
+
+## 🔥 Tuần 18–19 — 2.1b Streak + mục tiêu hằng ngày + heatmap (2026-10-22)
+
+Phương án đã được bạn đồng ý ngày 22/10.
+
+### Luật
+- **Mục tiêu:** 1, 2 hoặc 3 bài mỗi ngày (mặc định 1). "Bài" theo đúng luật phiên học: bấm ▶ Nghe, ở lại 1 phút, hoặc làm quiz. Học lại cùng một bài trong ngày vẫn là 1 bài.
+- **Streak 🔥:** số ngày liên tiếp đạt mục tiêu. Hôm nay chưa đạt thì chuỗi vẫn giữ tới hết ngày, nút 🔥 mờ đi để nhắc.
+- **Kỷ lục:** chuỗi dài nhất từng có.
+- ⚠️ Không lưu streak ở đâu: mỗi lần vẽ là tính lại từ lịch sử. **Đổi mục tiêu là tính lại cả lịch sử** theo mục tiêu mới — nâng từ 1 lên 3 thì chuỗi có thể ngắn lại. Hai cột `profiles.streak_current` / `streak_best` bỏ không dùng.
+
+### Hiện ở đâu
+- `🔥N` ở đầu nút Tài khoản (góc trên), chỉ hiện khi đang có chuỗi.
+- Khung Tài khoản: dòng "🔥 3 ngày liên tiếp · Hôm nay 0/1 bài · Kỷ lục 7 ngày", ô chọn mục tiêu, heatmap 12 tuần (thứ Hai ở hàng trên; nhạt = có học nhưng chưa đạt, vừa = đạt, đậm = gấp đôi mục tiêu).
+
+### Nguồn số liệu
+- Khách: đếm trên `ep:log`, mục tiêu lưu ở `ep:goal`.
+- Đã đăng nhập: RPC mới **`lich_hoc_tai_khoan(p_tz)`** (chỉ đọc) trả `{ goal, days }`, ngày cắt theo múi giờ IANA của máy. App gộp với `ep:log` của máy theo **max từng ngày** — bài vừa học chưa kịp đẩy vẫn hiện ngay mà không đếm đôi. Mục tiêu lưu ở `profiles.daily_goal`; hồ sơ tạo mới thì mang theo mục tiêu khách đã chọn.
+- Mạng hỏng thì dùng số trên máy.
+
+### Kiểm thử: 214/214 qua
+Thêm nhóm **S** (23 test). Kiểm ngược: đổi gộp max thành cộng thì **S18 đỏ**; bỏ luật "hôm nay chưa học vẫn giữ chuỗi" thì **S2, S4, S12 đỏ**.
+
+### Việc của bạn
+1. ✅ Migration `lich_hoc_tai_khoan` **đã chạy trên Supabase** ngày 2026-10-22, đã thử gọi bằng một tài khoản thật (trả đúng mục tiêu + số bài theo ngày giờ VN). Không phải làm gì thêm.
+2. Merge PR → Vercel tự deploy. Mở khung Tài khoản, học một bài, xem 🔥 và ô hôm nay đổi màu.
