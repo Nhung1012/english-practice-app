@@ -31,7 +31,9 @@ const IDS = ('accAvatar accBtn accEmail accGuest accLabel accSigninBtn accSignou
   + 'mineText mineParseBtn mineError minePreview mineType mineLevel '
   + 'mineSummary mineWarn mineLines mineSaveBtn mineCancelBtn '
   // 🔥 Streak + mục tiêu + heatmap (2026-10-22)
-  + 'streakBadge streakLine goalSelect heatmap accStreak').split(' ');
+  + 'streakBadge streakLine goalSelect heatmap accStreak '
+  // Rà soát UI/UX (2026-10-22)
+  + 'emptyHint quizHint controlsRow miniPlayer miniPrev miniPlay miniNext').split(' ');
 
 // Nguồn của app = các file JS cục bộ, nạp ĐÚNG thứ tự index.html khai báo.
 // Đọc thứ tự từ chính index.html chứ không viết cứng: nếu sau này thêm file
@@ -1702,7 +1704,7 @@ function nhomP() {
   });
 
   t('P2 Hướng dẫn chỉ người dùng tới đúng chỗ còn tồn tại', () => {
-    const help = HTML.match(/<ul class="help-list">([\s\S]*?)<\/ul>/);
+    const help = HTML.match(/id="paneHelp"([\s\S]*?)<\/div>\s*<\/div>/);
     ok(help, 'không tìm thấy danh sách Hướng dẫn');
     ok(/Đã đánh dấu/.test(help[1]), 'Hướng dẫn phải nói về nút ⭐ Đã đánh dấu');
     // Hai khung con nay chỉ vào được từ nút tài khoản — Hướng dẫn phải nói ra,
@@ -1947,7 +1949,7 @@ function nhomP() {
     c.doiTrinhDo('intermediate');
     eq(c.currentItem, null, 'đổi trình độ mà bài cũ vẫn còn:');
     eq(c.document.getElementById('scriptCard').hidden, true, 'khung nội dung vẫn hiện:');
-    eq(c.document.getElementById('topicText').textContent, '—', 'tên chủ đề cũ còn treo lại:');
+    eq(c.document.getElementById('topicText').textContent, 'Chưa chọn chủ đề', 'tên chủ đề cũ còn treo lại:');
     eq(c.document.getElementById('statusText').hidden, true);
   });
 
@@ -1985,7 +1987,7 @@ function nhomP() {
       'nút cũ phải tắt:');
     eq(c.currentItem, null, 'ĐÂY LÀ ĐIỀU BẠN BÁO — bấm trình độ mà vẫn tự chọn chủ đề:');
     eq(c.document.getElementById('scriptCard').hidden, true);
-    eq(c.document.getElementById('topicText').textContent, '—');
+    eq(c.document.getElementById('topicText').textContent, 'Chưa chọn chủ đề');
   });
 
   t('P31 BẤM nút tab: y hệt, không tự chọn bài mới', () => {
@@ -2983,8 +2985,54 @@ function inKetQua() {
   console.log('✅ Tất cả đều qua');
 }
 
+// ============================================================
+// U. Rà soát UI/UX (2026-10-22)
+// ============================================================
+function nhomU() {
+  t('U1 chưa có bài: hiện lời nhắc, khoá nút phát; mở bài xong thì mở khoá', () => {
+    const c = taoSandbox();
+    const d = c.document;
+    eq(d.getElementById('emptyHint').hidden, false);
+    eq(['prevBtn', 'playBtn', 'nextBtn', 'loopBtn'].map(id => d.getElementById(id).disabled), [true, true, true, true]);
+    c.currentTab = 'dialogue';
+    c.currentItem = { id: 1, topic: 'X', lines: [{ s: 'A', t: 'Hi' }] };
+    c.renderScript();
+    eq(d.getElementById('emptyHint').hidden, true);
+    eq(d.getElementById('playBtn').disabled, false);
+  });
+
+  t('U2 câu hỏi hiểu bài: báo còn mấy câu chưa trả lời, trả lời đủ thì ẩn', () => {
+    const c = taoSandbox();
+    const d = c.document;
+    const hint = d.getElementById('quizHint');
+    c.currentTab = 'dialogue';
+    c.currentItem = { id: 42, lines: [{ s: 'A', t: 'Hi' }], quiz: JSON.parse(JSON.stringify(QUIZ_MAU)) };
+    c.renderScript();
+    eq(hint.hidden, false);
+    ok(/Còn 2 câu/.test(hint.textContent), `nhận "${hint.textContent}"`);
+    d.getElementById('quizBox').querySelectorAll('.quiz-opt[data-q="0"]')[0].dispatch('click');
+    ok(/Còn 1 câu/.test(hint.textContent), `nhận "${hint.textContent}"`);
+    d.getElementById('quizBox').querySelectorAll('.quiz-opt[data-q="1"]')[0].dispatch('click');
+    eq(hint.hidden, true);
+  });
+
+  t('U3 màn ôn tập không còn nút ✕ "Thoát ôn tập" trùng với nút đóng popup', () => {
+    const APP = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+    ok(!/title = 'Thoát ôn tập'/.test(APP), 'nút Thoát ôn tập vẫn còn');
+  });
+
+  t('U4 thanh nghe thu gọn không bao giờ hiện ở tab Hội thoại', () => {
+    const c = taoSandbox();
+    c.currentTab = 'dialogue';
+    c.currentItem = { id: 1, topic: 'X', lines: [{ s: 'A', t: 'Hi' }] };
+    c.renderScript();
+    eq(c.document.getElementById('miniPlayer').hidden, true);
+  });
+}
+
 nhomP();
 nhomQ();
+nhomU();
 
 // Nhóm K, R và S là các nhóm bất đồng bộ, phải chờ xong mới in kết quả.
 nhomK().then(nhomR).then(nhomS).then(inKetQua);

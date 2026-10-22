@@ -88,6 +88,13 @@ const quizBox = document.getElementById('quizBox');
 const quizSubmitBtn = document.getElementById('quizSubmitBtn');
 const quizResetBtn = document.getElementById('quizResetBtn');
 const quizScore = document.getElementById('quizScore');
+const quizHint = document.getElementById('quizHint');
+const emptyHint = document.getElementById('emptyHint');
+const controlsRow = document.getElementById('controlsRow');
+const miniPlayer = document.getElementById('miniPlayer');
+const miniPrev = document.getElementById('miniPrev');
+const miniPlay = document.getElementById('miniPlay');
+const miniNext = document.getElementById('miniNext');
 const statusText = document.getElementById('statusText');
 const randomBtn = document.getElementById('randomBtn');
 const playBtn = document.getElementById('playBtn');
@@ -132,10 +139,42 @@ function setStatus(msg, isError) {
 
 // Khung nội dung và khung câu hỏi chỉ tồn tại khi đã có bài. Gọi mỗi lần
 // `currentItem` đổi — kể cả khi đổi thành null (tải hỏng).
+//
+// 2026-10-22: chưa có bài thì hiện lời nhắc và khoá các nút phát — trước đây
+// nút Nghe vẫn bấm được mà chẳng có gì để nghe.
 function capNhatKhungNoiDung() {
   const co = !!currentItem;
   scriptCard.hidden = !co;
   if (!co) quizCard.hidden = true;
+  emptyHint.hidden = co;
+  topicText.classList.toggle('topic-empty', !co);
+  [prevBtn, playBtn, nextBtn, loopBtn].forEach(b => { b.disabled = !co; });
+  capNhatMiniPlayer();
+}
+
+// Tên hiện ở hàng "Chủ đề hôm nay" khi chưa mở bài nào.
+const CHUA_CHON_CHU_DE = 'Chưa chọn chủ đề';
+
+// ====== THANH NGHE THU GỌN (2026-10-22) ======
+// Chỉ ở tab Luyện nghe: bài script dài, cuộn xuống đọc là bộ nút chính trôi
+// mất. Tab Hội thoại thì người dùng chủ yếu tự đọc nên không cần.
+// Thanh chỉ hiện khi bộ nút chính đã cuộn khuất phía trên màn hình.
+let nutChinhKhuat = false;
+
+function capNhatMiniPlayer() {
+  const hien = currentTab === 'listening' && !!currentItem && nutChinhKhuat;
+  miniPlayer.hidden = !hien;
+  document.body.classList.toggle('has-mini-player', hien);
+}
+
+if (typeof IntersectionObserver === 'function') {
+  new IntersectionObserver((entries) => {
+    const e = entries[0];
+    // Chỉ tính là khuất khi đã cuộn QUA (nằm trên màn hình), không phải khi
+    // bộ nút còn ở bên dưới chưa tới.
+    nutChinhKhuat = !e.isIntersecting && e.boundingClientRect.bottom < 0;
+    capNhatMiniPlayer();
+  }).observe(controlsRow);
 }
 
 function escapeHtml(str) {
@@ -1356,17 +1395,9 @@ function renderReview() {
   xoa.addEventListener('click', () => xoaTuDangOn(item.word));
   actions.appendChild(xoa);
 
-  const thoat = document.createElement('button');
-  thoat.type = 'button';
-  thoat.className = 'btn secondary ctrl-btn';
-  thoat.textContent = '✕';
-  thoat.title = 'Thoát ôn tập';
-  thoat.addEventListener('click', () => {
-    reviewQueue = [];
-    reviewPanel.hidden = true;
-    renderVocab();
-  });
-  actions.appendChild(thoat);
+  // 2026-10-22: bỏ nút ✕ "Thoát ôn tập" ở đây — trùng với ✕ đóng popup ngay
+  // phía trên (đóng popup cũng dừng phiên ôn, xem closeModal) và dễ bị đọc
+  // nhầm thành "Quên".
 
   box.appendChild(actions);
   reviewPanel.appendChild(box);
@@ -1935,7 +1966,7 @@ function xoaBaiDangMo() {
   sentences = [];
   currentIndex = 0;
   scriptBox.innerHTML = '';
-  topicText.textContent = '—';
+  topicText.textContent = CHUA_CHON_CHU_DE;
   quizCard.hidden = true;
   capNhatKhungNoiDung();
   setStatus('');
@@ -2019,7 +2050,7 @@ async function loadNewItem() {
     if (isStale()) return;
 
     if (!newItem) {
-      topicText.textContent = '—';
+      topicText.textContent = CHUA_CHON_CHU_DE;
       scriptBox.innerHTML = '';
       currentItem = null;
       capNhatKhungNoiDung(); // không có bài thì đừng để lại khung rỗng
@@ -2245,6 +2276,7 @@ function renderQuiz() {
   quizSubmitBtn.hidden = false;
   quizSubmitBtn.disabled = true; // chỉ bật khi đã trả lời hết
   quizSubmitBtn.textContent = 'Nộp bài';
+  capNhatGoiYNop();
   if (!quiz.length) return;
 
   quiz.forEach((q, qi) => {
@@ -2291,6 +2323,14 @@ function chonDapAn(qi, oi) {
   // Bắt trả lời hết rồi mới cho nộp: nộp sớm sẽ tính là sai những câu chỉ vì
   // chưa kịp đọc, làm điểm số mất ý nghĩa.
   quizSubmitBtn.disabled = Object.keys(quizAnswers).length < quiz.length;
+  capNhatGoiYNop();
+}
+
+// Nút Nộp bài mờ thì phải nói vì sao, kẻo người dùng tưởng nút hỏng.
+function capNhatGoiYNop() {
+  const con = layQuiz().length - Object.keys(quizAnswers).length;
+  quizHint.hidden = quizDone || con <= 0;
+  quizHint.textContent = con > 0 ? `Còn ${con} câu chưa trả lời` : '';
 }
 
 // Chấm điểm. Trả về { dung, tong, diem } với `diem` là tỉ lệ 0–1 — đúng kiểu
@@ -2378,6 +2418,7 @@ function setPlayButton(state) {
   playBtn.innerHTML = isPlaying
     ? '<span class="btn-icon">⏹️ Dừng</span>'
     : '<span class="btn-icon">▶️ Nghe</span>';
+  miniPlay.textContent = isPlaying ? '⏹️ Dừng' : '▶️ Nghe';
 }
 
 // Dừng hẳn. Cố ý KHÔNG dùng speechSynthesis.pause()/resume(): trên Chrome
@@ -2605,6 +2646,15 @@ function speakWord(word) {
 function positionPopup(anchorEl) {
   // Hiện popup để đo kích thước thật rồi mới định vị.
   wordPopup.classList.add('show');
+  // Điện thoại (2026-10-22): trượt từ dưới lên như các popup khác, thay vì
+  // nổi ngay dưới từ và che mất câu đang đọc. Vị trí do CSS `.sheet` lo.
+  const laDienThoai = window.matchMedia && window.matchMedia('(max-width: 560px)').matches;
+  wordPopup.classList.toggle('sheet', !!laDienThoai);
+  if (laDienThoai) {
+    wordPopup.style.left = '';
+    wordPopup.style.top = '';
+    return;
+  }
   const rect = anchorEl.getBoundingClientRect();
   const pw = wordPopup.offsetWidth;
   const ph = wordPopup.offsetHeight;
@@ -2928,6 +2978,10 @@ playBtn.addEventListener('click', () => {
 
 prevBtn.addEventListener('click', () => goToSentence(currentIndex - 1));
 nextBtn.addEventListener('click', () => goToSentence(currentIndex + 1));
+// Thanh thu gọn chỉ bấm hộ nút thật, để hai nơi không bao giờ chạy khác nhau.
+miniPrev.addEventListener('click', () => prevBtn.click());
+miniPlay.addEventListener('click', () => playBtn.click());
+miniNext.addEventListener('click', () => nextBtn.click());
 
 loopBtn.addEventListener('click', () => {
   loopOne = !loopOne;

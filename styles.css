@@ -109,10 +109,12 @@
     background: #eff6ff;
     color: var(--primary);
   }
+  /* 2026-10-22: ☆ đứng sát tên chủ đề, nút Đổi chủ đề dồn sang phải và
+     không bao giờ xuống dòng (trước đây ☆ trôi ra giữa hàng). */
   .topic-display {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 8px;
     background: #f1f5f9;
     padding: 12px 16px;
     border-radius: 10px;
@@ -121,6 +123,19 @@
   .topic-display span {
     font-weight: 600;
     font-size: 15px;
+    min-width: 0;
+  }
+  .topic-display .topic-empty { color: var(--muted); font-weight: 500; }
+  .topic-display #favBtn { flex-shrink: 0; }
+  .topic-display #randomBtn { margin-left: auto; flex-shrink: 0; white-space: nowrap; }
+  .empty-hint {
+    margin: -4px 0 16px;
+    padding: 10px 12px;
+    background: #eff6ff;
+    border-radius: 10px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text);
   }
   /* ====== Ô CHỌN + TÌM CHỦ ĐỀ (combobox) ======
      Một ô duy nhất: gõ để lọc, danh sách kết quả xổ ngay bên dưới. */
@@ -248,6 +263,8 @@
   }
   .btn:hover { background: var(--primary-dark); }
   .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn:disabled:hover { background: var(--primary); }
+  .btn.secondary:disabled:hover { background: white; }
   .btn-icon {
     display: inline-flex;
     align-items: center;
@@ -273,7 +290,9 @@
   }
   .script-header .row-label {
     margin-bottom: 0;
+    margin-right: auto;   /* đẩy các nút (Bản dịch, Copy) dồn sang phải */
   }
+  .script-header { gap: 8px; }
   /* 2026-08-19: gỡ `.resume-line`, `.quick-dot` và cả `.quick-row` — hàng nút
      "⭐ Đã đánh dấu / 🎯 Ôn tập" đã chuyển vào khung Tài khoản (`.acc-links`).
      `.quick-btn` giữ lại vì hai nút đó vẫn dùng, chỉ đổi chỗ đứng. */
@@ -460,6 +479,7 @@
     border-top: 1px solid var(--border);
   }
   .quiz-score { font-size: 14px; font-weight: 600; }
+  .quiz-hint { font-size: 13px; color: var(--muted); }
 
   .ctrl-btn {
     padding: 10px 14px;
@@ -655,6 +675,18 @@
     display: none;
   }
   .word-popup.show { display: block; }
+  /* Điện thoại: bám đáy màn hình như các popup khác (2026-10-22). */
+  .word-popup.sheet {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    max-width: none;
+    border-radius: 14px 14px 0 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.18);
+  }
   .wp-head {
     display: flex;
     align-items: center;
@@ -737,6 +769,12 @@
     border-color: var(--primary);
     background: #fff;
   }
+  .help-head {
+    margin: 14px 0 6px;
+    font-size: 14px;
+    color: var(--primary-dark);
+  }
+  .help-head:first-child { margin-top: 2px; }
   .help-list {
     margin: 0;
     padding-left: 20px;
@@ -885,9 +923,26 @@
 
   /* Trên điện thoại nút tài khoản dễ đè lên tiêu đề dài, nên cho tiêu đề
      chừa chỗ và rút nút lại còn phần chữ ngắn. */
+  /* 2026-10-22: trước đây tiêu đề dài xuống 2 dòng và nút bị rút còn 80px,
+     chữ "Đăng nhập" bị cắt thành "Đă…". Nay trên điện thoại dùng tiêu đề ngắn,
+     tiêu đề bên trái – nút bên phải trên cùng một hàng. */
+  .title-short { display: none; }
   @media (max-width: 560px) {
-    header h1 { padding: 0 84px; font-size: 21px; }
-    .acc-btn { max-width: 80px; font-size: 12px; padding: 5px 10px; }
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      column-gap: 10px;
+      text-align: left;
+      margin-bottom: 16px;
+    }
+    header h1 { grid-column: 1; grid-row: 1; font-size: 20px; margin: 0; }
+    header p { grid-column: 1 / -1; margin-top: 4px; font-size: 13px; }
+    .title-long { display: none; }
+    .title-short { display: inline; }
+    .acc-btn { grid-column: 2; grid-row: 1; position: static; max-width: 170px; font-size: 12px; padding: 5px 10px; }
+    .topic-display { padding: 10px 12px; }
+    .topic-display #randomBtn { padding: 9px 12px; }
   }
 
   /* ===== 📥 Chủ đề của tôi (2026-10-14) ===== */
@@ -916,7 +971,18 @@
   .mine-msg { font-size: 13px; color: var(--green); margin: 0 0 8px; }
   .mine-msg.error, .mine-error { color: #dc2626; }
   .mine-error { font-size: 13px; margin: 8px 0; }
-  #mineFile { display: block; margin: 0 0 8px; font-size: 13px; max-width: 100%; }
+  /* Ô chọn file thật bị ẩn, bấm nhãn "📂 Chọn file" thay thế (2026-10-22). */
+  .file-btn { display: inline-block; margin: 0 0 8px; padding: 7px 14px; font-size: 13px; }
+  .file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+  /* Nút Lưu ghim ở đáy popup, bài dài cũng không bị khuất. */
+  .mine-save-bar {
+    position: sticky;
+    bottom: -16px;          /* bù phần đệm dưới của .modal-body */
+    margin: 0 -16px -16px;
+    padding: 10px 16px 16px;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+  }
   #mineText {
     width: 100%;
     box-sizing: border-box;
@@ -959,3 +1025,21 @@
   .mine-line { padding: 4px 0; border-bottom: 1px dashed var(--border); }
   .mine-line:last-child { border-bottom: none; }
   .mine-line .line-vi { display: block; }
+
+  /* ===== Thanh nghe thu gọn — tab Luyện nghe (2026-10-22) ===== */
+  .mini-player {
+    position: fixed;
+    left: 50%;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    z-index: 800;            /* dưới popup (900) và popup tra từ (1000) */
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.18);
+  }
+  .mini-player .btn { white-space: nowrap; }
+  body.has-mini-player .container { padding-bottom: 96px; }
