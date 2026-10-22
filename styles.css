@@ -491,6 +491,9 @@
     border-color: var(--primary);
     color: var(--primary-dark);
   }
+  /* Tab Hội thoại: không có khung nghe chung, chỉ còn ▶ từng câu (2026-10-22). */
+  body.tab-dialogue #controlsRow,
+  body.tab-dialogue .speed-row { display: none; }
   .speed-row {
     display: flex;
     align-items: center;

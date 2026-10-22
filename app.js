@@ -149,7 +149,16 @@ function capNhatKhungNoiDung() {
   emptyHint.hidden = co;
   topicText.classList.toggle('topic-empty', !co);
   [prevBtn, playBtn, nextBtn, loopBtn].forEach(b => { b.disabled = !co; });
+  // Tab Hội thoại là để tự đọc (người dùng chọn 2026-10-22): ẩn khung
+  // ⏮ Nghe ⏭ 🔁 + tốc độ, chỉ giữ nút ▶ ở đầu từng câu. CSS lo phần ẩn.
+  document.body.classList.toggle('tab-dialogue', currentTab === 'dialogue');
   capNhatMiniPlayer();
+}
+
+// Lời nhắc sau khi mở bài. Tab Hội thoại không có nút "Nghe" chung nên
+// đừng bảo người dùng bấm vào nó.
+function goiYBatDau() {
+  return currentTab === 'listening' ? 'Nhấn "Nghe" để bắt đầu' : '';
 }
 
 // Tên hiện ở hàng "Chủ đề hôm nay" khi chưa mở bài nào.
@@ -2008,7 +2017,7 @@ async function loadSelectedTopic(opt) {
     topicText.textContent = currentItem.topic;
     renderScript();
     refreshComboIfOpen();
-    setStatus('Nhấn "Nghe" để bắt đầu');
+    setStatus(goiYBatDau());
   } catch (err) {
     console.error('Lỗi khi tải chủ đề đã chọn:', err);
     setStatus('Có lỗi khi tải chủ đề đã chọn, vui lòng thử lại.', true);
@@ -2064,8 +2073,8 @@ async function loadNewItem() {
     renderScript();
     refreshComboIfOpen();
     setStatus(exhausted
-      ? `Bạn đã học hết ${topicOptions.length} chủ đề ở mức này — bắt đầu vòng ôn lại. Nhấn "Nghe" để bắt đầu`
-      : 'Nhấn "Nghe" để bắt đầu');
+      ? `Bạn đã học hết ${topicOptions.length} chủ đề ở mức này — bắt đầu vòng ôn lại. ${goiYBatDau()}`.trim()
+      : goiYBatDau());
   } catch (err) {
     console.error('Lỗi khi tải chủ đề mới:', err);
     setStatus('Có lỗi khi tải chủ đề mới, vui lòng thử lại.', true);
@@ -2443,7 +2452,10 @@ function speakFrom(index) {
   const mySession = speechSession;
   window.speechSynthesis.cancel();
   setPlayButton('playing');
-  setStatus(loopOne ? 'Đang lặp lại một câu... Bấm "Dừng" để thoát.' : 'Đang đọc...');
+  // Tab Hội thoại không có khung nghe chung (2026-10-22): ▶ ở đầu câu chỉ đọc
+  // đúng câu đó rồi dừng, và bỏ qua 🔁 (bên này không có nút để tắt nó).
+  const motCau = currentTab === 'dialogue';
+  setStatus(loopOne && !motCau ? 'Đang lặp lại một câu... Bấm "Dừng" để thoát.' : 'Đang đọc...');
 
   const step = (i) => {
     // Người dùng đã đổi chủ đề/trình độ/tab, bấm nút khác, hoặc bấm Dừng
@@ -2473,6 +2485,12 @@ function speakFrom(index) {
 
     const goOn = () => {
       if (mySession !== speechSession) return;
+      if (motCau) {
+        setPlayButton('idle');
+        markCurrent(false);
+        setStatus('');
+        return;
+      }
       // Lặp câu: nghỉ một nhịp ngắn cho người học kịp nhắc lại theo.
       if (loopOne) setTimeout(() => step(i), 700);
       else step(i + 1);

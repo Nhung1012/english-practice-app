@@ -3028,6 +3028,18 @@ function nhomU() {
     c.renderScript();
     eq(c.document.getElementById('miniPlayer').hidden, true);
   });
+
+  t('U5 tab Hội thoại ẩn khung nghe chung, tab Luyện nghe thì hiện', () => {
+    const c = taoSandbox();
+    c.currentTab = 'dialogue';
+    c.currentItem = { id: 1, topic: 'X', lines: [{ s: 'A', t: 'Hi' }] };
+    c.renderScript();
+    eq(c.document.body.classList.contains('tab-dialogue'), true);
+    c.currentTab = 'listening';
+    c.currentItem = { id: 2, topic: 'Y', text: 'Hello there.' };
+    c.renderScript();
+    eq(c.document.body.classList.contains('tab-dialogue'), false);
+  });
 }
 
 nhomP();
